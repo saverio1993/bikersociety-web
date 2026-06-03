@@ -24,6 +24,7 @@ const STATE = {
   chatMessages: [],
   notifications: [],
   attendance: [],
+  news: [],
   selectedRider: null,
   map: null,
   routeMarkers: [],
@@ -451,6 +452,29 @@ function logout() {
 }
 
 // ============================================================
+// NEWS FEED (BBC Mundo)
+// ============================================================
+async function loadNews() {
+  const container = document.getElementById('news-container');
+  if (!container) return;
+  container.innerHTML = '<div class="news-loading">Cargando noticias...</div>';
+  try {
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`);
+    const data = await res.json();
+    if (data.status !== 'ok' || !data.items) throw new Error('Invalid response');
+    const items = data.items.slice(0, 5);
+    container.innerHTML = '<div class="news-grid">' + items.map(item => `
+      <a class="news-card" href="${item.link}" target="_blank" rel="noopener">
+        <div class="news-card-title">${item.title}</div>
+        <div class="news-card-meta">${item.author || 'BBC Mundo'} · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+      </a>
+    `).join('') + '</div>';
+  } catch (e) {
+    container.innerHTML = '<div class="news-error">No se pudieron cargar las noticias</div>';
+  }
+}
+
+// ============================================================
 // MORE MENU
 // ============================================================
 function showMoreMenu() {
@@ -563,10 +587,22 @@ function renderInicio() {
       `).join('')}
     </div>
     ` : ''}
+
+    <!-- News -->
+    <div class="vanish news-section" style="animation-delay:0.25s;margin-top:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--text2)">NOTICIAS</span>
+        <span style="font-size:11px;color:var(--accent)">BBC Mundo</span>
+      </div>
+      <div id="news-container">
+        <div class="news-loading">Cargando...</div>
+      </div>
+    </div>
   `;
 
   // Init map
   setTimeout(initHomeMap, 100);
+  loadNews();
 }
 
 function initHomeMap() {

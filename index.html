@@ -547,6 +547,50 @@ a{color:inherit;text-decoration:none}
   border-color:rgba(255,59,59,0.3);
   transform:translateX(4px);
 }
+
+/* ===== NEWS ===== */
+.news-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+  cursor:pointer;
+  transition:border-color 0.2s, transform 0.2s;
+  display:block;
+  text-decoration:none;
+  color:inherit;
+}
+.news-card:hover{
+  border-color:rgba(255,68,68,0.4);
+  transform:translateY(-2px);
+}
+.news-card-title{
+  font-size:13px;
+  font-weight:600;
+  color:var(--text1);
+  line-height:1.4;
+  margin-bottom:8px;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.news-card-meta{
+  font-size:11px;
+  color:var(--text2);
+}
+.news-loading,.news-error{
+  text-align:center;
+  padding:20px;
+  font-size:13px;
+  color:var(--text2);
+}
+.news-section .news-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+
 .rank-num{
   width:30px;height:30px;border-radius:50%;
   background:var(--surface2);
@@ -949,6 +993,7 @@ a{color:inherit;text-decoration:none}
 <div class="toast" id="toast"></div>
 
 <script>
+
 // ============================================================
 // STATE & CONFIG
 // ============================================================
@@ -974,6 +1019,7 @@ const STATE = {
   chatMessages: [],
   notifications: [],
   attendance: [],
+  news: [],
   selectedRider: null,
   map: null,
   routeMarkers: [],
@@ -1401,6 +1447,29 @@ function logout() {
 }
 
 // ============================================================
+// NEWS FEED (BBC Mundo)
+// ============================================================
+async function loadNews() {
+  const container = document.getElementById('news-container');
+  if (!container) return;
+  container.innerHTML = '<div class="news-loading">Cargando noticias...</div>';
+  try {
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`);
+    const data = await res.json();
+    if (data.status !== 'ok' || !data.items) throw new Error('Invalid response');
+    const items = data.items.slice(0, 5);
+    container.innerHTML = '<div class="news-grid">' + items.map(item => `
+      <a class="news-card" href="${item.link}" target="_blank" rel="noopener">
+        <div class="news-card-title">${item.title}</div>
+        <div class="news-card-meta">${item.author || 'BBC Mundo'} · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+      </a>
+    `).join('') + '</div>';
+  } catch (e) {
+    container.innerHTML = '<div class="news-error">No se pudieron cargar las noticias</div>';
+  }
+}
+
+// ============================================================
 // MORE MENU
 // ============================================================
 function showMoreMenu() {
@@ -1513,10 +1582,22 @@ function renderInicio() {
       `).join('')}
     </div>
     ` : ''}
+
+    <!-- News -->
+    <div class="vanish news-section" style="animation-delay:0.25s;margin-top:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--text2)">NOTICIAS</span>
+        <span style="font-size:11px;color:var(--accent)">BBC Mundo</span>
+      </div>
+      <div id="news-container">
+        <div class="news-loading">Cargando...</div>
+      </div>
+    </div>
   `;
 
   // Init map
   setTimeout(initHomeMap, 100);
+  loadNews();
 }
 
 function initHomeMap() {
@@ -2457,6 +2538,5 @@ function closeModal() {
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', initApp);
-</script>
-</body>
+
 </html>
