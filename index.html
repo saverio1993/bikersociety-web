@@ -577,6 +577,7 @@ a{color:inherit;text-decoration:none}
   font-size:11px;
   color:var(--text2);
 }
+.coord-row{display:flex;gap:6px;align-items:center}
 .news-card-img{
   width:100%;
   height:160px;
@@ -1730,15 +1731,28 @@ function initRutasMap() {
   STATE.map = map;
 
   STATE.routes.forEach(r => {
+    // Start marker
     if (r.start_lat && r.start_lng) {
       L.circleMarker([r.start_lat, r.start_lng], {
         radius: 8, fillColor: '#ff3b3b', color: '#ff6b35', weight: 2, opacity: 1, fillOpacity: 0.8
-      }).addTo(map).bindPopup(`<b>${r.name}</b><br>${r.start_name || 'Inicio'}`);
+      }).addTo(map).bindPopup(`<b>${r.name}</b><br>🟢 Inicio: ${r.start_name || 'Inicio'}`);
     }
+    // Stop markers
+    try {
+      const stops = JSON.parse(r.stops || '[]');
+      stops.forEach((s, i) => {
+        if (s.lat && s.lng) {
+          L.circleMarker([s.lat, s.lng], {
+            radius: 7, fillColor: '#ffaa00', color: '#ff8800', weight: 2, opacity: 1, fillOpacity: 0.8
+          }).addTo(map).bindPopup(`<b>${r.name}</b><br>🟡 Parada ${i+1}: ${s.name}`);
+        }
+      });
+    } catch(e) {}
+    // End marker
     if (r.end_lat && r.end_lng) {
       L.circleMarker([r.end_lat, r.end_lng], {
         radius: 8, fillColor: '#00e676', color: '#00c853', weight: 2, opacity: 1, fillOpacity: 0.8
-      }).addTo(map).bindPopup(`<b>${r.name}</b><br>${r.end_name || 'Destino'}`);
+      }).addTo(map).bindPopup(`<b>${r.name}</b><br>🔴 Destino: ${r.end_name || 'Destino'}`);
     }
   });
 
@@ -1801,6 +1815,7 @@ function viewRoute(id) {
         <div style="font-size:11px;color:var(--text2)">${r.end_lat}, ${r.end_lng}</div>
       </div>
     </div>
+    ${(() => { try { const ss = JSON.parse(r.stops || '[]'); return ss.length ? '<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">PARADAS</div>' + ss.map((s,i) => '<div style="padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:6px"><div style="font-size:12px;font-weight:600">'+s.name+'</div><div style="font-size:11px;color:var(--text2)">'+s.lat+', '+s.lng+'</div></div>').join('') + '</div>' : ''; } catch(e) { return ''; } })()}
     <div style="display:flex;gap:6px;margin-bottom:16px">
       <span class="badge">⚡ ${r.difficulty}</span>
       <span class="badge">🏍️ ${creator ? creator.username : '?'}</span>
@@ -1852,25 +1867,147 @@ function viewRoute(id) {
 
 function createRoute() {
   openModal('Nueva Ruta', `
-    <input class="input" id="rt-name" placeholder="Nombre de la ruta">
-    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)">
-    <input class="input" id="rt-start-name" placeholder="Nombre del punto de salida">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <input class="input" id="rt-start-lat" placeholder="Latitud inicio" type="number" step="any">
-      <input class="input" id="rt-start-lng" placeholder="Longitud inicio" type="number" step="any">
+    <input class="input" id="rt-name" placeholder="Nombre de la ruta" style="margin-bottom:12px">
+    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">SALIDA</div>
+    <input class="input" id="rt-start-name" placeholder="Nombre del punto de salida" style="margin-bottom:6px">
+    <div class="coord-row">
+      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
+      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
+      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('start')">📍 Buscar</button>
     </div>
-    <input class="input" id="rt-end-name" placeholder="Nombre del destino">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <input class="input" id="rt-end-lat" placeholder="Latitud destino" type="number" step="any">
-      <input class="input" id="rt-end-lng" placeholder="Longitud destino" type="number" step="any">
+    <div id="rt-start-preview" style="font-size:11px;color:var(--accent);margin-bottom:12px;display:none">✓ Coordenadas cargadas</div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">PARADAS</div>
+    <div id="rt-stops-container" style="margin-bottom:6px"></div>
+    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:12px" onclick="addStopField()">+ Agregar parada</button>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">DESTINO</div>
+    <input class="input" id="rt-end-name" placeholder="Nombre del destino" style="margin-bottom:6px">
+    <div class="coord-row">
+      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
+      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
+      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('end')">📍 Buscar</button>
     </div>
-    <select class="input" id="rt-diff">
+    <div id="rt-end-preview" style="font-size:11px;color:var(--accent);margin-bottom:12px;display:none">✓ Coordenadas cargadas</div>
+
+    <select class="input" id="rt-diff" style="margin-bottom:16px">
       <option value="facil">Facil</option>
       <option value="intermedia" selected>Intermedia</option>
       <option value="alta">Alta</option>
     </select>
-    <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="doCreateRoute()">Crear ruta</button>
+    <button class="btn btn-primary" style="width:100%" onclick="doCreateRoute()">Crear ruta</button>
+
+    <div style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.5">
+      <b>Como obtener coordenadas:</b><br>
+      1. Toca <b>Buscar</b> para abrir Google Maps<br>
+      2. Busca el lugar exacto<br>
+      3. Toca Compartir → Copiar enlace<br>
+      4. Pegalo en el campo de latitud<br>
+      5. Las coordenadas se extraen automaticamente
+    </div>
   `);
+}
+
+function openGmapsFor(type) {
+  const name = document.getElementById(type === 'start' ? 'rt-start-name' : 'rt-end-name').value.trim() || 'Panama';
+  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+  // Try to open in app first, fallback to browser
+  const appUrl = `geo:0,0?q=${encodeURIComponent(name)}`;
+  const browserUrl = url;
+  // On mobile this opens the Google Maps app
+  window.open(browserUrl, '_blank');
+  toast('Busca en Google Maps, luego comparte y pega el enlace aqui');
+}
+
+function parseGmapsUrl(url) {
+  // Handle various Google Maps URL formats
+  // Format 1: @lat,lng,z - direct coordinates
+  // Format 2: /place/Name/@lat,lng - place with coordinates
+  // Format 3: ?query=lat,lng - search query
+  // Format 4: !3dlocation=lat,lng!4d - data coordinates
+  const patterns = [
+    /@(-?\d+\.?\d*),(-?\d+\.?\d*)/,
+    /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/,
+    /query=(-?\d+\.?\d*)%2C(-?\d+\.?\d*)/,
+    /\?q=(-?\d+\.?\d*),(-?\d+\.?\d*)/,
+    /\/place\/[^\/]+\/(-?\d+\.?\d*),(-?\d+\.?\d*)/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  }
+  return null;
+}
+
+// Auto-parse on paste into coord fields
+document.addEventListener('paste', function(e) {
+  // Find if paste is in a coord input
+  setTimeout(function() {
+    ['start', 'end'].forEach(function(type) {
+      const latEl = document.getElementById('rt-' + type + '-lat');
+      const lngEl = document.getElementById('rt-' + type + '-lng');
+      if (!latEl || !lngEl) return;
+      const latVal = latEl.value.trim();
+      // If lat field contains a full URL, parse it
+      if (latVal.includes('google.com') || latVal.includes('maps')) {
+        const coords = parseGmapsUrl(latVal);
+        if (coords) {
+          latEl.value = coords.lat;
+          lngEl.value = coords.lng;
+          const preview = document.getElementById('rt-' + type + '-preview');
+          if (preview) { preview.style.display = 'block'; }
+          toast('Coordenadas extraidas: ' + coords.lat.toFixed(5) + ', ' + coords.lng.toFixed(5));
+        }
+      }
+    });
+  }, 100);
+});
+
+let stopCounter = 0;
+function addStopField() {
+  stopCounter++;
+  const id = 'stop-' + stopCounter;
+  const container = document.getElementById('rt-stops-container');
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.marginBottom = '8px';
+  div.innerHTML = '<input class="input" id="' + id + '-name" placeholder="Parada ' + stopCounter + '" style="margin-bottom:4px"><div class="coord-row"><input class="input" id="' + id + '-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1"><input class="input" id="' + id + '-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1"><button class="btn btn-secondary" style="padding:0 10px;flex:0" onclick="openGmapsStop(\'' + id + '\')">📍</button></div>';
+  container.appendChild(div);
+}
+
+function openGmapsStop(stopId) {
+  const name = document.getElementById(stopId + '-name').value.trim() || 'Panama';
+  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name), '_blank');
+  toast('Busca en Google Maps, luego comparte y pega el enlace aqui');
+}
+
+// Parse coords when pasting in stop fields
+var _origAddStopField = addStopField;
+addStopField = function() {
+  _origAddStopField();
+  setTimeout(function() {
+    document.querySelectorAll('[id^="stop-"][id$="-lat"]').forEach(function(el) {
+      el.removeEventListener('paste', handleStopPaste);
+      el.addEventListener('paste', handleStopPaste);
+    });
+  }, 150);
+};
+
+function handleStopPaste(e) {
+  setTimeout(function() {
+    var latEl = e.target;
+    if (!latEl.value.includes('google.com') && !latEl.value.includes('maps')) return;
+    var stopId = latEl.id.replace('-lat', '');
+    var lngEl = document.getElementById(stopId + '-lng');
+    var coords = parseGmapsUrl(latEl.value);
+    if (coords) {
+      latEl.value = coords.lat;
+      if (lngEl) lngEl.value = coords.lng;
+      toast('Coordenadas extraidas!');
+    }
+  }, 100);
 }
 
 function doCreateRoute() {
@@ -1883,8 +2020,33 @@ function doCreateRoute() {
   const endLat = parseFloat(document.getElementById('rt-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('rt-end-lng').value) || 0;
   const diff = document.getElementById('rt-diff').value;
+
+  // Collect stops
+  const stops = [];
+  document.querySelectorAll('[id^="stop-"][id$="-name"]').forEach(function(el) {
+    var stopId = el.id.replace('-name', '');
+    var stopLat = parseFloat(document.getElementById(stopId + '-lat').value) || 0;
+    var stopLng = parseFloat(document.getElementById(stopId + '-lng').value) || 0;
+    if (el.value.trim() && stopLat && stopLng) {
+      stops.push({name: el.value.trim(), lat: stopLat, lng: stopLng});
+    }
+  });
+
   if (!name) { toast('El nombre es obligatorio'); return; }
-  const route = {id:Date.now()%100000, name, description:desc, start_lat:startLat, start_lng:startLng, start_name:startName, end_lat:endLat, end_lng:endLng, end_name:endName, difficulty:diff, stops:'[]', created_by:STATE.user.id};
+  const route = {
+    id: Date.now() % 100000,
+    name,
+    description: desc,
+    start_lat: startLat,
+    start_lng: startLng,
+    start_name: startName,
+    end_lat: endLat,
+    end_lng: endLng,
+    end_name: endName,
+    difficulty: diff,
+    stops: JSON.stringify(stops),
+    created_by: STATE.user.id
+  };
   STATE.routes.push(route);
   saveState();
   closeModal();
