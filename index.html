@@ -258,13 +258,11 @@ a{color:inherit;text-decoration:none}
 
 /* ===== ROUTE ANIMATION ===== */
 .route-animated{
-  stroke-dasharray:2000;
-  stroke-dashoffset:2000;
-  animation:drawRoute 8s cubic-bezier(0.4,0,0.2,1) forwards;
+  stroke-dasharray:20,12;
+  stroke-dashoffset:0;
+  animation:dash 1.5s linear infinite;
 }
-@keyframes drawRoute{
-  to{stroke-dashoffset:0}
-}
+@keyframes dash{to{stroke-dashoffset:-32}}
 
 /* ===== LIKES HEART ===== */
 .like-btn{
@@ -1619,14 +1617,42 @@ function initHomeMap() {
     }).addTo(map).bindPopup(`<b>${ev.title}</b><br>${ev.date}`);
   });
 
-  // Route lines
+  // Route lines with real-road routing via OSRM
   STATE.routes.forEach(rt => {
-    if (rt.start_lat && rt.end_lat) {
-      const pts = [[rt.start_lat, rt.start_lng],[rt.end_lat, rt.end_lng]];
-      L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.8}).addTo(map);
-      L.circle([rt.start_lat, rt.start_lng], {color:'#22c55e', fillColor:'#22c55e', fillOpacity:1, radius:8}).addTo(map).bindPopup('Salida: ' + rt.start_name);
-      L.circle([rt.end_lat, rt.end_lng], {color:'#ef4444', fillColor:'#ef4444', fillOpacity:1, radius:8}).addTo(map).bindPopup('Destino: ' + rt.end_name);
-    }
+    if (!rt.start_lat || !rt.end_lat) return;
+    const pts = [[rt.start_lat, rt.start_lng]];
+    let stops = [];
+    try { stops = JSON.parse(rt.stops || '[]'); } catch(e) {}
+    stops.forEach(s => { if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]); });
+    pts.push([rt.end_lat, rt.end_lng]);
+
+    // SALIDA pill
+    const startDiv = L.divIcon({className:'', html:`<div style="background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`});
+    L.marker([rt.start_lat, rt.start_lng], {icon:startDiv}).addTo(map);
+
+    // PARADA pills
+    stops.forEach(s => {
+      if (!s.lat || !s.lng) return;
+      const stopDiv = L.divIcon({className:'', html:`<div style="background:#ff8800;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">PARADA</div>`});
+      L.marker([parseFloat(s.lat), parseFloat(s.lng)], {icon:stopDiv}).addTo(map);
+    });
+
+    // DESTINO pill
+    const endDiv = L.divIcon({className:'', html:`<div style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`});
+    L.marker([rt.end_lat, rt.end_lng], {icon:endDiv}).addTo(map);
+
+    // Dashed placeholder while OSRM loads
+    const placeholder = L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.4, dashArray:'10,10'}).addTo(map);
+
+    // Real road route via OSRM
+    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return;
+        placeholder.remove();
+        L.geoJSON(data.routes[0].geometry, {style: {color:'#ff4444', weight:5, opacity:1, className:'route-animated'}}).addTo(map);
+      }).catch(() => {});
   });
 
   STATE.map = map;
@@ -1724,10 +1750,41 @@ function viewRoute(id) {
     if (STATE.map) { STATE.map.remove(); STATE.map = null; }
     const map = L.map('map-route-detail', {zoomControl:false, attributionControl:false}).setView([(r.start_lat+r.end_lat)/2, (r.start_lng+r.end_lng)/2], 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(map);
-    L.circle([r.start_lat, r.start_lng], {color:'#22c55e', fillColor:'#22c55e', fillOpacity:1, radius:10}).addTo(map).bindPopup('SALIDA');
-    L.circle([r.end_lat, r.end_lng], {color:'#ef4444', fillColor:'#ef4444', fillOpacity:1, radius:10}).addTo(map).bindPopup('DESTINO');
-    L.polyline([[r.start_lat,r.start_lng],[r.end_lat,r.end_lng]], {color:'#ff4444', weight:5, className:'route-animated'}).addTo(map);
-    STATE.map = map;
+
+    // Build waypoints including stops
+    const pts = [[r.start_lat, r.start_lng]];
+    let stops = [];
+    try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
+    stops.forEach(s => { if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]); });
+    pts.push([r.end_lat, r.end_lng]);
+
+    // SALIDA pill
+    const startDiv = L.divIcon({className:'', html:`<div style="background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`});
+    L.marker([r.start_lat, r.start_lng], {icon:startDiv}).addTo(map);
+
+    // PARADA pills
+    stops.forEach(s => {
+      if (!s.lat || !s.lng) return;
+      const stopDiv = L.divIcon({className:'', html:`<div style="background:#ff8800;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">PARADA</div>`});
+      L.marker([parseFloat(s.lat), parseFloat(s.lng)], {icon:stopDiv}).addTo(map);
+    });
+
+    // DESTINO pill
+    const endDiv = L.divIcon({className:'', html:`<div style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`});
+    L.marker([r.end_lat, r.end_lng], {icon:endDiv}).addTo(map);
+
+    // Dashed placeholder while OSRM loads
+    const placeholder = L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.4, dashArray:'10,10'}).addTo(map);
+
+    // Real road route via OSRM
+    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return;
+        placeholder.remove();
+        L.geoJSON(data.routes[0].geometry, {style: {color:'#ff4444', weight:5, opacity:1, className:'route-animated'}}).addTo(map);
+      }).catch(() => {});
   }, 100);
 }
 
