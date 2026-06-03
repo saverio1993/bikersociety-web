@@ -577,6 +577,24 @@ a{color:inherit;text-decoration:none}
   font-size:11px;
   color:var(--text2);
 }
+.news-card-img{
+  width:100%;
+  height:160px;
+  object-fit:cover;
+  border-radius:10px 10px 0 0;
+  display:block;
+}
+.news-card-body{padding:12px 14px}
+.news-card-desc{
+  font-size:12px;
+  color:var(--text2);
+  line-height:1.4;
+  margin:6px 0;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
 .news-loading,.news-error{
   text-align:center;
   padding:20px;
@@ -1439,21 +1457,25 @@ function logout() {
 }
 
 // ============================================================
-// NEWS FEED (BBC Mundo)
+// NEWS FEED (Motos)
 // ============================================================
 async function loadNews() {
   const container = document.getElementById('news-container');
   if (!container) return;
   container.innerHTML = '<div class="news-loading">Cargando noticias...</div>';
   try {
-    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`);
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://motos.espirituracer.com/feed')}`);
     const data = await res.json();
     if (data.status !== 'ok' || !data.items) throw new Error('Invalid response');
     const items = data.items.slice(0, 5);
     container.innerHTML = '<div class="news-grid">' + items.map(item => `
       <a class="news-card" href="${item.link}" target="_blank" rel="noopener">
-        <div class="news-card-title">${item.title}</div>
-        <div class="news-card-meta">${item.author || 'BBC Mundo'} · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+        ${item.thumbnail ? `<img class="news-card-img" src="${item.thumbnail}" alt="${item.title}" onerror="this.style.display='none'">` : ''}
+        <div class="news-card-body">
+          <div class="news-card-title">${item.title}</div>
+          <div class="news-card-desc">${item.description ? item.description.replace(/<[^>]+>/g, '').substring(0, 100) + '...' : ''}</div>
+          <div class="news-card-meta">EspirituRacer.com · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+        </div>
       </a>
     `).join('') + '</div>';
   } catch (e) {
@@ -1524,8 +1546,45 @@ function renderInicio() {
       </div>
     </div>
 
+    <!-- News (PRIMERO) -->
+    <div class="vanish" style="animation-delay:0s">
+      <div class="points-bar">
+        <div class="points-level">
+          <div class="points-label">Nivel ${lv.name}</div>
+          <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
+        </div>
+        <div class="points-value">${u ? u.points : 0} pts${next !== Infinity ? ' / ' + next : ''}</div>
+      </div>
+    </div>
+
+    <div class="vanish news-section" style="animation-delay:0.05s">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--text2)">NOTICIAS</span>
+        <span style="font-size:11px;color:var(--accent)">EspirituRacer.com</span>
+      </div>
+      <div id="news-container">
+        <div class="news-loading">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-row vanish" style="animation-delay:0.1s">
+      <div class="stat-box">
+        <div class="stat-val">${myEvents}</div>
+        <div class="stat-lbl">Eventos</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">${myRoutes}</div>
+        <div class="stat-lbl">Rutas Creadas</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">${myBadges}</div>
+        <div class="stat-lbl">Insignias</div>
+      </div>
+    </div>
+
     <!-- Map Preview -->
-    <div class="vanish" style="animation-delay:0.1s">
+    <div class="vanish" style="animation-delay:0.15s">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text2)">TU ACTIVIDAD</div>
       <div class="map-container">
         <div id="map-home" style="height:280px"></div>
@@ -1534,7 +1593,7 @@ function renderInicio() {
     </div>
 
     <!-- Top Ranking -->
-    <div class="vanish" style="animation-delay:0.15s">
+    <div class="vanish" style="animation-delay:0.2s">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--text2)">TOP BIKERS</span>
         <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('bikers')">Ver todos →</span>
@@ -1552,9 +1611,33 @@ function renderInicio() {
       `).join('')}
     </div>
 
-    <!-- Upcoming Events -->
+    <!-- Proximas Rutas (ANTES DE EVENTOS) -->
+    ${STATE.routes.length ? `
+    <div class="vanish" style="animation-delay:0.25s;margin-top:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--text2)">PROXIMAS RUTAS</span>
+        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
+      </div>
+      ${STATE.routes.slice(0,3).map(r => `
+        <div class="card vanish" style="cursor:pointer" onclick="viewRoute(${r.id})">
+          <div style="display:flex;justify-content:space-between;align-items:start">
+            <div>
+              <div class="card-title">${r.name}</div>
+              <div class="card-sub">${r.start_name || 'Sin origen'} → ${r.end_name || 'Sin destino'}</div>
+              <div style="margin-top:6px;display:flex;gap:6px">
+                <span class="badge">⚡ ${r.difficulty}</span>
+              </div>
+            </div>
+            <div style="font-size:20px">🏍️</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+
+    <!-- Upcoming Events (AL FINAL) -->
     ${upcoming.length ? `
-    <div class="vanish" style="animation-delay:0.2s;margin-top:16px">
+    <div class="vanish" style="animation-delay:0.3s;margin-top:16px">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--text2)">PROXIMOS EVENTOS</span>
         <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('eventos')">Ver todos →</span>
@@ -1574,17 +1657,6 @@ function renderInicio() {
       `).join('')}
     </div>
     ` : ''}
-
-    <!-- News -->
-    <div class="vanish news-section" style="animation-delay:0.25s;margin-top:16px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:var(--text2)">NOTICIAS</span>
-        <span style="font-size:11px;color:var(--accent)">BBC Mundo</span>
-      </div>
-      <div id="news-container">
-        <div class="news-loading">Cargando...</div>
-      </div>
-    </div>
   `;
 
   // Init map
