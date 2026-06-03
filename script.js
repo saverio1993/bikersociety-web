@@ -613,8 +613,8 @@ function initHomeMap() {
     const style = document.createElement('style');
     style.id = 'route-anim-style';
     style.textContent = `
-      .route-animated{stroke-dasharray:2000;stroke-dashoffset:2000;animation:drawRoute 6s ease-in-out forwards}
-      @keyframes drawRoute{to{stroke-dashoffset:0}}
+      .route-animated{stroke-dasharray:20,12;stroke-dashoffset:0;animation:dash 1.5s linear infinite}
+      @keyframes dash{to{stroke-dashoffset:-32}}
     `;
     document.head.appendChild(style);
   }
@@ -636,46 +636,49 @@ function initHomeMap() {
     }).addTo(map).bindPopup(`<b>${ev.title}</b><br>${ev.date}`);
   });
 
-  // Route lines with animation start→stop→stop→destino
+  // Route lines with real-road routing via OSRM
   STATE.routes.forEach(rt => {
     if (!rt.start_lat || !rt.end_lat) return;
-    const pts = [[rt.start_lat, rt.start_lng]];
 
-    // Parse intermediate stops
+    // Build waypoints: start + stops + end
+    const pts = [[rt.start_lat, rt.start_lng]];
     let stops = [];
     try { stops = JSON.parse(rt.stops || '[]'); } catch(e) {}
-
-    stops.forEach(s => {
-      if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]);
-    });
+    stops.forEach(s => { if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]); });
     pts.push([rt.end_lat, rt.end_lng]);
 
-    // Animated polyline: start→stop→...→destino
-    const pl = L.polyline(pts, {
-      color:'#ff4444', weight:5, opacity:1,
-      className:'route-animated'
-    }).addTo(map);
-
-    // SALIDA marker (green pill)
-    const startDiv = L.divIcon({
-      className:'', html:`<div style="background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`
-    });
+    // SALIDA pill
+    const startDiv = L.divIcon({className:'', html:`<div style="background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`});
     L.marker([rt.start_lat, rt.start_lng], {icon:startDiv}).addTo(map);
 
-    // STOP markers (orange pills) — if no stops, this is skipped
+    // PARADA pills
     stops.forEach(s => {
       if (!s.lat || !s.lng) return;
-      const stopDiv = L.divIcon({
-        className:'', html:`<div style="background:#ff8800;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">PARADA</div>`
-      });
+      const stopDiv = L.divIcon({className:'', html:`<div style="background:#ff8800;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">PARADA</div>`});
       L.marker([parseFloat(s.lat), parseFloat(s.lng)], {icon:stopDiv}).addTo(map);
     });
 
-    // DESTINO marker (red pill)
-    const endDiv = L.divIcon({
-      className:'', html:`<div style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`
-    });
+    // DESTINO pill
+    const endDiv = L.divIcon({className:'', html:`<div style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`});
     L.marker([rt.end_lat, rt.end_lng], {icon:endDiv}).addTo(map);
+
+    // Route line animation placeholder (dashed red while loading)
+    const placeholderLine = L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.4, dashArray:'10,10', className:''}).addTo(map);
+
+    // Fetch real road route from OSRM
+    // OSRM accepts up to 20 waypoints; join all pts
+    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return;
+        const geo = data.routes[0].geometry; // GeoJSON LineString
+        placeholderLine.remove();
+        L.geoJSON(geo, {
+          style: {color:'#ff4444', weight:5, opacity:1, className:'route-animated'}
+        }).addTo(map);
+      })
+      .catch(() => {}); // keep placeholder on error
   });
 
   STATE.map = map;
@@ -774,15 +777,12 @@ function viewRoute(id) {
     const map = L.map('map-route-detail', {zoomControl:false, attributionControl:false}).setView([(r.start_lat+r.end_lat)/2, (r.start_lng+r.end_lng)/2], 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(map);
 
-    // Build points including stops
+    // Build waypoints
     const pts = [[r.start_lat, r.start_lng]];
     let stops = [];
     try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
     stops.forEach(s => { if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]); });
     pts.push([r.end_lat, r.end_lng]);
-
-    // Animated polyline
-    L.polyline(pts, {color:'#ff4444', weight:5, className:'route-animated'}).addTo(map);
 
     // SALIDA pill
     const startDiv = L.divIcon({className:'', html:`<div style="background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`});
@@ -799,7 +799,21 @@ function viewRoute(id) {
     const endDiv = L.divIcon({className:'', html:`<div style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`});
     L.marker([r.end_lat, r.end_lng], {icon:endDiv}).addTo(map);
 
-    STATE.map = map;
+    // Placeholder dashed line while OSRM loads
+    const placeholder = L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.4, dashArray:'10,10'}).addTo(map);
+
+    // Real road route via OSRM
+    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return;
+        placeholder.remove();
+        L.geoJSON(data.routes[0].geometry, {
+          style: {color:'#ff4444', weight:5, opacity:1, className:'route-animated'}
+        }).addTo(map);
+      })
+      .catch(() => {});
   }, 100);
 }
 
