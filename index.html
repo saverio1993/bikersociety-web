@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Biker Society</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;--border:#2a2a2a;--accent:#ff4444;--accent2:#ff8800;--text:#f0f0f0;--text2:#888;--text3:#555;--success:#22c55e;--danger:#ef4444;--warning:#f59e0b;--radius:12px;--transition:0.2s}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
+input,textarea,select{font-family:inherit;outline:none}
+a{color:inherit;text-decoration:none}
+.page{display:none;height:100%;overflow-y:auto;overflow-x:hidden;padding:56px 16px 80px}
+.page.active{display:block}
+.vanish{opacity:0;transform:translateY(10px);transition:var(--transition)}
+.fadein{animation:fadeUp 0.4s ease forwards}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:52px;background:rgba(10,10,10,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:1000;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--border)}
+.topbar-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-logo img{width:28px;height:28px;border-radius:50%;object-fit:cover}
+.topbar-actions{display:flex;gap:8px}
+.topbar-actions button{width:36px;height:36px;border-radius:50%;background:var(--surface2);color:var(--text);font-size:16px;display:flex;align-items:center;justify-content:center;transition:var(--transition)}
+.topbar-actions button:hover{background:var(--border)}
+
+/* BOTTOM NAV */
+.bottomnav{position:fixed;bottom:0;left:0;right:0;height:68px;background:rgba(10,10,10,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:1000;display:flex;border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom)}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--text3);font-size:10px;font-weight:500;transition:var(--transition);cursor:pointer;padding:8px 0;border:none;background:none}
+.bnav-item.active{color:var(--accent)}
+.bnav-item svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bnav-item span{display:block}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;transition:var(--transition)}
+.card:hover{border-color:var(--accent)}
+.card-title{font-weight:700;font-size:15px;margin-bottom:4px}
+.card-sub{font-size:12px;color:var(--text2)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface2);border:1px solid var(--border)}
+.badge-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border:none}
+.badge-red{background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;border:none}
+.badge-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none}
+
+/* MAP */
+.map-container{position:relative;border-radius:var(--radius);overflow:hidden;margin-bottom:12px}
+#map{height:350px;width:100%;background:var(--surface2)}
+.map-label{position:absolute;top:12px;left:12px;z-index:500;background:rgba(10,10,10,0.9);backdrop-filter:blur(10px);padding:8px 12px;border-radius:20px;font-size:12px;font-weight:600;color:var(--text);border:1px solid var(--border)}
+
+/* POI MARKERS */
+.poi-pill{background:var(--accent);color:#fff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 4px 20px rgba(255,68,68,0.4);animation:poiPulse 2s ease infinite}
+.poi-pill::before{content:'';position:absolute;inset:0;border-radius:inherit;border:2px solid var(--accent);animation:poiRing 2s ease infinite}
+@keyframes poiPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes poiRing{0%{transform:scale(1);opacity:1}100%{transform:scale(2);opacity:0}}
+
+/* ROUTE ANIMATION */
+.route-animated{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawRoute 6s ease forwards}
+@keyframes drawRoute{to{stroke-dashoffset:0}}
+
+/* LIKES HEART */
+.like-btn{background:none;border:none;color:var(--text3);font-size:18px;transition:0.15s;cursor:pointer;display:flex;align-items:center;gap:4px}
+.like-btn.liked{color:var(--danger);transform:scale(1.2)}
+
+/* INPUTS */
+.input{width:100%;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;transition:var(--transition);margin-bottom:10px}
+.input:focus{border-color:var(--accent)}
+.input::placeholder{color:var(--text3)}
+
+/* BUTTONS */
+.btn{padding:12px 24px;border-radius:var(--radius);font-weight:600;font-size:14px;transition:var(--transition);display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary{background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff}
+.btn-primary:active{transform:scale(0.97)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost{background:transparent;color:var(--text2)}
+
+/* MODAL */
+.modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px)}
+.modal.open{display:flex}
+.modal-content{max-width:420px;width:calc(100% - 32px);max-height:90vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:16px}
+
+/* POST CARD */
+.post-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.post-header{padding:12px 16px;display:flex;align-items:center;gap:10px}
+.post-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0}
+.post-name{font-weight:600;font-size:14px}
+.post-time{font-size:11px;color:var(--text2)}
+.post-content{padding:0 16px 12px;font-size:14px;line-height:1.5}
+.post-image{width:100%;max-height:400px;object-fit:cover;display:block}
+.post-actions{padding:8px 16px;display:flex;gap:16px;border-top:1px solid var(--border)}
+
+/* EVENT CARD */
+.event-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+.event-img{width:100%;height:160px;object-fit:cover}
+.event-body{padding:16px}
+.event-date{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.event-title{font-size:16px;font-weight:700;margin:4px 0 8px}
+.event-meta{display:flex;gap:16px;font-size:12px;color:var(--text2)}
+
+/* RIDER CARD */
+.rider-card{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:var(--transition)}
+.rider-card:hover{border-color:var(--accent)}
+.rider-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;position:relative}
+.rider-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.rider-info{flex:1;min-width:0}
+.rider-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px}
+.rider-bike{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rider-points{display:flex;align-items:center;gap:4px;font-weight:700;color:var(--accent)}
+
+/* POINTS BAR */
+.points-bar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px}
+.points-level{flex:1}
+.points-label{font-size:11px;color:var(--text2);margin-bottom:4px}
+.points-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.points-fill{height:100%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:3px;transition:width 1s ease}
+.points-value{font-weight:800;font-size:16px;color:var(--accent)}
+
+/* CHALLENGE CARD */
+.challenge-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;position:relative;overflow:hidden}
+.challenge-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(180deg,#ff4444,#ff8800)}
+.challenge-title{font-weight:700;font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.challenge-desc{font-size:12px;color:var(--text2);margin-bottom:10px}
+.challenge-progress{display:flex;align-items:center;gap:8px}
+.challenge-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.challenge-fill{height:100%;background:var(--accent);border-radius:3px;transition:width 0.5s ease}
+.challenge-points{font-size:12px;font-weight:700;color:var(--accent)}
+
+/* BADGE DISPLAY */
+.badge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.badge-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 10px;text-align:center;transition:var(--transition)}
+.badge-item.earned{border-color:var(--accent);background:linear-gradient(135deg,rgba(255,68,68,0.1),rgba(255,136,0,0.1))}
+.badge-icon{font-size:28px;margin-bottom:6px}
+.badge-name{font-size:11px;font-weight:600;line-height:1.3}
+
+/* RANKING */
+.rank-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px}
+.rank-num{width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--text2)}
+.rank-num.gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000}
+.rank-num.silver{background:linear-gradient(135deg,#d1d5db,#9ca3af);color:#000}
+.rank-num.bronze{background:linear-gradient(135deg,#b45309,#92400e);color:#fff}
+
+/* CHAT */
+.chat-message{margin-bottom:10px;display:flex;gap:8px}
+.chat-message.mine{flex-direction:row-reverse}
+.chat-bubble{max-width:75%;padding:8px 12px;border-radius:16px;font-size:13px;line-height:1.4;word-break:break-word}
+.chat-message:not(.mine) .chat-bubble{background:var(--surface2);border-bottom-left-radius:4px}
+.chat-message.mine .chat-bubble{background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;border-bottom-right-radius:4px}
+.chat-input-bar{position:fixed;bottom:68px;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);padding:8px 12px;display:flex;gap:8px;align-items:center}
+.chat-input-bar input{flex:1;padding:10px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px}
+.chat-input-bar button{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;border:none;font-size:14px;display:flex;align-items:center;justify-content:center}
+
+/* SPLASH */
+.splash{position:fixed;inset:0;z-index:9999;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.splash-logo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#fff;animation:splashPulse 1.5s ease infinite}
+@keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.splash-text{font-size:20px;font-weight:800;background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.splash-bar{width:120px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.splash-bar::after{content:'';display:block;width:40%;height:100%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:2px;animation:loading 1.2s ease infinite}
+@keyframes loading{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
+
+/* ADMIN PANEL */
+.admin-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.admin-section-header{padding:14px 16px;font-weight:700;font-size:14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.admin-list{padding:8px}
+.admin-list-item{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;transition:var(--transition)}
+.admin-list-item:hover{background:var(--surface2)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* TAB BAR */
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;background:var(--surface);padding:4px;border-radius:var(--radius);border:1px solid var(--border)}
+.tab{flex:1;padding:8px;text-align:center;font-size:12px;font-weight:600;border-radius:8px;color:var(--text2);cursor:pointer;transition:var(--transition);border:none;background:none}
+.tab.active{background:var(--accent);color:#fff}
+
+/* STAT ROW */
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+.stat-val{font-size:22px;font-weight:800;background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-lbl{font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text2)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:0.3}
+
+/* LOGIN */
+.login-page{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.login-logo{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;margin-bottom:20px}
+.login-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text2);margin-bottom:28px}
+.login-form{width:100%;max-width:360px}
+
+/* ROUTE CREATOR */
+.route-stop{display:flex;align-items:center;gap:8px;padding:8px 0}
+.stop-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);flex-shrink:0}
+.stop-dot.start{border-color:var(--success);background:var(--success)}
+.stop-dot.end{border-color:var(--danger);background:var(--danger)}
+.stop-input{flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px}
+
+/* TABS INSIDE PAGE */
+.page-tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px}
+.page-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:var(--transition)}
+.page-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* NOTIFICATION TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 20px;font-size:13px;font-weight:500;z-index:3000;opacity:0;transition:0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div class="splash" id="splash">
+  <div class="splash-logo">🏍️</div>
+  <div class="splash-text">Biker Society</div>
+  <div class="splash-bar"></div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar" id="topbar" style="display:none">
+  <div class="topbar-logo" onclick="navigate('inicio')">
+    <img src="https://i.imgur.com/ruez2.png" onerror="this.style.display='none'" alt="">
+    <span>Biker Society</span>
+  </div>
+  <div class="topbar-actions">
+    <button onclick="showNotifications()" title="Notificaciones">🔔</button>
+    <button onclick="navigate('profile')" title="Mi perfil">👤</button>
+  </div>
+</div>
+
+<!-- PAGES -->
+<div id="page-login" class="page login-page" style="display:none"></div>
+<div id="page-inicio" class="page"></div>
+<div id="page-rutas" class="page"></div>
+<div id="page-bikers" class="page"></div>
+<div id="page-rider-detail" class="page"></div>
+<div id="page-bikergram" class="page"></div>
+<div id="page-eventos" class="page"></div>
+<div id="page-retos" class="page"></div>
+<div id="page-insignias" class="page"></div>
+<div id="page-profile" class="page"></div>
+<div id="page-admin" class="page"></div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav" id="bottomnav" style="display:none">
+  <button class="bnav-item active" onclick="navigate('inicio')" data-page="inicio">
+    <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    <span>Inicio</span>
+  </button>
+  <button class="bnav-item" onclick="navigate('rutas')" data-page="rutas">
+    <svg viewBox="0 0 24 24"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+    <span>Rutas</span>
+  </button>
+  <button class="bnav-item" onclick="navigate('eventos')" data-page="eventos">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    <span>Eventos</span>
+  </button>
+  <button class="bnav-item" onclick="navigate('bikers')" data-page="bikers">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    <span>Bikers</span>
+  </button>
+  <button class="bnav-item" onclick="navigate('bikergram')" data-page="bikergram">
+    <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+    <span>Gram</span>
+  </button>
+  <button class="bnav-item" onclick="showMoreMenu()" data-page="more">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
+    <span>Más</span>
+  </button>
+</nav>
+
+<!-- MODAL CONTAINER -->
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-content" id="modal-content"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// STATE & CONFIG
+// ============================================================
+const HV = {
+  url: 'https://cloud.heyvalue.com',
+  user: localStorage.getItem('hv_user') || '',
+  pass: localStorage.getItem('hv_pass') || '',
+  syncKey: 'biker_v1'
+};
+
+const STATE = {
+  currentPage: 'inicio',
+  user: null,
+  users: [],
+  routes: [],
+  events: [],
+  posts: [],
+  badges: [],
+  challenges: [],
+  userChallenges: [],
+  userBadges: [],
+  chatChannels: [],
+  chatMessages: [],
+  notifications: [],
+  attendance: [],
+  selectedRider: null,
+  map: null,
+  routeMarkers: [],
+  syncStatus: 'pending'
+};
+
+// ============================================================
+// INITIAL DATA (from SQL dump)
+// ============================================================
+const SEED_USERS = [
+  {id:1,username:'admin',email:'admin@ruede.app',password:'admin123',is_admin:1,is_injured:0,injury_note:'',bike_model:'KTM DUKE 200',points:555,profile_pic:'',bio:'Creador de Biker Society',city:'Panama',experience_level:'experto'},
+  {id:14,username:'Cafe con Leche',email:'sj23kolo@gmail.com',password:'Pqowieuryt.23',is_admin:1,is_injured:0,injury_note:'',bike_model:'DUKE 200',points:30,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:15,username:'saverio',email:'saveriomanrri@gmail.com',password:'admin123',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:20,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:16,username:'NoeXl',email:'noesaballos97@gmail.com',password:'64957406',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:0,profile_pic:'',bio:'',city:'Panama',experience_level:'novato'},
+  {id:20,username:'Jorge',email:'jorge@biker.com',password:'admin123',is_admin:0,is_injured:0,injury_note:'',bike_model:'Kawasaki Ninja',points:50,profile_pic:'',bio:'Amante de las dos ruedas',city:'Panama',experience_level:'intermedio'},
+  {id:21,username:'Maria',email:'maria@biker.com',password:'admin123',is_admin:0,is_injured:0,injury_note:'',bike_model:'Honda CB500F',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:24,username:'Prueba3',email:'ksks@gamil.com',password:'admin123',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:125,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:25,username:'Daniel 4k',email:'luisdanielestremor6@gmail.com',password:'meliodadono7',is_admin:0,is_injured:1,injury_note:'LESIONADO (Alpha Strada 250)',bike_model:'Alpha Strada 250',points:125,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:26,username:'Nathalia',email:'escarpetanathalia@gmail.com',password:'miguel2019',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'novato'},
+  {id:27,username:'Vanesa mo',email:'vanessamo688@gmail.com',password:'Vanesa121101',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'novato'},
+  {id:28,username:'Janriam',email:'janriam@gmail.com',password:'elie1983',is_admin:0,is_injured:0,injury_note:'',bike_model:'Keeway XRL 200',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:29,username:'Rodolfo Stalin',email:'rodolfostalin17@gmail.com',password:'*$Tanley091721',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'novato'},
+  {id:30,username:'Kenneth cortes',email:'riveracortesk@gmail.com',password:'10342933',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:31,username:'Francisco G.',email:'fg184600@gmail.com',password:'GonzalezBiker',is_admin:0,is_injured:0,injury_note:'',bike_model:'TX200 AZUL',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:32,username:'Olivares',email:'jaog4086@gmail.com',password:'A1701264098',is_admin:0,is_injured:0,injury_note:'',bike_model:'DRAGON OFF ROAD',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:33,username:'Nightwolf',email:'nightwolf.biker@gmail.com',password:'Nightwolf30$',is_admin:0,is_injured:0,injury_note:'',bike_model:'Loncin CR250',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:34,username:'Anthonininini',email:'joseanthony010203w@gmail.com',password:'123Ab456',is_admin:0,is_injured:0,injury_note:'',bike_model:'KTM DUKE 250',points:125,profile_pic:'',bio:'',city:'Panama',experience_level:'intermedio'},
+  {id:39,username:'pablop',email:'savesrique19@gmail.com',password:'admin123',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'novato'},
+];
+
+const SEED_BADGES = [
+  {id:1,name:'Primer Ruedo',description:'Completaste tu primera rodada',icon:'🏍️',category:'rodadas',points_required:0},
+  {id:2,name:'5 Ruedos',description:'Has completado 5 rodadas',icon:'🔥',category:'rodadas',points_required:0},
+  {id:3,name:'10 Ruedos',description:'Has completado 10 rodadas',icon:'⚡',category:'rodadas',points_required:0},
+  {id:4,name:'25 Ruedos',description:'Has completado 25 rodadas',icon:'👑',category:'rodadas',points_required:0},
+  {id:5,name:'50 Ruedos',description:'Medio centenario de rodadas',icon:'🏆',category:'rodadas',points_required:0},
+  {id:6,name:'100 Ruedos',description:'Leyenda del asfalto',icon:'🌟',category:'rodadas',points_required:0},
+  {id:7,name:'Asistencia Perfecta',description:'3 eventos seguidos',icon:'🎯',category:'eventos',points_required:0},
+  {id:8,name:'Fotógrafo',description:'Subiste 5+ fotos',icon:'📸',category:'eventos',points_required:0},
+  {id:9,name:'Conversador',description:'50+ mensajes en chat',icon:'💬',category:'social',points_required:0},
+  {id:10,name:'Explorador',description:'Creaste 3+ rutas',icon:'📍',category:'rutas',points_required:0},
+  {id:11,name:'Destacado',description:'Destacado por admin',icon:'🔝',category:'especial',points_required:0},
+  {id:12,name:'Veterano',description:'Más de 6 meses',icon:'🎖️',category:'especial',points_required:0},
+  {id:13,name:'Rodada Épica',description:'Ruta de dificultad alta',icon:'💀',category:'rodadas',points_required:0},
+];
+
+const SEED_CHALLENGES = [
+  {id:1,title:'Rey de la Carretera',description:'Recorre 100 km en rutas grupales',category:'weekly',points:500,requirement_type:'distance',requirement_count:100,icon:'🛣️'},
+  {id:2,title:'Fotógrafo Biker',description:'Sube 5 fotos a la nube',category:'weekly',points:300,requirement_type:'uploads',requirement_count:5,icon:'📷'},
+  {id:3,title:'Social Rider',description:'Comenta en 10 publicaciones',category:'weekly',points:300,requirement_type:'comments',requirement_count:10,icon:'💬'},
+  {id:4,title:'Alma de Fuego',description:'Conecta 7 días seguidos',category:'weekly',points:400,requirement_type:'daily_streak',requirement_count:7,icon:'🔥'},
+  {id:5,title:'Trotamundos',description:'Crea rutas en 3 ciudades',category:'special',points:600,requirement_type:'cities',requirement_count:3,icon:'🌍'},
+  {id:6,title:'Leyenda del Mes',description:'Top 3 del ranking mensual',category:'special',points:2000,requirement_type:'ranking',requirement_count:3,icon:'👑'},
+];
+
+const SEED_EVENTS = [
+  {id:1,title:'Cerro azul prueba',description:'Ruta por Cerro Azul - Panama',date:'2026-05-28',time:'08:00',location:'Calle 50',difficulty:'intermedia',status:'activo',max_riders:10,latitude:8.9824,longitude:-79.5199},
+  {id:2,title:'Ruede Amador',description:'Ruta para principiantes',date:'2026-05-29',time:'14:00',location:'Negocio del Turko',difficulty:'fácil',status:'activo',max_riders:0,latitude:8.9845,longitude:-79.5210},
+];
+
+const SEED_ROUTES = [
+  {id:1,name:'Cerro Azul - Corregimiento',description:'Ruta por las montañas de Cerro Azul',start_lat:8.9824,start_lng:-79.5199,start_name:'Calle 50, Panama',end_lat:9.0333,end_lng:-79.4833,end_name:'Cerro Azul',difficulty:'intermedia',stops:JSON.stringify([]),created_by:1},
+];
+
+const SEED_POSTS = [
+  {id:1,user_id:1,content:'¡Probando el nuevo feed social de BIKER SOCIETY! 🏍️🔥',image_url:'',created_at:'2026-05-29 19:57:00',likes:['14'],comments:[]},
+  {id:2,user_id:14,content:'¡Viva Biker Society! 🏍️',image_url:'',created_at:'2026-05-30 04:35:00',likes:['1'],comments:[]},
+  {id:3,user_id:14,content:'quien quiere cafe ☕',image_url:'',created_at:'2026-05-30 04:35:00',likes:['1'],comments:[{user_id:1,content:'MARicon',created_at:'2026-05-30 04:35:20'}]},
+];
+
+const SEED_CHANNELS = [
+  {id:1,name:'General',description:'Charlas y presentaciones',icon:'💬'},
+];
+
+const SEED_MESSAGES = [
+  {id:1,channel_id:1,user_id:1,content:'¡Hola bikers! Bienvenidos a Biker Society 🏍️',image_url:'',created_at:'2026-05-28 22:46:28',recipient_id:null},
+];
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function ls(key, val) {
+  if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
+  localStorage.setItem(key, JSON.stringify(val));
+  return val;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function avatarColor(id) {
+  const colors = ['#ff4444','#ff8800','#22c55e','#3b82f6','#a855f7','#ec4899','#14b8a6','#f59e0b'];
+  return colors[(id || 0) % colors.length];
+}
+
+function avatarText(name) {
+  return (name || '?').charAt(0).toUpperCase();
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.includes(' ') ? ts.replace(' ','T') : ts);
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return 'ahora';
+  if (diff < 3600) return Math.floor(diff/60)+'m';
+  if (diff < 86400) return Math.floor(diff/3600)+'h';
+  return Math.floor(diff/86400)+'d';
+}
+
+function levelOf(points) {
+  if (points >= 1000) return {name:'Maestro',min:1000,color:'#a855f7'};
+  if (points >= 500) return {name:'Experto',min:500,color:'#f59e0b'};
+  if (points >= 250) return {name:'Avanzado',min:250,color:'#3b82f6'};
+  if (points >= 100) return {name:'Intermedio',min:100,color:'#22c55e'};
+  return {name:'Novato',min:0,color:'#888'};
+}
+
+function nextLevel(points) {
+  const lv = levelOf(points);
+  const next = [100,250,500,1000,Infinity].find(n => n > points) || Infinity;
+  return next;
+}
+
+function levelProgress(points) {
+  const lv = levelOf(points);
+  const next = nextLevel(points);
+  if (next === Infinity) return 100;
+  return ((points - lv.min) / (next - lv.min)) * 100;
+}
+
+function initials(name) {
+  return (name || '').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+}
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ','T'));
+  const now = new Date();
+  const s = Math.floor((now - d) / 1000);
+  if (s < 60) return 'hace ' + s + 's';
+  if (s < 3600) return 'hace ' + Math.floor(s/60) + 'm';
+  if (s < 86400) return 'hace ' + Math.floor(s/3600) + 'h';
+  return 'hace ' + Math.floor(s/86400) + 'd';
+}
+
+// ============================================================
+// HEYVALUE SYNC
+// ============================================================
+async function hvRequest(method, path, body) {
+  if (!HV.user || !HV.pass) return null;
+  const opts = {
+    method,
+    headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) }
+  };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  try {
+    const r = await fetch(HV.url + '/remote.php/dav/files/' + HV.user + path, opts);
+    if (r.status === 207) return {ok:true, data: await r.json()};
+    if (r.status === 204 || r.status === 201) return {ok:true};
+    const t = await r.text();
+    return {ok:false, error: t.substring(0,100)};
+  } catch(e) { return {ok:false, error: e.message}; }
+}
+
+async function ensureHVDir(path) {
+  await hvRequest('MKCOL', path);
+}
+
+async function saveToHV(key, data) {
+  const path = '/' + HV.syncKey + '/' + key + '.json';
+  await ensureHVDir('/' + HV.syncKey);
+  const parts = path.split('/').filter(Boolean);
+  let p = '';
+  for (const part of parts.slice(0,-1)) {
+    p += '/' + part;
+    await ensureHVDir(p);
+  }
+  return hvRequest('PUT', path, data);
+}
+
+async function loadFromHV(key) {
+  const r = await hvRequest('GET', '/' + HV.syncKey + '/' + key + '.json');
+  if (r && r.ok && r.data) return r.data;
+  return null;
+}
+
+async function syncToCloud() {
+  if (!HV.user) return;
+  STATE.syncStatus = 'syncing';
+  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
+  for (const t of tables) {
+    await saveToHV(t, STATE[t] || []);
+  }
+  await saveToHV('meta', {lastSync: new Date().toISOString(), version: 1});
+  STATE.syncStatus = 'synced';
+}
+
+async function syncFromCloud() {
+  if (!HV.user) return;
+  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
+  let loaded = false;
+  for (const t of tables) {
+    const data = await loadFromHV(t);
+    if (data && Array.isArray(data)) { STATE[t] = data; loaded = true; }
+  }
+  if (loaded) {
+    STATE.users = STATE.users.length ? STATE.users : [...SEED_USERS];
+    STATE.badges = STATE.badges.length ? STATE.badges : [...SEED_BADGES];
+    STATE.challenges = STATE.challenges.length ? STATE.challenges : [...SEED_CHALLENGES];
+    STATE.events = STATE.events.length ? STATE.events : [...SEED_EVENTS];
+    STATE.routes = STATE.routes.length ? STATE.routes : [...SEED_ROUTES];
+    STATE.posts = STATE.posts.length ? STATE.posts : [...SEED_POSTS];
+    STATE.chatChannels = STATE.chatChannels.length ? STATE.chatChannels : [...SEED_CHANNELS];
+    STATE.chatMessages = STATE.chatMessages.length ? STATE.chatMessages : [...SEED_MESSAGES];
+    STATE.userChallenges = STATE.userChallenges || [];
+    STATE.userBadges = STATE.userBadges || [];
+    STATE.notifications = STATE.notifications || [];
+    STATE.attendance = STATE.attendance || [];
+  }
+}
+
+// ============================================================
+// APP INIT
+// ============================================================
+function initApp() {
+  // Load from localStorage first
+  STATE.users = ls('bs_users') || [...SEED_USERS];
+  STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
+  STATE.events = ls('bs_events') || [...SEED_EVENTS];
+  STATE.posts = ls('bs_posts') || [...SEED_POSTS];
+  STATE.badges = ls('bs_badges') || [...SEED_BADGES];
+  STATE.challenges = ls('bs_challenges') || [...SEED_CHALLENGES];
+  STATE.userChallenges = ls('bs_uc') || [];
+  STATE.userBadges = ls('bs_ub') || [];
+  STATE.chatChannels = ls('bs_cc') || [...SEED_CHANNELS];
+  STATE.chatMessages = ls('bs_cm') || [...SEED_MESSAGES];
+  STATE.notifications = ls('bs_notif') || [];
+  STATE.attendance = ls('bs_att') || [];
+  STATE.user = ls('bs_session');
+
+  // Sync in background
+  if (HV.user) {
+    syncFromCloud().then(() => {
+      renderPage(STATE.currentPage);
+      syncToCloud();
+    });
+  }
+
+  // Show appropriate screen
+  setTimeout(() => {
+    document.getElementById('splash').style.display = 'none';
+    document.getElementById('topbar').style.display = 'flex';
+    document.getElementById('bottomnav').style.display = 'flex';
+    if (STATE.user) {
+      navigate('inicio');
+    } else {
+      showLogin();
+    }
+  }, 1500);
+}
+
+function saveState() {
+  ls('bs_users', STATE.users);
+  ls('bs_routes', STATE.routes);
+  ls('bs_events', STATE.events);
+  ls('bs_posts', STATE.posts);
+  ls('bs_badges', STATE.badges);
+  ls('bs_challenges', STATE.challenges);
+  ls('bs_uc', STATE.userChallenges);
+  ls('bs_ub', STATE.userBadges);
+  ls('bs_cc', STATE.chatChannels);
+  ls('bs_cm', STATE.chatMessages);
+  ls('bs_notif', STATE.notifications);
+  ls('bs_att', STATE.attendance);
+  if (HV.user) syncToCloud();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function navigate(page) {
+  // Update bottom nav
+  document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.bnav-item[data-page="${page}"]`);
+  if (btn) btn.classList.add('active');
+
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  STATE.currentPage = page;
+  renderPage(page);
+}
+
+function renderPage(page) {
+  const el = document.getElementById('page-' + page);
+  if (!el) return;
+  el.classList.add('active');
+
+  switch(page) {
+    case 'inicio': renderInicio(); break;
+    case 'rutas': renderRutas(); break;
+    case 'bikers': renderBikers(); break;
+    case 'rider-detail': renderRiderDetail(); break;
+    case 'bikergram': renderBikerGram(); break;
+    case 'eventos': renderEventos(); break;
+    case 'retos': renderRetos(); break;
+    case 'insignias': renderInsignias(); break;
+    case 'profile': renderProfile(); break;
+    case 'admin': renderAdmin(); break;
+  }
+
+  // Scroll to top
+  el.scrollTop = 0;
+}
+
+// ============================================================
+// LOGIN / REGISTER
+// ============================================================
+function showLogin() {
+  document.getElementById('page-login').style.display = 'flex';
+  document.getElementById('page-login').innerHTML = `
+    <div class="login-logo">🏍️</div>
+    <div class="login-title">Biker Society</div>
+    <div class="login-sub">La comunidad de motociclistas de Panama</div>
+    <div class="login-form">
+      <input class="input" type="text" id="li-user" placeholder="Usuario o email" autocomplete="off">
+      <input class="input" type="password" id="li-pass" placeholder="Contraseña" autocomplete="off">
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="doLogin()">Entrar</button>
+      <button class="btn btn-secondary" style="width:100%" onclick="showRegister()">Crear cuenta</button>
+      <div style="text-align:center;margin-top:20px">
+        <button class="btn btn-ghost" style="font-size:12px" onclick="showHVSetup()">Configurar HeyValue Cloud</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('bottomnav').style.display = 'none';
+  document.getElementById('topbar').style.display = 'none';
+}
+
+function showRegister() {
+  document.getElementById('page-login').innerHTML = `
+    <div class="login-logo">🏍️</div>
+    <div class="login-title">Unete a Biker Society</div>
+    <div class="login-sub">Crea tu cuenta gratis</div>
+    <div class="login-form">
+      <input class="input" type="text" id="reg-user" placeholder="Nombre de usuario" autocomplete="off">
+      <input class="input" type="email" id="reg-email" placeholder="Email" autocomplete="off">
+      <input class="input" type="text" id="reg-bike" placeholder="Marca y modelo de tu moto (opcional)" autocomplete="off">
+      <input class="input" type="password" id="reg-pass" placeholder="Contraseña" autocomplete="off">
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="doRegister()">Crear cuenta</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Ya tengo cuenta</button>
+    </div>
+  `;
+}
+
+function doLogin() {
+  const u = document.getElementById('li-user').value.trim();
+  const p = document.getElementById('li-pass').value;
+  const user = STATE.users.find(x => (x.username === u || x.email === u) && x.password === p);
+  if (!user) { toast('Usuario o contraseña incorrectos'); return; }
+  STATE.user = user;
+  ls('bs_session', user);
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('bottomnav').style.display = 'flex';
+  navigate('inicio');
+  toast('Bienvenido, ' + user.username + '!');
+}
+
+function doRegister() {
+  const username = document.getElementById('reg-user').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const bike = document.getElementById('reg-bike').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  if (!username || !email || !password) { toast('Completa todos los campos'); return; }
+  if (STATE.users.find(x => x.username === username)) { toast('Ese usuario ya existe'); return; }
+  if (STATE.users.find(x => x.email === email)) { toast('Ese email ya esta registrado'); return; }
+  const newUser = {
+    id: Date.now() % 100000,
+    username, email, password,
+    is_admin: 0, is_injured: 0, injury_note: '',
+    bike_model: bike, points: 50,
+    profile_pic: '', bio: '', city: 'Panama', experience_level: 'novato'
+  };
+  STATE.users.push(newUser);
+  STATE.user = newUser;
+  ls('bs_session', newUser);
+  saveState();
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('bottomnav').style.display = 'flex';
+  navigate('inicio');
+  toast('Cuenta creada! Bienvenido, ' + username + '!');
+}
+
+function showHVSetup() {
+  openModal('Configurar HeyValue Cloud', `
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Conecta tu almacenamiento en la nube para sincronizar datos entre dispositivos.</p>
+    <input class="input" type="text" id="hv-user" placeholder="Usuario de Nextcloud" value="${HV.user}">
+    <input class="input" type="password" id="hv-pass" placeholder="App password" value="${HV.pass}">
+    <p style="font-size:11px;color:var(--text3);margin-bottom:16px">Crea una app password en cloud.heyvalue.com → Configuración → Seguridad → Contraseñas de aplicacion</p>
+    <button class="btn btn-primary" style="width:100%" onclick="saveHVSetup()">Guardar y sincronizar</button>
+  `);
+}
+
+function saveHVSetup() {
+  const u = document.getElementById('hv-user').value.trim();
+  const p = document.getElementById('hv-pass').value;
+  if (!u || !p) { toast('Completa ambos campos'); return; }
+  localStorage.setItem('hv_user', u);
+  localStorage.setItem('hv_pass', p);
+  HV.user = u; HV.pass = p;
+  closeModal();
+  syncFromCloud().then(() => { saveState(); navigate('inicio'); toast('Sincronizado con HeyValue!'); });
+}
+
+function logout() {
+  STATE.user = null;
+  ls('bs_session', null);
+  showLogin();
+}
+
+// ============================================================
+// MORE MENU
+// ============================================================
+function showMoreMenu() {
+  const isAdmin = STATE.user && STATE.user.is_admin;
+  openModal('Mas opciones', `
+    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('retos')">🏆 Retos y Desafios</button>
+    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('insignias')">🎖️ Insignias</button>
+    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('profile')">👤 Mi Perfil</button>
+    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();showHVSetup()">☁️ HeyValue Cloud</button>
+    ${isAdmin ? '<button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate(\'admin\')">⚙️ Admin</button>' : ''}
+    <button class="btn btn-ghost" style="width:100%" onclick="closeModal();logout()">🚪 Cerrar sesion</button>
+  `);
+}
+
+// ============================================================
+// INICIO PAGE
+// ============================================================
+function renderInicio() {
+  const u = STATE.user;
+  const lv = levelOf(u ? u.points : 0);
+  const progress = levelProgress(u ? u.points : 0);
+  const next = nextLevel(u ? u.points : 0);
+
+  // Count my stats
+  const myEvents = STATE.attendance.filter(a => a.user_id === u?.id).length;
+  const myRoutes = STATE.routes.filter(r => r.created_by === u?.id).length;
+  const myBadges = STATE.userBadges.filter(ub => ub.user_id === u?.id).length;
+
+  // Upcoming events
+  const upcoming = STATE.events.filter(e => e.status === 'activo').slice(0,3);
+
+  // Ranking top 5
+  const top = [...STATE.users].sort((a,b) => b.points - a.points).slice(0,5);
+
+  document.getElementById('page-inicio').innerHTML = `
+    <div class="vanish" style="animation-delay:0s">
+      <!-- Points Bar -->
+      <div class="points-bar">
+        <div class="points-level">
+          <div class="points-label">Nivel ${lv.name}</div>
+          <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
+        </div>
+        <div class="points-value">${u ? u.points : 0} pts${next !== Infinity ? ' / ' + next : ''}</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-row vanish" style="animation-delay:0.05s">
+        <div class="stat-box">
+          <div class="stat-val">${myEvents}</div>
+          <div class="stat-lbl">Eventos</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">${myRoutes}</div>
+          <div class="stat-lbl">Rutas Creadas</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">${myBadges}</div>
+          <div class="stat-lbl">Insignias</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map Preview -->
+    <div class="vanish" style="animation-delay:0.1s">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text2)">TU ACTIVIDAD</div>
+      <div class="map-container">
+        <div id="map-home" style="height:280px"></div>
+        <div class="map-label">📍 Panama</div>
+      </div>
+    </div>
+
+    <!-- Top Ranking -->
+    <div class="vanish" style="animation-delay:0.15s">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--text2)">TOP BIKERS</span>
+        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('bikers')">Ver todos →</span>
+      </div>
+      ${top.map((r,i) => `
+        <div class="rank-item" onclick="viewRider(${r.id})" style="cursor:pointer">
+          <div class="rank-num ${i===0?'gold':i===1?'silver':i===2?'bronze':''}">${i+1}</div>
+          <div class="rider-avatar" style="width:36px;height:36px;font-size:13px;background:${avatarColor(r.id)}">${initials(r.username)}</div>
+          <div class="rider-info">
+            <div class="rider-name">${r.username}${r.is_admin?' <span class="badge-gold" style="padding:1px 6px;font-size:9px">ADMIN</span>':''}</div>
+            <div class="rider-bike">${r.bike_model || 'Sin moto'}</div>
+          </div>
+          <div class="rider-points">${r.points} pts</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Upcoming Events -->
+    ${upcoming.length ? `
+    <div class="vanish" style="animation-delay:0.2s;margin-top:16px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--text2)">PROXIMOS EVENTOS</span>
+        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('eventos')">Ver todos →</span>
+      </div>
+      ${upcoming.map(ev => `
+        <div class="event-card" onclick="viewEvent(${ev.id})">
+          <div style="height:120px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.1));display:flex;align-items:center;justify-content:center;font-size:40px">🏍️</div>
+          <div class="event-body">
+            <div class="event-date">${ev.date} · ${ev.time}</div>
+            <div class="event-title">${ev.title}</div>
+            <div class="event-meta">
+              <span>📍 ${ev.location}</span>
+              <span>⚡ ${ev.difficulty}</span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+  `;
+
+  // Init map
+  setTimeout(initHomeMap, 100);
+}
+
+function initHomeMap() {
+  if (STATE.map) { STATE.map.remove(); STATE.map = null; }
+  const mapEl = document.getElementById('map-home');
+  if (!mapEl) return;
+
+  const map = L.map('map-home', {zoomControl:false, attributionControl:false}).setView([8.9824, -79.5199], 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(map);
+
+  // My location marker
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const {latitude:lat, longitude:lng} = pos.coords;
+      map.setView([lat, lng], 13);
+      L.circle([lat, lng], {color:'#ff4444', fillColor:'#ff4444', fillOpacity:0.3, radius:200}).addTo(map);
+      L.marker([lat, lng]).addTo(map).bindPopup('Tu ubicacion');
+    }, () => {}, {timeout:5000});
+  }
+
+  // Event markers
+  STATE.events.filter(e => e.latitude && e.longitude).forEach(ev => {
+    L.circle([ev.latitude, ev.longitude], {
+      color:'#ff8800', fillColor:'#ff8800', fillOpacity:0.4, radius:300
+    }).addTo(map).bindPopup(`<b>${ev.title}</b><br>${ev.date}`);
+  });
+
+  // Route lines
+  STATE.routes.forEach(rt => {
+    if (rt.start_lat && rt.end_lat) {
+      const pts = [[rt.start_lat, rt.start_lng],[rt.end_lat, rt.end_lng]];
+      L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.8}).addTo(map);
+      L.circle([rt.start_lat, rt.start_lng], {color:'#22c55e', fillColor:'#22c55e', fillOpacity:1, radius:8}).addTo(map).bindPopup('Salida: ' + rt.start_name);
+      L.circle([rt.end_lat, rt.end_lng], {color:'#ef4444', fillColor:'#ef4444', fillOpacity:1, radius:8}).addTo(map).bindPopup('Destino: ' + rt.end_name);
+    }
+  });
+
+  STATE.map = map;
+}
+
+// ============================================================
+// RUTAS PAGE
+// ============================================================
+function renderRutas() {
+  const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
+  const allRoutes = STATE.routes;
+
+  document.getElementById('page-rutas').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800">Rutas</div>
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab ${myRoutes.length === 0 ? 'active' : ''}" onclick="showRouteTab('mis')">Todas (${allRoutes.length})</button>
+      <button class="tab" onclick="showRouteTab('creadas')">Mis rutas (${myRoutes.length})</button>
+    </div>
+
+    <div id="rutas-list">
+      ${allRoutes.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">🗺️</div>
+          <div>No hay rutas todavia</div>
+          <button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>
+        </div>
+      ` : allRoutes.map(r => renderRouteCard(r)).join('')}
+    </div>
+  `;
+}
+
+function showRouteTab(tab) {
+  const routes = tab === 'creadas'
+    ? STATE.routes.filter(r => r.created_by === STATE.user?.id)
+    : STATE.routes;
+  document.getElementById('rutas-list').innerHTML = routes.length === 0
+    ? '<div class="empty-state"><div class="empty-icon">🗺️</div><div>Sin rutas</div></div>'
+    : routes.map(r => renderRouteCard(r)).join('');
+}
+
+function renderRouteCard(r) {
+  const creator = STATE.users.find(u => u.id === r.created_by);
+  return `
+    <div class="card vanish" style="cursor:pointer" onclick="viewRoute(${r.id})">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <div class="card-title">${r.name}</div>
+          <div class="card-sub">${r.start_name || 'Sin origen'} → ${r.end_name || 'Sin destino'}</div>
+          <div style="margin-top:6px;display:flex;gap:6px">
+            <span class="badge">⚡ ${r.difficulty}</span>
+            <span class="badge">${creator ? creator.username : '?'}</span>
+          </div>
+        </div>
+        <div style="font-size:20px">🏍️</div>
+      </div>
+    </div>
+  `;
+}
+
+function viewRoute(id) {
+  const r = STATE.routes.find(x => x.id === id);
+  if (!r) return;
+  const creator = STATE.users.find(u => u.id === r.created_by);
+
+  openModal('Detalle de Ruta', `
+    <div class="map-container" style="margin-bottom:16px">
+      <div id="map-route-detail" style="height:250px"></div>
+    </div>
+    <div class="card-title" style="font-size:18px">${r.name}</div>
+    <div class="card-sub" style="margin-bottom:12px">${r.description || ''}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="padding:12px;background:var(--surface2);border-radius:8px">
+        <div style="font-size:10px;color:var(--text2)">SALIDA</div>
+        <div style="font-size:13px;font-weight:600;margin-top:2px">${r.start_name || 'N/A'}</div>
+        <div style="font-size:11px;color:var(--text2)">${r.start_lat}, ${r.start_lng}</div>
+      </div>
+      <div style="padding:12px;background:var(--surface2);border-radius:8px">
+        <div style="font-size:10px;color:var(--text2)">DESTINO</div>
+        <div style="font-size:13px;font-weight:600;margin-top:2px">${r.end_name || 'N/A'}</div>
+        <div style="font-size:11px;color:var(--text2)">${r.end_lat}, ${r.end_lng}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:16px">
+      <span class="badge">⚡ ${r.difficulty}</span>
+      <span class="badge">🏍️ ${creator ? creator.username : '?'}</span>
+    </div>
+    ${r.created_by === STATE.user?.id ? `<button class="btn btn-secondary" style="width:100%" onclick="deleteRoute(${r.id})">Eliminar ruta</button>` : ''}
+  `);
+
+  setTimeout(() => {
+    if (STATE.map) { STATE.map.remove(); STATE.map = null; }
+    const map = L.map('map-route-detail', {zoomControl:false, attributionControl:false}).setView([(r.start_lat+r.end_lat)/2, (r.start_lng+r.end_lng)/2], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(map);
+    L.circle([r.start_lat, r.start_lng], {color:'#22c55e', fillColor:'#22c55e', fillOpacity:1, radius:10}).addTo(map).bindPopup('SALIDA');
+    L.circle([r.end_lat, r.end_lng], {color:'#ef4444', fillColor:'#ef4444', fillOpacity:1, radius:10}).addTo(map).bindPopup('DESTINO');
+    L.polyline([[r.start_lat,r.start_lng],[r.end_lat,r.end_lng]], {color:'#ff4444', weight:5, className:'route-animated'}).addTo(map);
+    STATE.map = map;
+  }, 100);
+}
+
+function createRoute() {
+  openModal('Nueva Ruta', `
+    <input class="input" id="rt-name" placeholder="Nombre de la ruta">
+    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)">
+    <input class="input" id="rt-start-name" placeholder="Nombre del punto de salida">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <input class="input" id="rt-start-lat" placeholder="Latitud inicio" type="number" step="any">
+      <input class="input" id="rt-start-lng" placeholder="Longitud inicio" type="number" step="any">
+    </div>
+    <input class="input" id="rt-end-name" placeholder="Nombre del destino">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <input class="input" id="rt-end-lat" placeholder="Latitud destino" type="number" step="any">
+      <input class="input" id="rt-end-lng" placeholder="Longitud destino" type="number" step="any">
+    </div>
+    <select class="input" id="rt-diff">
+      <option value="facil">Facil</option>
+      <option value="intermedia" selected>Intermedia</option>
+      <option value="alta">Alta</option>
+    </select>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="doCreateRoute()">Crear ruta</button>
+  `);
+}
+
+function doCreateRoute() {
+  const name = document.getElementById('rt-name').value.trim();
+  const desc = document.getElementById('rt-desc').value.trim();
+  const startName = document.getElementById('rt-start-name').value.trim();
+  const startLat = parseFloat(document.getElementById('rt-start-lat').value) || 0;
+  const startLng = parseFloat(document.getElementById('rt-start-lng').value) || 0;
+  const endName = document.getElementById('rt-end-name').value.trim();
+  const endLat = parseFloat(document.getElementById('rt-end-lat').value) || 0;
+  const endLng = parseFloat(document.getElementById('rt-end-lng').value) || 0;
+  const diff = document.getElementById('rt-diff').value;
+  if (!name) { toast('El nombre es obligatorio'); return; }
+  const route = {id:Date.now()%100000, name, description:desc, start_lat:startLat, start_lng:startLng, start_name:startName, end_lat:endLat, end_lng:endLng, end_name:endName, difficulty:diff, stops:'[]', created_by:STATE.user.id};
+  STATE.routes.push(route);
+  saveState();
+  closeModal();
+  navigate('rutas');
+  toast('Ruta creada!');
+}
+
+function deleteRoute(id) {
+  if (!confirm('Eliminar esta ruta?')) return;
+  STATE.routes = STATE.routes.filter(r => r.id !== id);
+  saveState();
+  closeModal();
+  navigate('rutas');
+  toast('Ruta eliminada');
+}
+
+// ============================================================
+// BIKERS PAGE
+// ============================================================
+function renderBikers() {
+  const search = '';
+  const sorted = [...STATE.users].sort((a,b) => b.points - a.points);
+
+  document.getElementById('page-bikers').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800;margin-bottom:12px">Bikers (${sorted.length})</div>
+      <input class="input" type="text" id="biker-search" placeholder="Buscar por nombre..." oninput="searchBikers(this.value)">
+    </div>
+    <div id="bikers-list">
+      ${sorted.map(r => renderRiderCard(r)).join('')}
+    </div>
+  `;
+}
+
+function searchBikers(q) {
+  const filtered = STATE.users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()));
+  document.getElementById('bikers-list').innerHTML = filtered.length === 0
+    ? '<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div></div>'
+    : filtered.map(r => renderRiderCard(r)).join('');
+}
+
+function renderRiderCard(r) {
+  const rank = STATE.users.sort((a,b) => b.points - a.points).findIndex(u => u.id === r.id) + 1;
+  return `
+    <div class="rider-card vanish" onclick="viewRider(${r.id})">
+      <div class="rider-avatar" style="background:${avatarColor(r.id)}">
+        ${r.profile_pic ? `<img src="${r.profile_pic}">` : initials(r.username)}
+      </div>
+      <div class="rider-info">
+        <div class="rider-name">
+          ${r.username}
+          ${r.is_admin ? '<span class="badge-gold" style="padding:1px 5px;font-size:9px">ADMIN</span>' : ''}
+          ${r.is_injured ? '<span class="badge-red" style="padding:1px 5px;font-size:9px">LESIONADO</span>' : ''}
+        </div>
+        <div class="rider-bike">${r.bike_model || 'Sin moto'}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="rider-points">${r.points} pts</div>
+        <div style="font-size:11px;color:var(--text2)">#${rank}</div>
+      </div>
+    </div>
+  `;
+}
+
+function viewRider(id) {
+  STATE.selectedRider = STATE.users.find(u => u.id === id);
+  navigate('rider-detail');
+}
+
+function renderRiderDetail() {
+  const r = STATE.selectedRider;
+  if (!r) { navigate('bikers'); return; }
+  const rank = STATE.users.sort((a,b) => b.points - a.points).findIndex(u => u.id === r.id) + 1;
+  const lv = levelOf(r.points);
+  const progress = levelProgress(r.points);
+  const myBadges = STATE.userBadges.filter(ub => ub.user_id === r.id);
+  const earned = myBadges.map(ub => ub.badge_id);
+  const myEvents = STATE.attendance.filter(a => a.user_id === r.id).length;
+  const myRoutes = STATE.routes.filter(rt => rt.created_by === r.id).length;
+
+  document.getElementById('page-rider-detail').innerHTML = `
+    <div style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="padding:6px 0" onclick="navigate('bikers')">← Volver</button>
+    </div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${avatarColor(r.id)},${avatarColor(r.id+1)});display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px">${initials(r.username)}</div>
+      <div style="font-size:20px;font-weight:800">${r.username} ${r.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
+      <div style="color:var(--text2);font-size:13px;margin-top:4px">${r.bike_model || 'Sin moto'} · ${r.city || 'Panama'}</div>
+      ${r.is_injured ? `<div style="margin-top:8px"><span class="badge-red">⚠️ ${r.injury_note || 'LESIONADO'}</span></div>` : ''}
+      ${r.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px">${r.bio}</div>` : ''}
+    </div>
+
+    <div class="points-bar" style="margin-bottom:16px">
+      <div class="points-level">
+        <div class="points-label">Nivel ${lv.name}</div>
+        <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
+      </div>
+      <div class="points-value">${r.points} pts</div>
+    </div>
+
+    <div class="stat-row vanish" style="animation-delay:0.05s">
+      <div class="stat-box"><div class="stat-val">#${rank}</div><div class="stat-lbl">Ranking</div></div>
+      <div class="stat-box"><div class="stat-val">${myEvents}</div><div class="stat-lbl">Eventos</div></div>
+      <div class="stat-box"><div class="stat-val">${myRoutes}</div><div class="stat-lbl">Rutas</div></div>
+    </div>
+
+    <div class="vanish" style="animation-delay:0.1s">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">INSIGNIAS GANADAS (${earned.length})</div>
+      <div class="badge-grid">
+        ${STATE.badges.map(b => {
+          const isEarned = earned.includes(b.id);
+          return `<div class="badge-item ${isEarned ? 'earned' : ''}" title="${b.description}">
+            <div class="badge-icon">${b.icon}</div>
+            <div class="badge-name">${b.name}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${STATE.user?.id === r.id || STATE.user?.is_admin ? `
+      <button class="btn btn-secondary" style="width:100%;margin-top:16px" onclick="editRider(${r.id})">Editar perfil</button>
+    ` : ''}
+  `;
+}
+
+function editRider(id) {
+  const r = STATE.users.find(u => u.id === id);
+  if (!r) return;
+  openModal('Editar Perfil', `
+    <input class="input" id="ed-username" value="${r.username}" placeholder="Usuario">
+    <input class="input" id="ed-email" value="${r.email}" placeholder="Email">
+    <input class="input" id="ed-bike" value="${r.bike_model}" placeholder="Modelo de moto">
+    <input class="input" id="ed-city" value="${r.city}" placeholder="Ciudad">
+    <input class="input" id="ed-bio" value="${r.bio}" placeholder="Biografia">
+    <input class="input" id="ed-pass" type="password" placeholder="Nueva contrasena (opcional)">
+    <button class="btn btn-primary" style="width:100%" onclick="doEditRider(${id})">Guardar cambios</button>
+    ${id === STATE.user?.id ? `<button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger)" onclick="closeModal()">Cancelar</button>` : ''}
+  `);
+}
+
+function doEditRider(id) {
+  const r = STATE.users.find(u => u.id === id);
+  if (!r) return;
+  r.username = document.getElementById('ed-username').value.trim() || r.username;
+  r.email = document.getElementById('ed-email').value.trim() || r.email;
+  r.bike_model = document.getElementById('ed-bike').value.trim();
+  r.city = document.getElementById('ed-city').value.trim();
+  r.bio = document.getElementById('ed-bio').value.trim();
+  const newPass = document.getElementById('ed-pass').value;
+  if (newPass) r.password = newPass;
+  if (STATE.user?.id === id) STATE.user = r;
+  ls('bs_session', STATE.user);
+  saveState();
+  closeModal();
+  navigate(id === STATE.user?.id ? 'profile' : 'rider-detail');
+  toast('Perfil actualizado!');
+}
+
+// ============================================================
+// BIKERGRAM PAGE
+// ============================================================
+function renderBikerGram() {
+  document.getElementById('page-bikergram').innerHTML = `
+    <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:18px;font-weight:800">BikerGram</div>
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createPost()">+ Publicar</button>
+    </div>
+    <div id="bikergram-feed">
+      ${STATE.posts.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📷</div>
+          <div>No hay publicaciones todavia</div>
+          <button class="btn btn-primary" style="margin-top:12px" onclick="createPost()">Primera publicacion</button>
+        </div>
+      ` : STATE.posts.map(p => renderPost(p)).join('')}
+    </div>
+  `;
+}
+
+function renderPost(p) {
+  const author = STATE.users.find(u => u.id === p.user_id) || {username:'?', bike_model:'', id:0};
+  const likes = p.likes || [];
+  const comments = p.comments || [];
+  const isLiked = STATE.user && likes.includes(String(STATE.user.id));
+  const isMyPost = STATE.user && STATE.user.id === p.user_id;
+  return `
+    <div class="post-card vanish">
+      <div class="post-header">
+        <div class="post-avatar" style="background:${avatarColor(author.id)}">${initials(author.username)}</div>
+        <div style="flex:1">
+          <div class="post-name">${author.username}</div>
+          <div class="post-time">${timeAgo(p.created_at)}</div>
+        </div>
+        ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
+      </div>
+      <div class="post-content">${p.content}</div>
+      ${p.image_url ? `<img class="post-image" src="${p.image_url}" onerror="this.style.display='none'">` : ''}
+      <div class="post-actions">
+        <button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike(${p.id})">
+          ${isLiked ? '❤️' : '🤍'} ${likes.length}
+        </button>
+        <button class="like-btn" onclick="showComments(${p.id})">
+          💬 ${comments.length}
+        </button>
+      </div>
+      <div id="comments-${p.id}" style="padding:0 16px 12px;display:none">
+        ${comments.map(c => {
+          const cu = STATE.users.find(u => u.id === c.user_id) || {username:'?', id:0};
+          return `<div style="margin-top:8px;font-size:12px"><b>${cu.username}:</b> ${c.content}</div>`;
+        }).join('')}
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input class="input" style="margin:0;flex:1;font-size:12px;padding:8px" id="cmt-${p.id}" placeholder="Escribe un comentario...">
+          <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="addComment(${p.id})">→</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleLike(postId) {
+  if (!STATE.user) { toast('Inicia sesion para dar like'); return; }
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return;
+  p.likes = p.likes || [];
+  const uid = String(STATE.user.id);
+  if (p.likes.includes(uid)) {
+    p.likes = p.likes.filter(l => l !== uid);
+  } else {
+    p.likes.push(uid);
+    if (p.user_id !== STATE.user.id) {
+      STATE.notifications.push({id:Date.now(), user_id:p.user_id, actor_id:STATE.user.id, type:'like', message:STATE.user.username + ' le gusto tu publicacion', link:'/feed', read:false, created_at:new Date().toISOString()});
+    }
+  }
+  saveState();
+  renderBikerGram();
+}
+
+function showComments(postId) {
+  const el = document.getElementById('comments-' + postId);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function addComment(postId) {
+  if (!STATE.user) { toast('Inicia sesion para comentar'); return; }
+  const input = document.getElementById('cmt-' + postId);
+  if (!input || !input.value.trim()) return;
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return;
+  p.comments = p.comments || [];
+  p.comments.push({user_id:STATE.user.id, content:input.value.trim(), created_at:new Date().toISOString()});
+  if (p.user_id !== STATE.user.id) {
+    STATE.notifications.push({id:Date.now(), user_id:p.user_id, actor_id:STATE.user.id, type:'comment', message:STATE.user.username + ' comento en tu publicacion', link:'/feed', read:false, created_at:new Date().toISOString()});
+  }
+  saveState();
+  renderBikerGram();
+}
+
+function createPost() {
+  if (!STATE.user) { toast('Inicia sesion primero'); return; }
+  openModal('Nueva Publicacion', `
+    <textarea class="input" id="post-content" rows="4" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none"></textarea>
+    <input class="input" id="post-img" placeholder="URL de imagen (opcional)">
+    <button class="btn btn-primary" style="width:100%" onclick="doCreatePost()">Publicar</button>
+  `);
+}
+
+function doCreatePost() {
+  const content = document.getElementById('post-content').value.trim();
+  const image_url = document.getElementById('post-img').value.trim();
+  if (!content) { toast('Escribe algo'); return; }
+  STATE.posts.unshift({id:Date.now()%100000, user_id:STATE.user.id, content, image_url, created_at:new Date().toISOString(), likes:[], comments:[]});
+  saveState();
+  closeModal();
+  navigate('bikergram');
+  toast('Publicado!');
+}
+
+function deletePost(id) {
+  if (!confirm('Eliminar esta publicacion?')) return;
+  STATE.posts = STATE.posts.filter(p => p.id !== id);
+  saveState();
+  renderBikerGram();
+  toast('Eliminado');
+}
+
+// ============================================================
+// EVENTOS PAGE
+// ============================================================
+function renderEventos() {
+  const upcoming = STATE.events.filter(e => e.status === 'activo');
+  const past = STATE.events.filter(e => e.status !== 'activo');
+
+  document.getElementById('page-eventos').innerHTML = `
+    <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:18px;font-weight:800">Eventos</div>
+      ${STATE.user?.is_admin ? `<button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createEvent()">+ Crear evento</button>` : ''}
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab ${past.length === 0 ? 'active' : ''}" onclick="showEventTab('proximos',this)">Proximos (${upcoming.length})</button>
+      <button class="tab" onclick="showEventTab('pasados',this)">Pasados (${past.length})</button>
+    </div>
+
+    <div id="eventos-list">
+      ${upcoming.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-icon">📅</div>
+          <div>No hay eventos proximos</div>
+          ${STATE.user?.is_admin ? `<button class="btn btn-primary" style="margin-top:12px" onclick="createEvent()">Crear evento</button>` : ''}
+        </div>
+      ` : upcoming.map(ev => renderEventCard(ev)).join('')}
+    </div>
+  `;
+}
+
+function showEventTab(tab, btn) {
+  document.querySelectorAll('.tab-bar .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const list = tab === 'proximos' ? STATE.events.filter(e => e.status === 'activo') : STATE.events.filter(e => e.status !== 'activo');
+  document.getElementById('eventos-list').innerHTML = list.length === 0
+    ? '<div class="empty-state"><div class="empty-icon">📅</div><div>Sin eventos</div></div>'
+    : list.map(ev => renderEventCard(ev)).join('');
+}
+
+function renderEventCard(ev) {
+  const attCount = STATE.attendance.filter(a => a.event_id === ev.id).length;
+  const myAtt = STATE.user && STATE.attendance.find(a => a.event_id === ev.id && a.user_id === STATE.user.id);
+  return `
+    <div class="event-card vanish" onclick="viewEvent(${ev.id})">
+      <div style="height:140px;background:linear-gradient(135deg,rgba(255,68,68,0.3),rgba(255,136,0,0.15));display:flex;align-items:center;justify-content:center;font-size:48px">🏍️</div>
+      <div class="event-body">
+        <div class="event-date">${ev.date} · ${ev.time}</div>
+        <div class="event-title">${ev.title}</div>
+        <div class="event-meta">
+          <span>📍 ${ev.location || 'N/A'}</span>
+          <span>⚡ ${ev.difficulty}</span>
+          <span>👥 ${attCount} riders</span>
+        </div>
+        <div style="margin-top:10px">
+          ${myAtt
+            ? '<span class="badge-green">✅ Confirmado</span>'
+            : '<button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="event.stopPropagation();confirmEvent(' + ev.id + ')">Confirmar asistencia</button>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function viewEvent(id) {
+  const ev = STATE.events.find(x => x.id === id);
+  if (!ev) return;
+  const attCount = STATE.attendance.filter(a => a.event_id === ev.id).length;
+  const attList = STATE.attendance.filter(a => a.event_id === ev.id).map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
+  const myAtt = STATE.user && STATE.attendance.find(a => a.event_id === ev.id && a.user_id === STATE.user.id);
+
+  openModal(ev.title, `
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      📅 ${ev.date} · 🕐 ${ev.time}<br>
+      📍 ${ev.location || 'N/A'} · ⚡ ${ev.difficulty}
+    </div>
+    ${ev.description ? `<p style="margin-bottom:16px">${ev.description}</p>` : ''}
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px">ASISTENTES (${attCount})</div>
+      ${attList.length === 0 ? '<div style="font-size:12px;color:var(--text3)">Nadie ha confirmado aun</div>' :
+        attList.map(u => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px">
+          <div style="width:28px;height:28px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">${initials(u.username)}</div>
+          <span>${u.username}</span>
+          ${u.is_injured ? '<span class="badge-red" style="font-size:9px">LESIONADO</span>' : ''}
+        </div>`).join('')}
+    </div>
+    ${myAtt
+      ? '<button class="btn btn-secondary" style="width:100%" onclick="cancelEvent(' + ev.id + ')">Cancelar asistencia</button>'
+      : '<button class="btn btn-primary" style="width:100%" onclick="confirmEvent(' + ev.id + ')">Confirmar asistencia</button>'}
+    ${STATE.user?.is_admin ? `<button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger)" onclick="deleteEvent(${ev.id})">Eliminar evento</button>` : ''}
+  `);
+}
+
+function confirmEvent(id) {
+  if (!STATE.user) { toast('Inicia sesion'); return; }
+  if (STATE.attendance.find(a => a.event_id === id && a.user_id === STATE.user.id)) {
+    toast('Ya confirmaste'); return;
+  }
+  STATE.attendance.push({id:Date.now(), user_id:STATE.user.id, event_id:id, confirmed_at:new Date().toISOString(), notes:'', status:'confirmed', featured:false});
+  saveState();
+  closeModal();
+  navigate('eventos');
+  toast('Asistencia confirmada!');
+}
+
+function cancelEvent(id) {
+  STATE.attendance = STATE.attendance.filter(a => !(a.event_id === id && a.user_id === STATE.user.id));
+  saveState();
+  closeModal();
+  navigate('eventos');
+  toast('Asistencia cancelada');
+}
+
+function deleteEvent(id) {
+  if (!confirm('Eliminar este evento?')) return;
+  STATE.events = STATE.events.filter(e => e.id !== id);
+  STATE.attendance = STATE.attendance.filter(a => a.event_id !== id);
+  saveState();
+  closeModal();
+  navigate('eventos');
+  toast('Evento eliminado');
+}
+
+function createEvent() {
+  openModal('Crear Evento', `
+    <input class="input" id="ev-title" placeholder="Titulo del evento">
+    <input class="input" id="ev-desc" placeholder="Descripcion (opcional)">
+    <input class="input" id="ev-date" type="date" class="input">
+    <input class="input" id="ev-time" type="time" value="08:00" class="input">
+    <input class="input" id="ev-location" placeholder="Ubicacion">
+    <select class="input" id="ev-diff">
+      <option value="facil">Facil</option>
+      <option value="intermedia" selected>Intermedia</option>
+      <option value="alta">Alta</option>
+    </select>
+    <button class="btn btn-primary" style="width:100%" onclick="doCreateEvent()">Crear evento</button>
+  `);
+}
+
+function doCreateEvent() {
+  const title = document.getElementById('ev-title').value.trim();
+  const desc = document.getElementById('ev-desc').value.trim();
+  const date = document.getElementById('ev-date').value;
+  const time = document.getElementById('ev-time').value;
+  const location = document.getElementById('ev-location').value.trim();
+  const diff = document.getElementById('ev-diff').value;
+  if (!title || !date) { toast('Titulo y fecha son obligatorios'); return; }
+  STATE.events.push({id:Date.now()%100000, title, description:desc, date, time, location, difficulty:diff, status:'activo', max_riders:0, latitude:0, longitude:0, created_by:STATE.user.id});
+  saveState();
+  closeModal();
+  navigate('eventos');
+  toast('Evento creado!');
+}
+
+// ============================================================
+// RETOS PAGE
+// ============================================================
+function renderRetos() {
+  const myChallenges = STATE.userChallenges || [];
+  const weekly = STATE.challenges.filter(c => c.category === 'weekly');
+  const special = STATE.challenges.filter(c => c.category === 'special');
+
+  document.getElementById('page-retos').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px">Retos y Desafios</div>
+      <div style="font-size:12px;color:var(--text2)">Completa retos para ganar puntos y insignias</div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="card" style="padding:14px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">RETOS SEMANALES</div>
+        ${weekly.map(c => renderChallengeCard(c, myChallenges)).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div class="card" style="padding:14px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">RETOS ESPECIALES</div>
+        ${special.map(c => renderChallengeCard(c, myChallenges)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderChallengeCard(c, myChallenges) {
+  const myProg = myChallenges.find(mc => mc.challenge_id === c.id);
+  const progress = myProg ? myProg.progress : 0;
+  const pct = Math.min(100, (progress / c.requirement_count) * 100);
+  const done = myProg && myProg.completed;
+  return `
+    <div class="challenge-card ${done ? 'earned' : ''}" style="margin-top:12px">
+      <div class="challenge-title">
+        <span style="font-size:20px">${c.icon}</span>
+        ${c.title}
+        ${done ? '<span class="badge-green" style="font-size:10px">COMPLETADO</span>' : ''}
+      </div>
+      <div class="challenge-desc">${c.description}</div>
+      <div class="challenge-progress">
+        <div class="challenge-track"><div class="challenge-fill" style="width:${pct}%"></div></div>
+        <div class="challenge-points">${progress}/${c.requirement_count}</div>
+      </div>
+      <div style="margin-top:8px;font-size:12px;color:var(--accent);font-weight:600">+${c.points} pts</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// INSIGNIAS PAGE
+// ============================================================
+function renderInsignias() {
+  const earned = STATE.userBadges.filter(ub => ub.user_id === STATE.user?.id).map(ub => ub.badge_id);
+  const categories = [...new Set(STATE.badges.map(b => b.category))];
+
+  document.getElementById('page-insignias').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800;margin-bottom:4px">Insignias</div>
+      <div style="font-size:12px;color:var(--text2)">${earned.length} de ${STATE.badges.length} obtenidas</div>
+    </div>
+    ${categories.map(cat => `
+      <div style="margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase">${cat}</div>
+        <div class="badge-grid">
+          ${STATE.badges.filter(b => b.category === cat).map(b => `
+            <div class="badge-item ${earned.includes(b.id) ? 'earned' : ''}" onclick="showBadgeDetail(${b.id})">
+              <div class="badge-icon">${b.icon}</div>
+              <div class="badge-name">${b.name}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function showBadgeDetail(id) {
+  const b = STATE.badges.find(x => x.id === id);
+  if (!b) return;
+  const earned = STATE.userBadges.find(ub => ub.badge_id === id && ub.user_id === STATE.user?.id);
+  openModal(b.name, `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:60px;margin-bottom:8px">${b.icon}</div>
+      <div style="font-size:16px;font-weight:700">${b.name}</div>
+      <div style="color:var(--text2);font-size:13px;margin-top:4px">${b.description}</div>
+    </div>
+    ${earned
+      ? `<div style="text-align:center"><span class="badge-green">✅ Ganada el ${new Date(earned.earned_at).toLocaleDateString()}</span></div>`
+      : `<div style="text-align:center;color:var(--text3);font-size:13px">Sigue participando para desbloquear esta insignia</div>`
+    }
+  `);
+}
+
+// ============================================================
+// PROFILE PAGE
+// ============================================================
+function renderProfile() {
+  const u = STATE.user;
+  if (!u) { showLogin(); return; }
+  const lv = levelOf(u.points);
+  const progress = levelProgress(u.points);
+  const next = nextLevel(u.points);
+  const earned = STATE.userBadges.filter(ub => ub.user_id === u.id).map(ub => ub.badge_id);
+  const myAtt = STATE.attendance.filter(a => a.user_id === u.id).length;
+  const myRoutes = STATE.routes.filter(r => r.created_by === u.id).length;
+
+  document.getElementById('page-profile').innerHTML = `
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${avatarColor(u.id)},${avatarColor(u.id+1)});display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px">${initials(u.username)}</div>
+      <div style="font-size:20px;font-weight:800">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
+      <div style="color:var(--text2);font-size:13px">${u.email}</div>
+      <div style="color:var(--text2);font-size:13px">${u.bike_model || 'Sin moto'}</div>
+      ${u.bio ? `<div style="color:var(--text2);font-size:13px;margin-top:6px;font-style:italic">"${u.bio}"</div>` : ''}
+    </div>
+
+    <div class="points-bar" style="margin-bottom:16px">
+      <div class="points-level">
+        <div class="points-label">Nivel ${lv.name}</div>
+        <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
+      </div>
+      <div class="points-value">${u.points} pts</div>
+    </div>
+
+    <div class="stat-row vanish" style="animation-delay:0.05s">
+      <div class="stat-box"><div class="stat-val">${myAtt}</div><div class="stat-lbl">Eventos</div></div>
+      <div class="stat-box"><div class="stat-val">${myRoutes}</div><div class="stat-lbl">Rutas</div></div>
+      <div class="stat-box"><div class="stat-val">${earned.length}</div><div class="stat-lbl">Insignias</div></div>
+    </div>
+
+    <div class="vanish" style="animation-delay:0.1s">
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">MIS INSIGNIAS</div>
+      <div class="badge-grid">
+        ${STATE.badges.map(b => `
+          <div class="badge-item ${earned.includes(b.id) ? 'earned' : ''}" title="${b.description}">
+            <div class="badge-icon">${b.icon}</div>
+            <div class="badge-name">${b.name}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div style="margin-top:20px" class="vanish" style="animation-delay:0.15s">
+      <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="editRider(${u.id})">Editar perfil</button>
+      <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('rutas');setTimeout(createRoute,300)">Crear ruta</button>
+      <button class="btn btn-ghost" style="width:100%;color:var(--danger)" onclick="logout()">Cerrar sesion</button>
+    </div>
+  `;
+}
+
+// ============================================================
+// ADMIN PAGE
+// ============================================================
+function renderAdmin() {
+  if (!STATE.user?.is_admin) { navigate('inicio'); return; }
+
+  document.getElementById('page-admin').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">Panel de Admin</div>
+
+    <!-- USERS -->
+    <div class="admin-section">
+      <div class="admin-section-header" onclick="toggleAdmin('users')">👥 Usuarios (${STATE.users.length}) <span id="arrow-users">▼</span></div>
+      <div class="admin-list" id="admin-users" style="display:none">
+        ${STATE.users.map(u => `
+          <div class="admin-list-item">
+            <div style="width:32px;height:32px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff">${initials(u.username)}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600">${u.username}</div>
+              <div style="font-size:11px;color:var(--text2)">${u.email}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;color:var(--accent);font-weight:600">${u.points}pts</div>
+              ${u.is_admin ? '<span class="badge-gold" style="font-size:9px">ADMIN</span>' : ''}
+              ${u.is_injured ? '<span class="badge-red" style="font-size:9px">INJ</span>' : ''}
+            </div>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px" onclick="editRider(${u.id})">✏️</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- EVENTS -->
+    <div class="admin-section">
+      <div class="admin-section-header" onclick="toggleAdmin('events')">📅 Eventos (${STATE.events.length}) <span id="arrow-events">▼</span></div>
+      <div class="admin-list" id="admin-events" style="display:none">
+        ${STATE.events.map(ev => `
+          <div class="admin-list-item">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600">${ev.title}</div>
+              <div style="font-size:11px;color:var(--text2)">${ev.date} · ${ev.location}</div>
+            </div>
+            <span class="badge ${ev.status==='activo'?'badge-green':'badge-red'}" style="font-size:10px">${ev.status}</span>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px" onclick="editEvent(${ev.id})">✏️</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="admin-section">
+      <div class="admin-section-header" onclick="toggleAdmin('notif')">🔔 Notificaciones (${STATE.notifications.length}) <span id="arrow-notif">▼</span></div>
+      <div class="admin-list" id="admin-notif" style="display:none">
+        ${STATE.notifications.length === 0 ? '<div style="padding:12px;font-size:12px;color:var(--text3)">Sin notificaciones</div>' :
+          STATE.notifications.map(n => `
+            <div class="admin-list-item" style="flex-direction:column;align-items:flex-start;gap:4px">
+              <div style="font-size:12px">${n.message}</div>
+              <div style="font-size:10px;color:var(--text3)">${timeAgo(n.created_at)}</div>
+            </div>
+          `).join('')}
+        <button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger);font-size:12px" onclick="STATE.notifications=[];saveState();renderAdmin();toast('Notificaciones borradas')">Borrar todas</button>
+      </div>
+    </div>
+
+    <!-- SYNC -->
+    <div class="admin-section">
+      <div class="admin-section-header" onclick="toggleAdmin('sync')">☁️ HeyValue Sync <span id="arrow-sync">▼</span></div>
+      <div class="admin-list" id="admin-sync" style="display:none">
+        <div style="padding:12px;font-size:12px">
+          <div>Estado: <b>${STATE.syncStatus}</b></div>
+          <div style="margin-top:8px">Usuario: <b>${HV.user || 'No configurado'}</b></div>
+          <button class="btn btn-primary" style="margin-top:10px;width:100%" onclick="syncToCloud();toast('Sincronizando...')">Forzar sincronizacion</button>
+          <button class="btn btn-secondary" style="margin-top:6px;width:100%" onclick="showHVSetup()">Configurar HeyValue</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DANGER -->
+    <div style="margin-top:24px;padding:16px;border:1px solid var(--danger);border-radius:var(--radius)">
+      <div style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:8px">Zona de peligro</div>
+      <button class="btn btn-ghost" style="width:100%;color:var(--danger);border:1px solid var(--danger);margin-bottom:8px" onclick="if(confirm('Resetear TODOS los datos?')){localStorage.clear();location.reload()}">Resetear todos los datos</button>
+    </div>
+  `;
+}
+
+function toggleAdmin(section) {
+  const el = document.getElementById('admin-' + section);
+  if (!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? 'block' : 'none';
+  const arrow = document.getElementById('arrow-' + section);
+  if (arrow) arrow.textContent = isHidden ? '▲' : '▼';
+}
+
+function editEvent(id) {
+  const ev = STATE.events.find(x => x.id === id);
+  if (!ev) return;
+  openModal('Editar Evento', `
+    <input class="input" id="ev-title" value="${ev.title}" placeholder="Titulo">
+    <input class="input" id="ev-desc" value="${ev.description}" placeholder="Descripcion">
+    <input class="input" id="ev-date" type="date" value="${ev.date}" class="input">
+    <input class="input" id="ev-time" type="time" value="${ev.time}" class="input">
+    <input class="input" id="ev-location" value="${ev.location}" placeholder="Ubicacion">
+    <select class="input" id="ev-diff">
+      <option value="facil" ${ev.difficulty==='facil'?'selected':''}>Facil</option>
+      <option value="intermedia" ${ev.difficulty==='intermedia'?'selected':''}>Intermedia</option>
+      <option value="alta" ${ev.difficulty==='alta'?'selected':''}>Alta</option>
+    </select>
+    <select class="input" id="ev-status">
+      <option value="activo" ${ev.status==='activo'?'selected':''}>Activo</option>
+      <option value="cancelado" ${ev.status==='cancelado'?'selected':''}>Cancelado</option>
+      <option value="completado" ${ev.status==='completado'?'selected':''}>Completado</option>
+    </select>
+    <button class="btn btn-primary" style="width:100%" onclick="doEditEvent(${id})">Guardar</button>
+  `);
+}
+
+function doEditEvent(id) {
+  const ev = STATE.events.find(x => x.id === id);
+  if (!ev) return;
+  ev.title = document.getElementById('ev-title').value.trim() || ev.title;
+  ev.description = document.getElementById('ev-desc').value.trim();
+  ev.date = document.getElementById('ev-date').value || ev.date;
+  ev.time = document.getElementById('ev-time').value || ev.time;
+  ev.location = document.getElementById('ev-location').value.trim();
+  ev.difficulty = document.getElementById('ev-diff').value;
+  ev.status = document.getElementById('ev-status').value;
+  saveState();
+  closeModal();
+  navigate('admin');
+  toast('Evento actualizado');
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function showNotifications() {
+  const myNotifs = STATE.notifications.filter(n => n.user_id === STATE.user?.id).reverse().slice(0,20);
+  const unread = myNotifs.filter(n => !n.read).length;
+  openModal(`Notificaciones ${unread > 0 ? `(${unread} nuevas)` : ''}`, `
+    ${myNotifs.length === 0 ? '<div style="text-align:center;padding:24px;color:var(--text3)">No hay notificaciones</div>' :
+      myNotifs.map(n => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border);${!n.read ? 'background:rgba(255,68,68,0.05);padding:10px;border-radius:8px;margin-bottom:4px' : ''}">
+          <div style="font-size:13px">${n.message}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${timeAgo(n.created_at)}</div>
+        </div>
+      `).join('')}
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px;font-size:12px" onclick="STATE.notifications=STATE.notifications.map(n=>({...n,read:true}));saveState();closeModal();toast('Notificaciones marcadas como leidas')">Marcar todas como leidas</button>
+  `);
+  STATE.notifications = STATE.notifications.map(n => ({...n, read: true}));
+  saveState();
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(title, content) {
+  document.getElementById('modal-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">${title}</div>
+      <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px" onclick="closeModal()">✕</button>
+    </div>
+    ${content}
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biker Society — Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;--border:#2a2a2a;--accent:#ff4444;--accent2:#ff8800;--text:#f0f0f0;--text2:#888;--text3:#555;--radius:8px}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px}
+
+/* TOPBAR */
+.topbar{height:48px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0}
+.topbar-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.topbar-actions span{font-size:12px;color:var(--text2)}
+
+/* TABS */
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.tab-btn{padding:10px 18px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;transition:0.2s;font-family:inherit}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* MAIN LAYOUT */
+.main{display:flex;height:calc(100% - 48px - 42px)}
+.editor-pane{flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.pane-label{padding:6px 12px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.CodeMirror{flex:1;height:100%!important;font-size:13px!important;background:var(--surface)!important;color:var(--text)!important}
+.CodeMirror-gutters{background:var(--surface2)!important;border-right:1px solid var(--border)!important}
+.cm-s-dracula .CodeMirror-linenumber{color:var(--text3)!important}
+
+/* PREVIEW */
+.preview-pane{flex:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--border)}
+iframe#preview{width:100%;flex:1;border:none;background:#fff}
+
+/* BOTTOM BAR */
+.bottombar{height:42px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0}
+.bottombar-left{display:flex;gap:8px;align-items:center}
+.bottombar-right{display:flex;gap:8px;align-items:center}
+
+/* BUTTONS */
+.btn{padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;transition:0.15s;border:none;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff}
+.btn-primary:hover{opacity:0.9}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.btn-ghost{background:transparent;color:var(--text2)}
+.btn-ghost:hover{color:var(--text)}
+
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.saved{background:#22c55e}
+.status-dot.saving{background:#f59e0b;animation:pulse 1s infinite}
+.status-dot.error{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* TOAST */
+.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;font-size:12px;font-weight:500;z-index:9999;opacity:0;transition:0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* CONSOLE */
+.console{max-height:150px;overflow-y:auto;background:var(--surface);border-top:1px solid var(--border);padding:8px 12px;font-family:'Courier New',monospace;font-size:11px;color:#ef4444;display:none}
+.console.show{display:block}
+.console-line{margin-bottom:2px}
+
+/* FILE INPUT */
+.file-input{display:none}
+.info-tag{font-size:10px;padding:2px 6px;border-radius:4px;background:var(--surface2);color:var(--text2)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">🏍️ Biker Society Editor</div>
+  <div class="topbar-actions">
+    <span id="file-info" class="info-tag">bikersociety.html</span>
+    <span id="sync-status" style="font-size:11px;color:var(--text3)">☁️ Conectando...</span>
+    <button class="btn btn-secondary" onclick="loadFromCloud()">📥 Cargar</button>
+    <button class="btn btn-primary" onclick="saveToCloud()">💾 Guardar</button>
+    <button class="btn btn-secondary" onclick="downloadZip()">📦 Descargar</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('html',this)">📄 HTML</button>
+  <button class="tab-btn" onclick="switchTab('css',this)">🎨 CSS</button>
+  <button class="tab-btn" onclick="switchTab('js',this)">⚡ JS</button>
+  <button class="tab-btn" onclick="switchTab('preview',this)">👁️ Vista previa</button>
+  <button class="tab-btn" onclick="toggleConsole()">🖥️ Consola</button>
+</div>
+
+<div class="main" id="main-layout">
+
+  <div class="editor-pane" id="pane-html">
+    <div class="pane-label">HTML — body del documento</div>
+    <textarea id="html-editor"></textarea>
+  </div>
+
+  <div class="editor-pane" id="pane-css" style="display:none">
+    <div class="pane-label">CSS — estilos</div>
+    <textarea id="css-editor"></textarea>
+  </div>
+
+  <div class="editor-pane" id="pane-js" style="display:none">
+    <div class="pane-label">JavaScript — lógica</div>
+    <textarea id="js-editor"></textarea>
+  </div>
+
+  <div class="preview-pane" id="pane-preview" style="display:none">
+    <div class="pane-label">Vista previa en tiempo real</div>
+    <iframe id="preview"></iframe>
+  </div>
+
+</div>
+
+<div class="console" id="console"></div>
+
+<div class="bottombar">
+  <div class="bottombar-left">
+    <span id="status-dot" class="status-dot saved"></span>
+    <span id="status-text" style="font-size:12px;color:var(--text2)">Listo</span>
+    <span id="cursor-pos" style="font-size:11px;color:var(--text3);margin-left:12px"></span>
+  </div>
+  <div class="bottombar-right">
+    <button class="btn btn-ghost" onclick="runPreview()">▶️ Actualizar preview</button>
+    <button class="btn btn-secondary" onclick="beautify()">✨ Formatear</button>
+    <button class="btn btn-primary" onclick="saveToCloud()">💾 Guardar en HeyValue</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+
+<script>
+// ============================================================
+// HEYVALUE CONFIG
+// ============================================================
+const BASE = 'https://cloud.heyvalue.com';
+const USER = localStorage.getItem('hv_user') || '';
+const PASS = localStorage.getItem('hv_pass') || '';
+const DIR = '/BikerSociety';
+
+const EDITORS = {};
+let currentTab = 'html';
+let isDirty = false;
+let consoleVisible = false;
+
+// ============================================================
+// INIT CODE MIRROR EDITORS
+// ============================================================
+function initEditors() {
+  const common = {theme: 'dracula', lineNumbers: true, tabSize: 2, indentWithTabs: false, autoCloseBrackets: true, matchBrackets: true};
+
+  EDITORS.html = CodeMirror.fromTextArea(document.getElementById('html-editor'), {
+    ...common, mode: 'text/html', value: localStorage.getItem('bs_html') || ''
+  });
+  EDITORS.css = CodeMirror.fromTextArea(document.getElementById('css-editor'), {
+    ...common, mode: 'css', value: localStorage.getItem('bs_css') || ''
+  });
+  EDITORS.js = CodeMirror.fromTextArea(document.getElementById('js-editor'), {
+    ...common, mode: 'javascript', value: localStorage.getItem('bs_js') || ''
+  });
+
+  // Dirty tracking
+  [EDITORS.html, EDITORS.css, EDITORS.js].forEach((ed, i) => {
+    ed.on('change', () => {
+      const key = ['bs_html','bs_css','bs_js'][i];
+      localStorage.setItem(key, ed.getValue());
+      setDirty(true);
+      schedulePreview();
+    });
+    ed.on('cursorActivity', () => {
+      const cursor = ed.getCursor();
+      document.getElementById('cursor-pos').textContent = `Ln ${cursor.line + 1}, Col ${cursor.ch + 1}`;
+    });
+  });
+
+  // Auto-save to localStorage
+  setInterval(() => {
+    if (isDirty) {
+      localStorage.setItem('bs_html', EDITORS.html.getValue());
+      localStorage.setItem('bs_css', EDITORS.css.getValue());
+      localStorage.setItem('bs_js', EDITORS.js.getValue());
+      setStatus('Autoguardado local', 'saved');
+    }
+  }, 5000);
+
+  setStatus('Editores cargados', 'saved');
+}
+
+// ============================================================
+// PREVIEW
+// ============================================================
+let previewTimer = null;
+function schedulePreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(runPreview, 1500);
+}
+
+function runPreview() {
+  if (currentTab !== 'preview') return;
+  const html = buildFullHTML();
+  const iframe = document.getElementById('preview');
+  iframe.srcdoc = html;
+
+  // Capture console errors
+  iframe.onload = () => {
+    try {
+      const errs = [];
+      iframe.contentWindow.console.error = (...args) => {
+        errs.push(args.join(' '));
+        addConsole('ERROR: ' + args.join(' '));
+      };
+      iframe.contentWindow.console.warn = (...args) => {
+        errs.push(args.join(' '));
+        addConsole('WARN: ' + args.join(' '));
+      };
+    } catch(e) {}
+  };
+}
+
+function buildFullHTML() {
+  const body = EDITORS.html.getValue();
+  const css = EDITORS.css.getValue();
+  const js = EDITORS.js.getValue();
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Biker Society</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>${css}</style>
+</head>
+<body>
+${body}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<script>
+${js}
+<\/script>
+</body>
+</html>`;
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else document.querySelector(`.tab-btn[onclick*="${tab}"]`)?.classList.add('active');
+
+  currentTab = tab;
+  document.getElementById('pane-html').style.display = tab === 'html' ? 'flex' : 'none';
+  document.getElementById('pane-css').style.display = tab === 'css' ? 'flex' : 'none';
+  document.getElementById('pane-js').style.display = tab === 'js' ? 'flex' : 'none';
+  document.getElementById('pane-preview').style.display = tab === 'preview' ? 'flex' : 'none';
+  document.getElementById('pane-preview').style.borderLeft = tab === 'preview' ? 'none' : '';
+
+  if (tab === 'preview') {
+    setTimeout(runPreview, 100);
+  }
+
+  [EDITORS.html, EDITORS.css, EDITORS.js].forEach(e => e.refresh());
+}
+
+// ============================================================
+// HEYVALUE CLOUD SYNC
+// ============================================================
+async function hv(method, path, body, isText) {
+  if (!USER || !PASS) { toast('Configura HeyValue primero'); return null; }
+  const opts = {method, headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}};
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = isText ? body : JSON.stringify(body);
+  }
+  try {
+    const r = await fetch(BASE + '/remote.php/dav/files/' + USER + path, opts);
+    if (r.status === 207) return {ok:true, data: await r.json()};
+    if (r.status === 204 || r.status === 201) return {ok:true};
+    const t = await r.text();
+    return {ok:false, error: t.substring(0,200)};
+  } catch(e) { return {ok:false, error: e.message}; }
+}
+
+async function mkcol(path) {
+  await hv('MKCOL', path);
+}
+
+async function saveToCloud() {
+  if (!USER) { toast('Sin usuario HeyValue'); return; }
+  setStatus('Guardando...', 'saving');
+  try {
+    await mkcol(DIR);
+    await mkcol(DIR + '/assets');
+
+    const html = EDITORS.html.getValue();
+    const css = EDITORS.css.getValue();
+    const js = EDITORS.js.getValue();
+    const full = buildFullHTML();
+
+    // Save parts
+    const r1 = await fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/body.html', {
+      method: 'PUT', body: html,
+      headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+    });
+
+    const r2 = await fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/style.css', {
+      method: 'PUT', body: css,
+      headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+    });
+
+    const r3 = await fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/script.js', {
+      method: 'PUT', body: js,
+      headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+    });
+
+    // Save full preview
+    const r4 = await fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/index.html', {
+      method: 'PUT', body: full,
+      headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+    });
+
+    if (r1.ok && r2.ok && r3.ok && r4.ok) {
+      setDirty(false);
+      setStatus('Guardado en HeyValue ☁️', 'saved');
+      toast('Guardado en la nube!');
+    } else {
+      throw new Error('Some files failed');
+    }
+  } catch(e) {
+    setStatus('Error al guardar', 'error');
+    toast('Error: ' + e.message);
+  }
+}
+
+async function loadFromCloud() {
+  if (!USER) { toast('Sin usuario HeyValue'); return; }
+  setStatus('Cargando...', 'saving');
+  try {
+    const [html, css, js] = await Promise.all([
+      fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/body.html', {
+        headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+      }).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/style.css', {
+        headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+      }).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(BASE + '/remote.php/dav/files/' + USER + DIR + '/script.js', {
+        headers: {'Authorization': 'Basic ' + btoa(USER + ':' + PASS)}
+      }).then(r => r.ok ? r.text() : '').catch(() => '')
+    ]);
+
+    if (html || css || js) {
+      EDITORS.html.setValue(html);
+      EDITORS.css.setValue(css);
+      EDITORS.js.setValue(js);
+      localStorage.setItem('bs_html', html);
+      localStorage.setItem('bs_css', css);
+      localStorage.setItem('bs_js', js);
+      setStatus('Cargado desde HeyValue ☁️', 'saved');
+      toast('Archivos cargados desde la nube!');
+    } else {
+      toast('No se encontraron archivos en la nube');
+      setStatus('Sin archivos remotos', 'saved');
+    }
+  } catch(e) {
+    toast('Error al cargar: ' + e.message);
+    setStatus('Error de carga', 'error');
+  }
+}
+
+// ============================================================
+// CLOUD CONNECTION CHECK
+// ============================================================
+async function checkCloud() {
+  if (!USER || !PASS) {
+    document.getElementById('sync-status').textContent = '⚠️ Sin HeyValue';
+    return;
+  }
+  try {
+    const r = await fetch(BASE + '/status.php');
+    if (r.ok) {
+      document.getElementById('sync-status').textContent = '☁️ HeyValue conectado';
+      document.getElementById('sync-status').style.color = '#22c55e';
+    }
+  } catch(e) {
+    document.getElementById('sync-status').textContent = '⚠️ HeyValue offline';
+  }
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function setDirty(val) {
+  isDirty = val;
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot ' + (val ? 'saving' : 'saved');
+  document.getElementById('status-text').textContent = val ? 'Sin guardar' : 'Guardado';
+}
+
+function setStatus(msg, type) {
+  document.getElementById('status-text').textContent = msg;
+  document.getElementById('status-dot').className = 'status-dot ' + type;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function addConsole(msg) {
+  if (!consoleVisible) return;
+  const c = document.getElementById('console');
+  c.classList.add('show');
+  c.innerHTML += '<div class="console-line">' + msg + '</div>';
+  c.scrollTop = c.scrollHeight;
+}
+
+function toggleConsole() {
+  consoleVisible = !consoleVisible;
+  document.getElementById('console').classList.toggle('show', consoleVisible);
+}
+
+function beautify() {
+  const ed = EDITORS[currentTab];
+  if (!ed || currentTab === 'preview') return;
+  // Simple indent
+  let val = ed.getValue();
+  if (currentTab === 'html') {
+    // Basic HTML formatting
+    val = val.replace(/></g, '>\n<');
+  } else if (currentTab === 'css') {
+    val = val.replace(/\{/g, ' {\n').replace(/\}/g, '\n}\n').replace(/;\s*/g, ';\n');
+  }
+  ed.setValue(val);
+}
+
+function downloadZip() {
+  // Download each file individually
+  const files = [
+    {name: 'body.html', content: EDITORS.html.getValue()},
+    {name: 'style.css', content: EDITORS.css.getValue()},
+    {name: 'script.js', content: EDITORS.js.getValue()},
+    {name: 'index.html', content: buildFullHTML()}
+  ];
+  files.forEach(f => {
+    const blob = new Blob([f.content], {type: 'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = f.name;
+    a.click();
+  });
+  toast('Descarga iniciada!');
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  initEditors();
+  checkCloud();
+  // Try to load from cloud on startup
+  if (USER) loadFromCloud();
+});
+</script>
+</body>
+</html>
