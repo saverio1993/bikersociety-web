@@ -255,7 +255,7 @@ async function syncFromCloud() {
 // APP INIT
 // ============================================================
 function initApp() {
-  // Load from localStorage first
+  // Load from localStorage first - USE SEED AS ABSOLUTE FALLBACK
   STATE.users = ls('bs_users') || [...SEED_USERS];
   STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
   STATE.events = ls('bs_events') || [...SEED_EVENTS];
@@ -270,25 +270,20 @@ function initApp() {
   STATE.attendance = ls('bs_att') || [];
   STATE.user = ls('bs_session');
 
-  // Sync in background
-  if (HV.user) {
-    syncFromCloud().then(() => {
-      renderPage(STATE.currentPage);
-      syncToCloud();
-    });
-  }
+  // ALWAYS show UI immediately - no waiting for HeyValue
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('topbar').style.display = 'flex';
+  document.getElementById('bottomnav').style.display = 'flex';
 
-  // Show appropriate screen
-  setTimeout(() => {
-    document.getElementById('splash').style.display = 'none';
-    document.getElementById('topbar').style.display = 'flex';
-    document.getElementById('bottomnav').style.display = 'flex';
-    if (STATE.user) {
-      navigate('inicio');
-    } else {
-      showLogin();
+  if (STATE.user) {
+    navigate('inicio');
+    // Sync HeyValue in background - non-blocking
+    if (HV.user) {
+      syncFromCloud().then(() => { saveState(); });
     }
-  }, 1500);
+  } else {
+    showLogin();
+  }
 }
 
 function saveState() {
