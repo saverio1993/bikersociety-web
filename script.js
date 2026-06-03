@@ -1,3 +1,4 @@
+
 // ============================================================
 // STATE & CONFIG
 // ============================================================
@@ -231,7 +232,7 @@ async function syncFromCloud() {
   let loaded = false;
   for (const t of tables) {
     const data = await loadFromHV(t);
-    if (data && Array.isArray(data) && data.length > 0) { STATE[t] = data; loaded = true; }
+    if (data && Array.isArray(data)) { STATE[t] = data; loaded = true; }
   }
   if (loaded) {
     STATE.users = STATE.users.length ? STATE.users : [...SEED_USERS];
