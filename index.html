@@ -480,6 +480,16 @@ a{color:inherit;text-decoration:none}
   border-color:rgba(255,59,59,0.3);
   box-shadow:0 4px 20px rgba(0,0,0,0.3);
 }
+.racing-card:hover{
+  border-color:rgba(255,68,68,0.2);
+  box-shadow:0 8px 32px rgba(0,0,0,0.4),0 0 0 1px rgba(255,68,68,0.08);
+  transform:translateY(-1px);
+  transition:all 0.3s;
+}
+@keyframes audioPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.06)}
+}
 .post-header{padding:12px 16px;display:flex;align-items:center;gap:10px}
 .post-avatar{
   width:38px;height:38px;border-radius:50%;
@@ -3495,14 +3505,26 @@ function removeAdminAward(id) {
 // ============================================================
 // BIKERGRAM PAGE
 // ============================================================
-let GRAM_SORT = 'newest'; // newest | popular | commented
+ let GRAM_SORT = 'newest'; // newest | popular | commented
 
 function renderBikerGram() {
-  // Count media types
   const photos = STATE.posts.filter(p => p.media_type === 'image' || p.image_url).length;
   const videos = STATE.posts.filter(p => p.media_type === 'video').length;
   const audios = STATE.posts.filter(p => p.media_type === 'audio').length;
   const totalPosts = STATE.posts.length;
+
+  // Build stories: users with at least one media post in last 7 days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const storyUsers = {};
+  STATE.posts.forEach(p => {
+    if ((p.media_type === 'image' || p.media_type === 'video') && new Date(p.created_at) > sevenDaysAgo) {
+      if (!storyUsers[p.user_id]) {
+        const u = STATE.users.find(x => x.id === p.user_id);
+        if (u) storyUsers[p.user_id] = { user: u, post: p };
+      }
+    }
+  });
+  const storyList = Object.values(storyUsers);
 
   // Sort posts
   let posts = [...STATE.posts];
@@ -3510,58 +3532,67 @@ function renderBikerGram() {
   else if (GRAM_SORT === 'commented') posts.sort((a,b) => (b.comments?.length||0) - (a.comments?.length||0));
   else posts.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
-  // Group by day
-  const groups = {};
-  posts.forEach(p => {
-    const d = new Date(p.created_at);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    const yesterday = new Date(now); yesterday.setDate(now.getDate()-1);
-    const isYesterday = d.toDateString() === yesterday.toDateString();
-    const key = isToday ? 'Hoy' : isYesterday ? 'Ayer' : d.toLocaleDateString('es-ES', {day:'numeric',month:'short'});
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(p);
-  });
-
   document.getElementById('page-bikergram').innerHTML = `
     <!-- Header -->
-    <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div>
-        <div style="font-size:20px;font-weight:800;display:flex;align-items:center;gap:8px">
-          📷 BikerGram
-          ${totalPosts > 0 ? `<span style="font-size:12px;font-weight:600;color:var(--accent);background:rgba(0,212,255,0.1);padding:2px 8px;border-radius:20px;border:1px solid rgba(0,212,255,0.2)">${totalPosts}</span>` : ''}
+        <div style="font-size:20px;font-weight:900;letter-spacing:-0.5px">
+          <span style="background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Biker</span><span style="color:#fff">Gram</span>
         </div>
-        <div style="font-size:11px;color:var(--text2);margin-top:3px">
-          📷 ${photos} fotos · 🎬 ${videos} videos · 🎵 ${audios} audios
-        </div>
+        ${totalPosts > 0 ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">📷 ${photos} · 🎬 ${videos} · 🎵 ${audios}</div>` : ''}
       </div>
-      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px;font-weight:700" onclick="createPost()">+ Publicar</button>
+      <button onclick="createPost()" style="width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff4444,#ff8800);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(255,68,68,0.4);flex-shrink:0">+</button>
     </div>
+
+    <!-- Stories bar -->
+    ${storyList.length > 0 || STATE.user ? `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;gap:10px;overflow-x:auto;padding:4px 2px;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain">
+        ${STATE.user ? `
+        <!-- Add story button -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="createPost()">
+          <div style="width:62px;height:62px;border-radius:50%;background:rgba(255,68,68,0.15);border:2px dashed rgba(255,68,68,0.4);display:flex;align-items:center;justify-content:center;font-size:24px">+</div>
+          <div style="font-size:10px;color:var(--text3);text-align:center;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Tu story</div>
+        </div>` : ''}
+        ${storyList.map(s => `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="viewStoryUser(${s.user.id})">
+            <div style="width:64px;height:64px;border-radius:50%;padding:3px;background:${s.user.is_admin ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'linear-gradient(135deg,#ff4444,#ff8800)'};display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,68,68,0.3)">
+              <div style="width:100%;height:100%;border-radius:50%;border:3px solid #0a0a0a;overflow:hidden;background:var(--surface)">
+                ${s.post.media_type === 'image' || s.post.image_url ? `<img src="${s.post.media_url || s.post.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.2))">🎬</div>`}
+              </div>
+            </div>
+            <div style="font-size:10px;color:var(--text3);text-align:center;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.user.username}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ` : ''}
 
     <!-- Sort tabs -->
     <div style="display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px">
-      <button onclick="setGramSort('newest')" style="flex:1;padding:6px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='newest'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='newest'?'#fff':'var(--text3)'}" >Recientes</button>
-      <button onclick="setGramSort('popular')" style="flex:1;padding:6px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='popular'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='popular'?'#fff':'var(--text3)'}" >🔥 Populares</button>
-      <button onclick="setGramSort('commented')" style="flex:1;padding:6px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='commented'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='commented'?'#fff':'var(--text3)'}" >💬 Comentados</button>
+      <button onclick="setGramSort('newest')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='newest'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='newest'?'#fff':'var(--text3)'}">Recientes</button>
+      <button onclick="setGramSort('popular')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='popular'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='popular'?'#fff':'var(--text3)'}">🔥 Populares</button>
+      <button onclick="setGramSort('commented')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='commented'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='commented'?'#fff':'var(--text3)'}">💬 Comentados</button>
     </div>
 
     <!-- Feed -->
     <div id="bikergram-feed">
       ${totalPosts === 0 ? `
         <div class="empty-state">
-          <div class="empty-icon">📷</div>
-          <div>No hay publicaciones todavia</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:6px">Comparte tu primera foto, video o cancion</div>
-          <button class="btn btn-primary" style="margin-top:12px" onclick="createPost()">Crear publicacion</button>
+          <div style="font-size:48px;margin-bottom:12px">🏍️</div>
+          <div style="font-size:15px;font-weight:700">No hay publicaciones todavia</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:6px">El primer rider en publicar marca el camino</div>
+          <button class="btn btn-primary" style="margin-top:14px;padding:10px 24px" onclick="createPost()">Crear publicacion</button>
         </div>
-      ` : Object.entries(groups).map(([day, dayPosts]) => `
-        <div style="margin-bottom:16px">
-          <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-left:2px">${day}</div>
-          ${dayPosts.map(p => renderPost(p)).join('')}
-        </div>
-      `).join('')}
+      ` : posts.map(p => renderRacingPost(p)).join('')}
     </div>
   `;
+}
+
+function viewStoryUser(userId) {
+  // Filter feed to show posts from this user only
+  STATE.gramFilterUser = userId;
+  renderBikerGram();
 }
 
 function setGramSort(s) {
@@ -3654,6 +3685,120 @@ function renderPost(p) {
           ${STATE.user ? renderAvatar(STATE.user, 26) : '<div style="width:26px;height:26px;border-radius:50%;background:var(--surface2)"></div>'}
           <input class="input" style="margin:0;flex:1;font-size:12px;padding:6px 10px" id="cmt-${p.id}" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter')addComment(${p.id})">
           <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;flex-shrink:0" onclick="addComment(${p.id})">→</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// RACING POST — large card design for Gram feed
+// ============================================================
+function renderRacingPost(p) {
+  const author = STATE.users.find(u => u.id === p.user_id) || {username:'?', bike_model:'', id:0};
+  const likes = p.likes || [];
+  const comments = p.comments || [];
+  const isLiked = STATE.user && likes.includes(String(STATE.user.id));
+  const isMyPost = STATE.user && STATE.user.id === p.user_id;
+  const mediaType = p.media_type || (p.image_url ? 'image' : null);
+  const url = p.media_url || p.image_url;
+  const hasMedia = !!url;
+  const time = timeAgo(p.created_at);
+
+  // Type badge
+  const typeConfig = {
+    image: { emoji: '📷', label: 'FOTO', color: '#ff4444' },
+    video: { emoji: '🎬', label: 'VIDEO', color: '#3b82f6' },
+    audio: { emoji: '🎵', label: 'AUDIO', color: '#22c55e' },
+  };
+  const tc = typeConfig[mediaType] || null;
+
+  return `
+    <div class="racing-card vanish" style="margin-bottom:16px;border-radius:20px;overflow:hidden;background:var(--surface);border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 24px rgba(0,0,0,0.3)">
+
+      <!-- Media: full-width hero image / video -->
+      ${hasMedia ? `
+      <div style="position:relative;background:#000;overflow:hidden;max-height:420px">
+        ${mediaType === 'video' ? `
+          <video src="${url}" controls preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline></video>
+        ` : mediaType === 'audio' ? `
+          <div style="padding:24px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.15));border-bottom:1px solid rgba(255,255,255,0.06)">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;animation:audioPulse 2s ease-in-out infinite;box-shadow:0 0 20px rgba(255,68,68,0.3)">🎵</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Audio compartido</div>
+                <div style="font-size:11px;color:var(--text2)">${author.username} · ${time}</div>
+              </div>
+            </div>
+            <audio src="${url}" controls preload="metadata" style="width:100%;margin-top:14px;height:36px"></audio>
+          </div>
+        ` : `
+          <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:420px;object-fit:cover;background:#000" onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:#888;font-size:13px\\'>Imagen no disponible</div>'">
+        `}
+
+        <!-- Gradient overlay at bottom of image -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(to top,rgba(0,0,0,0.8),transparent);pointer-events:none"></div>
+
+        <!-- Type badge top-left -->
+        ${tc ? `<div style="position:absolute;top:10px;left:10px;background:${tc.color}cc;color:#fff;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:800;backdrop-filter:blur(8px);letter-spacing:0.5px">${tc.emoji} ${tc.label}</div>` : ''}
+
+        <!-- Delete button top-right (own post) -->
+        ${isMyPost ? `<button onclick="event.stopPropagation();deletePost(${p.id})" style="position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,0.6);border:none;color:#fff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)">🗑️</button>` : ''}
+      </div>
+      ` : ''}
+
+      <!-- Author info bar (for text-only posts) -->
+      ${!hasMedia ? `
+      <div style="padding:14px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${renderAvatar(author, 42)}</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:14px;font-weight:700;cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${author.username}</span>
+            ${author.is_admin ? '<span style="font-size:9px;padding:1px 6px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:10px;font-weight:800">ADMIN</span>' : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${time}</div>
+        </div>
+      </div>` : ''}
+
+      <!-- Content text (if any) -->
+      ${p.content ? `
+      <div style="padding:${hasMedia ? '12px 16px 8px' : '0 16px 12px'}">
+        <div style="font-size:14px;line-height:1.5;color:var(--text)">${p.content}</div>
+      </div>` : (hasMedia ? `<div style="padding:0 16px 4px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0">
+          <div style="cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${renderAvatar(author, 32)}</div>
+          <div>
+            <span style="font-size:13px;font-weight:700;cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${author.username}</span>
+            ${author.is_admin ? '<span style="font-size:9px;padding:1px 5px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:8px;font-weight:800;margin-left:4px">ADMIN</span>' : ''}
+          </div>
+          <span style="font-size:11px;color:var(--text3);margin-left:auto">${time}</span>
+        </div>
+      </div>` : '')}
+
+      <!-- Engagement bar -->
+      <div style="padding:8px 16px 14px;display:flex;align-items:center;gap:4px">
+        <button onclick="toggleLike(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;background:${isLiked?'linear-gradient(135deg,rgba(255,68,68,0.25),rgba(255,136,0,0.2))':'rgba(255,255,255,0.04)'};color:${isLiked?'#ff4444':'var(--text2)'}">
+          ${isLiked ? '❤️' : '🤍'} <span>${likes.length > 0 ? likes.length + ' likes' : 'Me gusta'}</span>
+        </button>
+        <button onclick="showComments(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,0.04);color:var(--text2);transition:all 0.2s">
+          💬 <span>${comments.length > 0 ? comments.length + ' com.' : 'Comentar'}</span>
+        </button>
+        <button onclick="sharePost(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,0.04);color:var(--text2);transition:all 0.2s">
+          📤 <span>Compartir</span>
+        </button>
+      </div>
+
+      <!-- Comments (collapsed by default) -->
+      <div id="comments-${p.id}" style="padding:0 16px 12px;display:none">
+        ${comments.length > 0 ? comments.slice(0,3).map(c => {
+          const cu = STATE.users.find(u => u.id === c.user_id) || {username:'?', id:0};
+          return `<div style="font-size:12px;margin-bottom:8px"><b style="color:var(--accent)">${cu.username}</b> <span style="color:var(--text2)">${c.content}</span></div>`;
+        }).join('') : ''}
+        ${comments.length > 3 ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Ver los ${comments.length} comentarios</div>` : ''}
+        <div style="display:flex;gap:6px;margin-top:4px;border-top:1px solid rgba(255,255,255,0.05);padding-top:10px">
+          ${STATE.user ? renderAvatar(STATE.user, 26) : '<div style="width:26px;height:26px;border-radius:50%;background:var(--surface2);flex-shrink:0"></div>'}
+          <input class="input" style="margin:0;flex:1;font-size:12px;padding:7px 10px" id="cmt-${p.id}" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter')addComment(${p.id})">
+          <button class="btn btn-primary" style="padding:7px 12px;font-size:12px;flex-shrink:0" onclick="addComment(${p.id})">→</button>
         </div>
       </div>
     </div>
