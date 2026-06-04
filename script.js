@@ -1427,12 +1427,15 @@ function renderProfile() {
     <div class="vanish" style="animation-delay:0.1s">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">MIS INSIGNIAS</div>
       <div class="badge-grid">
-        ${STATE.badges.map(b => `
-          <div class="badge-item ${earned.includes(b.id) ? 'earned' : ''}" title="${b.description}">
-            <div class="badge-icon">${b.icon}</div>
+        ${earned.map(id => {
+          const b = STATE.badges.find(x => x.id === id);
+          if (!b) return '';
+          return `<div class="badge-item earned" title="${b.description}">
+            <div class="badge-icon">${b.icon || ''}</div>
             <div class="badge-name">${b.name}</div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
+        ${earned.length === 0 ? '<div style="color:var(--text2);font-size:13px;text-align:center;padding:16px">Aún no tienes insignias. ¡Sigue rodando!</div>' : ''}
       </div>
     </div>
 
