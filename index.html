@@ -1196,11 +1196,12 @@ a{color:inherit;text-decoration:none}
 // ============================================================
 const HV = {
   url: 'https://cloud.heyvalue.com',
-  user: localStorage.getItem('hv_user') || '',
-  pass: localStorage.getItem('hv_pass') || '',
-  hvPath: localStorage.getItem('hv_path') || '', // WebDAV folder path (UUID)
+  user: 'saveriomanrrique19@gmail.com',
+  pass: 'Lozano1993@',
+  hvPath: '8202944a-6bb4-49f3-9e06-a4a5849813f2',
   syncKey: 'biker_v1',
-  gramFolder: 'RuedeGram'
+  gramFolder: 'RuedeGram',
+  connected: false
 };
 
 const STATE = {
@@ -1914,14 +1915,31 @@ function initApp() {
 
   if (STATE.user) {
     navigate('inicio');
-    // Sync HeyValue in background - non-blocking
-    if (HV.user) {
-      syncFromCloud().then(() => { saveState(); });
-    }
-    // Evaluate badges for all users on load
-    evaluateAllBadges();
   } else {
     showLogin();
+  }
+
+  // Auto-connect HeyValue in background — non-blocking
+  autoConnectHeyValue();
+
+  // Evaluate badges for all users on load
+  evaluateAllBadges();
+}
+
+async function autoConnectHeyValue() {
+  if (!HV.user || !HV.pass) return;
+  try {
+    // Ensure Gram folders exist
+    await hvRequest('MKCOL', '/' + HV.gramFolder);
+    await hvRequest('MKCOL', '/' + HV.gramFolder + '/photos');
+    await hvRequest('MKCOL', '/' + HV.gramFolder + '/videos');
+    await hvRequest('MKCOL', '/' + HV.gramFolder + '/audio');
+    HV.connected = true;
+    // Sync data from cloud
+    await syncFromCloud();
+    saveState();
+  } catch(e) {
+    console.warn('HeyValue auto-connect failed:', e.message);
   }
 }
 
@@ -1939,7 +1957,7 @@ function saveState() {
   ls('bs_notif', STATE.notifications);
   ls('bs_att', STATE.attendance);
   ls('bs_places', STATE.places);
-  if (HV.user) syncToCloud();
+  if (HV.connected) syncToCloud();
 }
 
 // ============================================================
@@ -2206,13 +2224,15 @@ function showMoreMenu() {
 
     <!-- Sincronizacion -->
     <div class="fpanel-section-label">SINCRONIZACION</div>
-    <div class="fpanel-item" onclick="closeFpanel();showHVSetup()">
-      <div class="fpanel-item-icon">☁️</div>
+    <div class="fpanel-item" style="cursor:default">
+      <div class="fpanel-item-icon" style="${HV.connected ? 'background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3)' : 'background:rgba(255,136,0,0.15);border-color:rgba(255,136,0,0.3)'}">
+        ${HV.connected ? '✅' : '☁️'}
+      </div>
       <div class="fpanel-item-text">
         <span class="fpanel-item-label">HeyValue Cloud</span>
-        <span class="fpanel-item-sub">${HV.user ? 'Conectado como ' + HV.user : 'Conectar cuenta'}</span>
+        <span class="fpanel-item-sub">${HV.connected ? 'Conectado · Gram en la nube' : 'Conectando...'}</span>
       </div>
-      <span class="fpanel-item-arrow">→</span>
+      ${HV.connected ? '<span style="font-size:10px;color:#22c55e;font-weight:700">OK</span>' : ''}
     </div>
 
     ${isAdmin ? `
