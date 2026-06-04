@@ -1701,8 +1701,9 @@ function renderAvatar(user, size = 64) {
   const c1 = avatarColor(user.id);
   const c2 = avatarColor((user.id || 0) + 1);
   const style = `width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.36)}px;font-weight:900;color:#fff;overflow:hidden;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.25)`;
-  if (user.avatar) {
-    return `<div style="${style}"><img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
+  const pic = user.avatar || user.profile_pic;
+  if (pic) {
+    return `<div style="${style}"><img src="${pic}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
   }
   return `<div style="${style}">${avatarText(user.username)}</div>`;
 }
@@ -1715,6 +1716,83 @@ function fileToDataUrl(file) {
     r.onerror = reject;
     r.readAsDataURL(file);
   });
+}
+
+async function handleProfilePicChange(e) {
+  const file = e.target.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  e.target.value = '';
+
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+  toast(`Subiendo foto (${sizeMB}MB)...`);
+
+  try {
+    // Compress to 400x400 for avatar
+    const compressed = await compressImage(file, 400, 0.8);
+    const dataUrl = compressed || await fileToDataUrl(file);
+
+    let avatarUrl = dataUrl;
+
+    // Upload to HeyValue
+    if (HV.user && HV.pass) {
+      const hvPath = HV.hvPath || HV.user;
+      const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
+      const fullPath = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
+
+      // Also upload with auth header for upload
+      const uploadPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
+
+      // Ensure folder exists
+      try {
+        await fetch(uploadPath, {
+          method: 'PUT',
+          headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
+          body: dataURLtoBlob(dataUrl)
+        });
+        avatarUrl = fullPath;
+      } catch(hvErr) {
+        console.warn('HeyValue upload failed, using local URL:', hvErr);
+      }
+    }
+
+    // Update user in STATE
+    STATE.user.avatar = avatarUrl;
+    STATE.user.profile_pic = avatarUrl;
+    const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+    if (idx >= 0) {
+      STATE.users[idx].avatar = avatarUrl;
+      STATE.users[idx].profile_pic = avatarUrl;
+    }
+    saveState();
+    toast('Foto actualizada!');
+
+    // Refresh profile view
+    renderProfile();
+
+    // Refresh current page (avatars everywhere update)
+    const currentPage = document.querySelector('.page[style*="block"], #main-content .page[style*="flex"]') ||
+                       document.querySelector('[id^="page-"]:not([style*="none"])');
+    if (currentPage) {
+      const pageId = currentPage.id;
+      if (pageId === 'page-inicio') renderInicio();
+      else if (pageId === 'page-rutas') renderRutas();
+      else if (pageId === 'page-bikergram') renderBikerGram();
+      else if (pageId === 'page-profile') renderProfile();
+    }
+
+  } catch(err) {
+    toast('Error al subir foto: ' + err.message);
+  }
+}
+
+function dataURLtoBlob(dataUrl) {
+  const [header, data] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const bytes = atob(data);
+  const buf = new ArrayBuffer(bytes.length);
+  const arr = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([buf], { type: mime });
 }
 
 // Compress image to fit a max dimension (keeps localStorage manageable)
@@ -1921,6 +1999,9 @@ async function autoConnectHeyValue() {
     await hvRequest('MKCOL', '/' + HV.gramFolder + '/photos');
     await hvRequest('MKCOL', '/' + HV.gramFolder + '/videos');
     await hvRequest('MKCOL', '/' + HV.gramFolder + '/audio');
+    // Ensure profile photos folder
+    await hvRequest('MKCOL', '/BikerApp');
+    await hvRequest('MKCOL', '/BikerApp/profiles');
     HV.connected = true;
     // Sync data from cloud
     await syncFromCloud();
@@ -4609,8 +4690,10 @@ function renderProfile() {
 
   document.getElementById('page-profile').innerHTML = `
     <div style="text-align:center;margin-bottom:24px">
-      <div style="margin:0 auto 12px;display:flex;justify-content:center">
+      <div style="margin:0 auto 12px;display:flex;justify-content:center;position:relative;width:96px">
         ${renderAvatar(u, 96)}
+        <button onclick="document.getElementById('profile-pic-input').click()" style="position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff2020,#ff6600);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3)">📷</button>
+        <input type="file" id="profile-pic-input" accept="image/*" style="display:none" onchange="handleProfilePicChange(event)">
       </div>
       <div style="font-size:20px;font-weight:800">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
       <div style="color:var(--text2);font-size:13px">${u.email}</div>
