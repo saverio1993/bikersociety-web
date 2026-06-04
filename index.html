@@ -129,6 +129,111 @@ a{color:inherit;text-decoration:none}
   box-shadow:0 0 16px var(--glow);
 }
 
+/* ===== FLOATING MORE PANEL ===== */
+.fpanel-overlay{
+  position:fixed;inset:0;z-index:2000;
+  background:rgba(0,0,0,0);pointer-events:none;
+  transition:background 0.3s;
+}
+.fpanel-overlay.open{
+  background:rgba(0,0,0,0.6);pointer-events:auto;
+  backdrop-filter:blur(4px);
+}
+.fpanel{
+  position:fixed;top:0;right:0;bottom:0;
+  width:min(320px,88vw);
+  background:rgba(8,8,12,0.98);
+  border-left:1px solid rgba(0,212,255,0.2);
+  z-index:2001;
+  transform:translateX(100%);
+  transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;
+  box-shadow:-8px 0 40px rgba(0,212,255,0.15);
+  overflow:hidden;
+}
+.fpanel.open{transform:translateX(0)}
+
+.fpanel-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 20px 16px;
+  border-bottom:1px solid rgba(0,212,255,0.1);
+  background:linear-gradient(180deg,rgba(0,212,255,0.08),transparent);
+}
+.fpanel-header-title{
+  font-size:17px;font-weight:800;
+  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.fpanel-close{
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  color:#888;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:16px;transition:all 0.2s;flex-shrink:0;
+}
+.fpanel-close:hover{background:rgba(255,68,68,0.2);border-color:rgba(255,68,68,0.4);color:#ff4444}
+
+.fpanel-body{flex:1;overflow-y:auto;padding:12px 16px 100px;overscroll-behavior:contain}
+.fpanel-body::-webkit-scrollbar{width:4px}
+.fpanel-body::-webkit-scrollbar-track{background:transparent}
+.fpanel-body::-webkit-scrollbar-thumb{background:rgba(0,212,255,0.2);border-radius:2px}
+
+.fpanel-section{margin-bottom:8px}
+.fpanel-section-label{
+  font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:rgba(0,212,255,0.5);padding:8px 8px 4px;margin-top:4px;
+}
+
+.fpanel-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 10px;border-radius:12px;
+  cursor:pointer;transition:all 0.2s;
+  color:var(--text2);font-size:14px;font-weight:500;
+  border:none;background:none;width:100%;text-align:left;
+}
+.fpanel-item:hover{background:rgba(0,212,255,0.08);color:var(--accent)}
+.fpanel-item:active{transform:scale(0.98)}
+.fpanel-item-icon{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
+  transition:all 0.2s;
+}
+.fpanel-item:hover .fpanel-item-icon{
+  background:rgba(0,212,255,0.15);
+  border-color:rgba(0,212,255,0.3);
+  box-shadow:0 0 12px rgba(0,212,255,0.2);
+}
+.fpanel-item-text{flex:1;min-width:0}
+.fpanel-item-label{font-size:14px;font-weight:600;display:block}
+.fpanel-item-sub{font-size:11px;color:var(--text3);display:block;margin-top:1px}
+.fpanel-item-arrow{font-size:12px;color:var(--text3);margin-left:auto}
+
+.fpanel-divider{height:1px;background:rgba(255,255,255,0.06);margin:8px 0}
+
+/* Submenu in panel */
+.fpanel-submenu{
+  margin:4px 0 8px;
+  background:rgba(0,0,0,0.3);
+  border:1px solid rgba(0,212,255,0.08);
+  border-radius:14px;
+  overflow:hidden;
+  padding:6px;
+}
+.fpanel-subitem{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 8px;border-radius:10px;
+  cursor:pointer;transition:all 0.2s;
+  color:var(--text2);font-size:13px;font-weight:500;
+  border:none;background:none;width:100%;text-align:left;
+}
+.fpanel-subitem:hover{background:rgba(168,85,247,0.1);color:#a855f7}
+.fpanel-subitem-icon{font-size:16px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);flex-shrink:0}
+
+/* Danger item */
+.fpanel-item.danger:hover{background:rgba(255,68,68,0.08);color:#ff4444}
+.fpanel-item.danger .fpanel-item-icon{background:rgba(255,68,68,0.1)}
+
 /* ===== BOTTOM NAV ===== */
 .bottomnav{
   position:fixed;bottom:0;left:0;right:0;
@@ -1066,6 +1171,18 @@ a{color:inherit;text-decoration:none}
   <div class="modal-content" id="modal-content"></div>
 </div>
 
+<!-- FLOATING MORE PANEL -->
+<div class="fpanel-overlay" id="fpanel-overlay" onclick="closeFpanel()"></div>
+<div class="fpanel" id="fpanel">
+  <div class="fpanel-header">
+    <div class="fpanel-header-title">Más Opciones</div>
+    <button class="fpanel-close" onclick="closeFpanel()">✕</button>
+  </div>
+  <div class="fpanel-body" id="fpanel-body">
+    <!-- populated by showMoreMenu() -->
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1992,15 +2109,115 @@ async function loadNews() {
 // MORE MENU
 // ============================================================
 function showMoreMenu() {
-  const isAdmin = STATE.user && STATE.user.is_admin;
-  openModal('Mas opciones', `
-    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('retos')">🏆 Retos y Desafios</button>
-    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('insignias')">🎖️ Insignias</button>
-    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('profile')">👤 Mi Perfil</button>
-    <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();showHVSetup()">☁️ HeyValue Cloud</button>
-    ${isAdmin ? '<button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate(\'admin\')">⚙️ Admin</button>' : ''}
-    <button class="btn btn-ghost" style="width:100%" onclick="closeModal();logout()">🚪 Cerrar sesion</button>
-  `);
+  const u = STATE.user;
+  const isAdmin = !!(u && u.is_admin);
+  const isLoggedIn = !!u;
+  const lv = isLoggedIn ? levelOf(u.points) : 0;
+  const next = isLoggedIn ? nextLevel(u.points) : 0;
+
+  const body = document.getElementById('fpanel-body');
+  body.innerHTML = `
+    ${isLoggedIn ? `
+    <!-- User summary -->
+    <div style="margin:8px 4px 16px;padding:14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.12);border-radius:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        ${renderAvatar(u, 44)}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.username}</div>
+          <div style="font-size:11px;color:var(--text2)">${u.bike_model || 'Sin moto'}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <div style="flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${levelProgress(u.points)}%;background:linear-gradient(90deg,#00d4ff,#a855f7);border-radius:3px"></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+        <span>Nivel ${lv}</span>
+        <span>${u.points} pts · Faltan ${next - u.points} para nivel ${lv + 1}</span>
+      </div>
+    </div>
+
+    <!-- Perfil -->
+    <div class="fpanel-section-label">PERFIL</div>
+    <div class="fpanel-item" onclick="closeFpanel();navigate('profile')">
+      <div class="fpanel-item-icon">👤</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">Mi Perfil</span>
+        <span class="fpanel-item-sub">Ver stats, insignias y rutas</span>
+      </div>
+      <span class="fpanel-item-arrow">→</span>
+    </div>
+
+    <!-- Gamificacion -->
+    <div class="fpanel-section-label">GAMIFICACION</div>
+    <div class="fpanel-submenu">
+      <button class="fpanel-subitem" onclick="closeFpanel();navigate('retos')">
+        <div class="fpanel-subitem-icon">🏆</div>
+        <span>Retos y Desafios</span>
+      </button>
+      <button class="fpanel-subitem" onclick="closeFpanel();navigate('insignias')">
+        <div class="fpanel-subitem-icon">🎖️</div>
+        <span>Insignias</span>
+      </button>
+    </div>
+
+    <!-- Sincronizacion -->
+    <div class="fpanel-section-label">SINCRONIZACION</div>
+    <div class="fpanel-item" onclick="closeFpanel();showHVSetup()">
+      <div class="fpanel-item-icon">☁️</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">HeyValue Cloud</span>
+        <span class="fpanel-item-sub">${HV.user ? 'Conectado como ' + HV.user : 'Conectar cuenta'}</span>
+      </div>
+      <span class="fpanel-item-arrow">→</span>
+    </div>
+
+    ${isAdmin ? `
+    <!-- Admin -->
+    <div class="fpanel-section-label">ADMINISTRACION</div>
+    <div class="fpanel-item" onclick="closeFpanel();navigate('admin')">
+      <div class="fpanel-item-icon" style="background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.2)">⚙️</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">Panel Admin</span>
+        <span class="fpanel-item-sub">Gestionar usuarios y contenido</span>
+      </div>
+      <span class="fpanel-item-arrow">→</span>
+    </div>
+    ` : ''}
+
+    <div class="fpanel-divider"></div>
+
+    <!-- Cerrar sesion -->
+    <div class="fpanel-item danger" onclick="closeFpanel();logout()">
+      <div class="fpanel-item-icon">🚪</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">Cerrar sesion</span>
+        <span class="fpanel-item-sub">Salir de ${u.username}</span>
+      </div>
+    </div>
+
+    ` : `
+    <!-- Guest view -->
+    <div style="text-align:center;padding:24px 8px">
+      <div style="font-size:40px;margin-bottom:12px">🏍️</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Biker Society</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Inicia sesion para acceder a todas las funciones</div>
+      <button class="btn btn-primary" style="width:100%" onclick="closeFpanel();showLogin()">Iniciar Sesion</button>
+    </div>
+    `}
+  `;
+
+  // Open the panel with animation
+  document.getElementById('fpanel-overlay').classList.add('open');
+  document.getElementById('fpanel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFpanel() {
+  document.getElementById('fpanel-overlay').classList.remove('open');
+  document.getElementById('fpanel').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ============================================================
@@ -3228,45 +3445,78 @@ function removeAdminAward(id) {
 // ============================================================
 // BIKERGRAM PAGE
 // ============================================================
+let GRAM_SORT = 'newest'; // newest | popular | commented
+
 function renderBikerGram() {
   // Count media types
   const photos = STATE.posts.filter(p => p.media_type === 'image' || p.image_url).length;
   const videos = STATE.posts.filter(p => p.media_type === 'video').length;
   const audios = STATE.posts.filter(p => p.media_type === 'audio').length;
+  const totalPosts = STATE.posts.length;
+
+  // Sort posts
+  let posts = [...STATE.posts];
+  if (GRAM_SORT === 'popular') posts.sort((a,b) => (b.likes?.length||0) - (a.likes?.length||0));
+  else if (GRAM_SORT === 'commented') posts.sort((a,b) => (b.comments?.length||0) - (a.comments?.length||0));
+  else posts.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // Group by day
+  const groups = {};
+  posts.forEach(p => {
+    const d = new Date(p.created_at);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate()-1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const key = isToday ? 'Hoy' : isYesterday ? 'Ayer' : d.toLocaleDateString('es-ES', {day:'numeric',month:'short'});
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  });
 
   document.getElementById('page-bikergram').innerHTML = `
-    <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    <!-- Header -->
+    <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start">
       <div>
-        <div style="font-size:18px;font-weight:800">BikerGram</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:2px">📷 ${photos} · 🎬 ${videos} · 🎵 ${audios}</div>
+        <div style="font-size:20px;font-weight:800;display:flex;align-items:center;gap:8px">
+          📷 BikerGram
+          ${totalPosts > 0 ? `<span style="font-size:12px;font-weight:600;color:var(--accent);background:rgba(0,212,255,0.1);padding:2px 8px;border-radius:20px;border:1px solid rgba(0,212,255,0.2)">${totalPosts}</span>` : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:3px">
+          📷 ${photos} fotos · 🎬 ${videos} videos · 🎵 ${audios} audios
+        </div>
       </div>
-      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createPost()">+ Publicar</button>
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px;font-weight:700" onclick="createPost()">+ Publicar</button>
     </div>
 
-    <!-- Quick upload cards -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-      <button onclick="createPost()" style="padding:14px 6px;background:linear-gradient(135deg,rgba(255,68,68,0.1),rgba(255,136,0,0.1));border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#ff4444'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border)'">
-        <div style="font-size:24px">📷</div><div style="font-size:10px;font-weight:700">Foto</div>
-      </button>
-      <button onclick="createPost()" style="padding:14px 6px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(168,85,247,0.1));border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#3b82f6'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border)'">
-        <div style="font-size:24px">🎬</div><div style="font-size:10px;font-weight:700">Video</div>
-      </button>
-      <button onclick="createPost()" style="padding:14px 6px;background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(20,184,166,0.1));border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#22c55e'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border)'">
-        <div style="font-size:24px">🎵</div><div style="font-size:10px;font-weight:700">Musica</div>
-      </button>
+    <!-- Sort tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px">
+      <button onclick="setGramSort('newest')" style="flex:1;padding:6px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='newest'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='newest'?'#fff':'var(--text3)'}" >Recientes</button>
+      <button onclick="setGramSort('popular')" style="flex:1;padding:6px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='popular'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='popular'?'#fff':'var(--text3)'}" >🔥 Populares</button>
+      <button onclick="setGramSort('commented')" style="flex:1;padding:6px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='commented'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='commented'?'#fff':'var(--text3)'}" >💬 Comentados</button>
     </div>
 
+    <!-- Feed -->
     <div id="bikergram-feed">
-      ${STATE.posts.length === 0 ? `
+      ${totalPosts === 0 ? `
         <div class="empty-state">
           <div class="empty-icon">📷</div>
           <div>No hay publicaciones todavia</div>
           <div style="font-size:12px;color:var(--text2);margin-top:6px">Comparte tu primera foto, video o cancion</div>
           <button class="btn btn-primary" style="margin-top:12px" onclick="createPost()">Crear publicacion</button>
         </div>
-      ` : STATE.posts.map(p => renderPost(p)).join('')}
+      ` : Object.entries(groups).map(([day, dayPosts]) => `
+        <div style="margin-bottom:16px">
+          <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;padding-left:2px">${day}</div>
+          ${dayPosts.map(p => renderPost(p)).join('')}
+        </div>
+      `).join('')}
     </div>
   `;
+}
+
+function setGramSort(s) {
+  GRAM_SORT = s;
+  renderBikerGram();
 }
 
 // Render media block for a post (image / video / audio / none)
@@ -3304,38 +3554,71 @@ function renderPost(p) {
   const comments = p.comments || [];
   const isLiked = STATE.user && likes.includes(String(STATE.user.id));
   const isMyPost = STATE.user && STATE.user.id === p.user_id;
+  const mediaType = p.media_type || (p.image_url ? 'image' : null);
+  const typeEmoji = mediaType === 'image' ? '📷' : (mediaType === 'video' ? '🎬' : (mediaType === 'audio' ? '🎵' : ''));
+  const likeLabel = likes.length === 1 ? '1 like' : likes.length === 0 ? '' : `${likes.length} likes`;
+  const cmtLabel = comments.length === 1 ? '1 comentario' : comments.length === 0 ? '' : `${comments.length} comentarios`;
+
   return `
-    <div class="post-card vanish">
+    <div class="post-card vanish" style="margin-bottom:14px">
       <div class="post-header">
-        <div style="width:36px;height:36px;flex-shrink:0">${renderAvatar(author, 36)}</div>
-        <div style="flex:1">
-          <div class="post-name">${author.username}</div>
-          <div class="post-time">${timeAgo(p.created_at)}</div>
+        <div style="width:38px;height:38px;flex-shrink:0;cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${renderAvatar(author, 38)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="post-name" style="cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${author.username}</span>
+            ${author.is_admin ? '<span style="font-size:9px;padding:1px 5px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:10px;font-weight:800">ADMIN</span>' : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
+            <span>${timeAgo(p.created_at)}</span>
+            ${mediaType ? `<span style="display:flex;align-items:center;gap:3px">· ${typeEmoji} ${mediaType}</span>` : ''}
+          </div>
         </div>
-        ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
+        ${isMyPost ? `
+          <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;flex-shrink:0" onclick="deletePost(${p.id})">🗑️</button>
+        ` : `<div style="width:32px;flex-shrink:0"></div>`}
       </div>
-      <div class="post-content">${p.content}</div>
+      ${p.content ? `<div class="post-content" style="margin-top:8px">${p.content}</div>` : ''}
       ${renderPostMedia(p)}
+      ${(likes.length > 0 || comments.length > 0) ? `
+      <div style="padding:8px 16px 0;font-size:11px;color:var(--text3);border-top:1px solid rgba(255,255,255,0.05);margin-top:4px">
+        ${likes.length > 0 ? `<span style="color:var(--accent)">${likeLabel}</span>` : ''}${likes.length > 0 && comments.length > 0 ? ' · ' : ''}${comments.length > 0 ? `<span>${cmtLabel}</span>` : ''}
+      </div>
+      ` : ''}
       <div class="post-actions">
         <button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike(${p.id})">
-          ${isLiked ? '❤️' : '🤍'} ${likes.length}
+          ${isLiked ? '❤️' : '🤍'} Me gusta
         </button>
         <button class="like-btn" onclick="showComments(${p.id})">
-          💬 ${comments.length}
+          💬 Comentar
+        </button>
+        <button class="like-btn" onclick="sharePost(${p.id})">
+          📤 Compartir
         </button>
       </div>
-      <div id="comments-${p.id}" style="padding:0 16px 12px;display:none">
-        ${comments.map(c => {
+      <div id="comments-${p.id}" style="padding:0 16px 12px;display:none;margin-top:4px">
+        ${comments.length > 0 ? comments.map(c => {
           const cu = STATE.users.find(u => u.id === c.user_id) || {username:'?', id:0};
-          return `<div style="margin-top:8px;font-size:12px"><b>${cu.username}:</b> ${c.content}</div>`;
-        }).join('')}
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <input class="input" style="margin:0;flex:1;font-size:12px;padding:8px" id="cmt-${p.id}" placeholder="Escribe un comentario...">
-          <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="addComment(${p.id})">→</button>
+          return `<div style="margin-top:8px;font-size:12px"><b style="color:var(--accent)">${cu.username}</b> <span style="color:var(--text2)">${c.content}</span></div>`;
+        }).join('') : ''}
+        <div style="display:flex;gap:6px;margin-top:10px;border-top:1px solid rgba(255,255,255,0.05);padding-top:10px">
+          ${STATE.user ? renderAvatar(STATE.user, 26) : '<div style="width:26px;height:26px;border-radius:50%;background:var(--surface2)"></div>'}
+          <input class="input" style="margin:0;flex:1;font-size:12px;padding:6px 10px" id="cmt-${p.id}" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter')addComment(${p.id})">
+          <button class="btn btn-primary" style="padding:6px 12px;font-size:12px;flex-shrink:0" onclick="addComment(${p.id})">→</button>
         </div>
       </div>
     </div>
   `;
+}
+
+function sharePost(postId) {
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return;
+  const text = p.content ? `${p.content.substring(0,100)}...\n\nVia Biker Society` : 'Mira esta publicacion en Biker Society 🏍️';
+  if (navigator.share) {
+    navigator.share({title: 'BikerGram', text}).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => toast('Enlace copiado!')).catch(() => toast('No se pudo copiar'));
+  }
 }
 
 function toggleLike(postId) {
@@ -3382,38 +3665,62 @@ let POST_DRAFT = null;
 
 function createPost() {
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
-  POST_DRAFT = { type: null, dataUrl: null, fileName: '', fileSize: 0, aspect: null };
+  POST_DRAFT = { type: null, dataUrl: null, fileName: '', fileSize: 0, mimeType: null };
   openModal('Nueva Publicacion', `
-    <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none"></textarea>
-
-    <!-- Media upload zone -->
-    <div id="post-media-zone" style="
-      margin-top:12px;
-      border:2px dashed var(--border);
-      border-radius:14px;
-      padding:18px;
-      text-align:center;
-      cursor:pointer;
-      transition:all 0.2s;
-      background:var(--card);
-    " onclick="document.getElementById('post-file').click()"
-       ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='rgba(255,68,68,0.05)'"
-       ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--card)'"
-       ondrop="handlePostDrop(event)">
-      <div style="font-size:32px;margin-bottom:6px">📷 🎬 🎵</div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Sube una foto, video o musica</div>
-      <div style="font-size:11px;color:var(--text3)">o arrastra aqui · JPG, PNG, GIF, MP4, MOV, MP3, WAV</div>
+    <!-- User row -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      ${renderAvatar(STATE.user, 42)}
+      <div>
+        <div style="font-size:15px;font-weight:700">${STATE.user.username}</div>
+        <div style="font-size:11px;color:var(--text2)">${STATE.user.bike_model || 'Biker'}</div>
+      </div>
     </div>
-    <input type="file" id="post-file" accept="image/*,video/*,audio/*" style="display:none" onchange="handlePostFile(event)">
 
-    <!-- Preview area (filled when media selected) -->
+    <!-- Content -->
+    <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none;border-radius:14px;padding:14px;font-size:14px"></textarea>
+
+    <!-- Media upload grid (shown when no media selected) -->
+    <div id="post-media-zone" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px">
+      <button onclick="openMediaPicker('image')" style="padding:18px 6px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#ff4444';this.style.background='rgba(255,68,68,0.15)'" onmouseout="this.style.borderColor='rgba(255,68,68,0.2)';this.style.background='rgba(255,68,68,0.08)'">
+        <div style="font-size:26px">📷</div>
+        <div style="font-size:11px;font-weight:700">Foto</div>
+      </button>
+      <button onclick="openMediaPicker('video')" style="padding:18px 6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#3b82f6';this.style.background='rgba(59,130,246,0.15)'" onmouseout="this.style.borderColor='rgba(59,130,246,0.2)';this.style.background='rgba(59,130,246,0.08)'">
+        <div style="font-size:26px">🎬</div>
+        <div style="font-size:11px;font-weight:700">Video</div>
+      </button>
+      <button onclick="openMediaPicker('audio')" style="padding:18px 6px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#22c55e';this.style.background='rgba(34,197,94,0.15)'" onmouseout="this.style.borderColor='rgba(34,197,94,0.2)';this.style.background='rgba(34,197,94,0.08)'">
+        <div style="font-size:26px">🎵</div>
+        <div style="font-size:11px;font-weight:700">Musica</div>
+      </button>
+    </div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="post-file-image" accept="image/*" style="display:none" onchange="handlePostFileType(event,'image')">
+    <input type="file" id="post-file-video" accept="video/*" style="display:none" onchange="handlePostFileType(event,'video')">
+    <input type="file" id="post-file-audio" accept="audio/*" style="display:none" onchange="handlePostFileType(event,'audio')">
+
+    <!-- Preview area -->
     <div id="post-media-preview" style="margin-top:12px;display:none"></div>
-
-    <!-- Media type indicator (auto-detected) -->
     <div id="post-media-type" style="display:none;margin-top:8px;font-size:11px;color:var(--text2);text-align:center"></div>
 
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="doCreatePost()">Publicar</button>
+    <!-- HeyValue hint -->
+    <div id="heyvalue-hint" style="margin-top:10px;padding:10px 12px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.1);border-radius:10px;font-size:11px;color:var(--text2);line-height:1.5">
+      ☁️ Los archivos se guardan en HeyValue Cloud · <a href="#" onclick="closeModal();showMoreMenu();setTimeout(()=>{const b=document.getElementById('fpanel-body');const items=b.querySelectorAll('.fpanel-item');items.forEach(i=>{if(i.textContent.includes('HeyValue'))i.click()})},300);return false" style="color:var(--accent)">Conectar cuenta</a> para acceder desde cualquier dispositivo
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;font-weight:700" onclick="doCreatePost()">🏍️ Publicar</button>
   `);
+}
+
+function openMediaPicker(type) {
+  const el = document.getElementById('post-file-' + type);
+  if (el) el.click();
+}
+
+function handlePostFileType(e, type) {
+  const file = e.target.files[0];
+  if (file) processPostFile(file);
 }
 
 function handlePostDrop(e) {
@@ -3517,8 +3824,10 @@ function renderPostPreview() {
 
 function clearPostMedia() {
   POST_DRAFT = { type: null, dataUrl: null, fileName: '', fileSize: 0, mimeType: null };
-  const inp = document.getElementById('post-file');
-  if (inp) inp.value = '';
+  ['image','video','audio'].forEach(t => {
+    const inp = document.getElementById('post-file-' + t);
+    if (inp) inp.value = '';
+  });
   renderPostPreview();
 }
 
