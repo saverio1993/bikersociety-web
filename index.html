@@ -1152,10 +1152,6 @@ a{color:inherit;text-decoration:none}
     <img src="icons/nav-eventos.png" alt="Eventos" style="width:28px;height:28px;object-fit:contain;">
     <span>Eventos</span>
   </button>
-  <button class="bnav-item" onclick="navigate('bikers')" data-page="bikers">
-    <img src="icons/nav-bikers.png" alt="Bikers" style="width:28px;height:28px;object-fit:contain;">
-    <span>Bikers</span>
-  </button>
   <button class="bnav-item" onclick="navigate('bikergram')" data-page="bikergram">
     <img src="icons/nav-gram.png" alt="Gram" style="width:28px;height:28px;object-fit:contain;">
     <span>Gram</span>
@@ -4317,6 +4313,21 @@ function renderProfile() {
 // ============================================================
 // ADMIN PAGE
 // ============================================================
+function deleteUser(id) {
+  const u = STATE.users.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm(`Eliminar al usuario "${u.username}"? Esta accion no se puede deshacer.`)) return;
+  STATE.users = STATE.users.filter(x => x.id !== id);
+  STATE.userBadges = STATE.userBadges.filter(ub => ub.user_id !== id);
+  STATE.userChallenges = STATE.userChallenges.filter(uc => uc.user_id !== id);
+  STATE.attendance = STATE.attendance.filter(a => a.user_id !== id);
+  STATE.notifications = STATE.notifications.filter(n => n.user_id !== id && n.actor_id !== id);
+  if (STATE.user?.id === id) { logout(); return; }
+  saveState();
+  renderAdmin();
+  toast('Usuario eliminado');
+}
+
 function renderAdmin() {
   if (!STATE.user?.is_admin) { navigate('inicio'); return; }
 
@@ -4340,6 +4351,7 @@ function renderAdmin() {
               ${u.is_injured ? '<span class="badge-red" style="font-size:9px">INJ</span>' : ''}
             </div>
             <button class="btn btn-ghost" style="font-size:11px;padding:4px" onclick="editRider(${u.id})">✏️</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px;color:var(--danger)" onclick="deleteUser(${u.id})">🗑️</button>
           </div>
         `).join('')}
       </div>
