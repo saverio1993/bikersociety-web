@@ -4069,29 +4069,32 @@ async function doCreatePost() {
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
   let mediaUrl = POST_DRAFT?.dataUrl || null;
-  let uploading = false;
 
-  // If HeyValue is connected and we have a file (not just data URL), upload it
-  if (HV.user && HV.pass && POST_DRAFT?.file && !POST_DRAFT.dataUrl?.startsWith('data:')) {
-    // File was stored in POST_DRAFT.file — upload to HeyValue
-    uploading = true;
+  // Upload to HeyValue if connected and we have a file
+  if (HV.user && HV.pass && POST_DRAFT?.file) {
     toast('Subiendo a HeyValue...');
     const ext = POST_DRAFT.fileName.split('.').pop() || 'bin';
     const fileName = `gram_${Date.now()}_${Math.random().toString(36).substring(2,8)}.${ext}`;
     const folder = POST_DRAFT.type === 'image' ? '/photos' : (POST_DRAFT.type === 'video' ? '/videos' : '/audio');
+    const hvPath = HV.hvPath || HV.user;
     const path = '/' + HV.gramFolder + folder + '/' + fileName;
+    const fullPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
 
-    // Read file as binary
-    const buffer = await POST_DRAFT.file.arrayBuffer();
-    const blob = new Blob([buffer], { type: POST_DRAFT.mimeType });
-
-    const r = await hvRequest('PUT', path, await blobToBase64(blob));
-    if (r && r.ok) {
-      mediaUrl = HV.url + '/remote.php/dav/files/' + (HV.hvPath || HV.user) + path;
-      toast('Subido a HeyValue!');
-    } else {
-      toast('Error subiendo a cloud — usando modo local');
-      mediaUrl = POST_DRAFT.dataUrl;
+    try {
+      const buffer = await POST_DRAFT.file.arrayBuffer();
+      const r = await fetch(fullPath, {
+        method: 'PUT',
+        headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': POST_DRAFT.mimeType },
+        body: buffer
+      });
+      if (r.ok || r.status === 201 || r.status === 204) {
+        mediaUrl = fullPath;
+        toast('Subido a HeyValue!');
+      } else {
+        toast('Error cloud — guardando local');
+      }
+    } catch(e) {
+      toast('Error subiendo: ' + e.message);
     }
   }
 
@@ -4111,14 +4114,6 @@ async function doCreatePost() {
   POST_DRAFT = null;
   closeModal();
   navigate('bikergram');
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
-  });
 }
 
 function deletePost(id) {
