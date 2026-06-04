@@ -3983,7 +3983,7 @@ function handlePostFile(e) {
 }
 
 async function processPostFile(file) {
-  if (file.size > 200 * 1024 * 1024) { toast('Archivo muy grande (máx 200MB)'); return; }
+  if (file.size > 1024 * 1024 * 1024) { toast('Archivo muy grande (máx 1GB)'); return; }
 
   const isImage = file.type.startsWith('image/');
   const isVideo = file.type.startsWith('video/');
