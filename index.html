@@ -3618,7 +3618,7 @@ function renderBikerGram() {
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="viewStoryUser(${s.user.id})">
             <div style="width:64px;height:64px;border-radius:50%;padding:3px;background:${s.user.is_admin ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'linear-gradient(135deg,#ff4444,#ff8800)'};display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,68,68,0.3)">
               <div style="width:100%;height:100%;border-radius:50%;border:3px solid #0a0a0a;overflow:hidden;background:var(--surface)">
-                ${s.post.media_type === 'image' || s.post.image_url ? `<img src="${s.post.media_url || s.post.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.2))">🎬</div>`}
+                ${s.post.media_type === 'image' || s.post.image_url ? `<img src="${s.post.media_url || s.post.image_url}" style="width:100%;height:100%;object-fit:cover">` : s.post.media_type === 'video' ? `<video src="${s.post.media_url}" muted style="width:100%;height:100%;object-fit:cover"></video>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.2))">🎬</div>`}
               </div>
             </div>
             <div style="font-size:10px;color:var(--text3);text-align:center;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.user.username}</div>
@@ -3815,7 +3815,7 @@ function renderRacingPost(p) {
       ${hasMedia ? `
       <div style="position:relative;background:#000;overflow:hidden;max-height:420px">
         ${mediaType === 'video' ? `
-          <video src="${url}" data-hv-url="${url}" controls preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline></video>
+          <video src="${url}" controls preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline></video>
         ` : mediaType === 'audio' ? `
           <div style="padding:24px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.15));border-bottom:1px solid rgba(255,255,255,0.06)">
             <div style="display:flex;align-items:center;gap:14px">
@@ -3825,7 +3825,7 @@ function renderRacingPost(p) {
                 <div style="font-size:11px;color:var(--text2)">${author.username} · ${time}</div>
               </div>
             </div>
-            <audio src="${url}" data-hv-url="${url}" controls preload="metadata" style="width:100%;margin-top:14px;height:36px"></audio>
+            <audio src="${url}" controls preload="metadata" style="width:100%;margin-top:14px;height:36px"></audio>
           </div>
         ` : `
           <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:420px;object-fit:cover;background:#000" onerror="this.parentElement.innerHTML='<div style=\'padding:40px;text-align:center;color:#888;font-size:13px\'>Imagen no disponible</div>'">
@@ -4216,6 +4216,8 @@ function clearPostMedia() {
     const hvPath = HV.hvPath || HV.user;
     const path = '/' + HV.gramFolder + folder + '/' + fileName;
     const fullPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
+    // Embed credentials so <video>/<img> can load directly (browser handles Basic Auth)
+    const fullPathAuth = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
 
     try {
       const buffer = await POST_DRAFT.file.arrayBuffer();
@@ -4225,12 +4227,8 @@ function clearPostMedia() {
         body: buffer
       });
       if (r.ok || r.status === 201 || r.status === 204) {
-        mediaUrl = fullPath;
-        if (originalMB && originalMB !== sizeMB) {
-          toast(`Subido! ${originalMB}MB → ${sizeMB}MB`);
-        } else {
-          toast('Subido a HeyValue!');
-        }
+        mediaUrl = fullPathAuth;
+        toast('Subido a HeyValue!');
       } else {
         toast('Error cloud — guardando local');
       }
