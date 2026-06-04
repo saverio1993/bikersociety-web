@@ -102,17 +102,13 @@ a{color:inherit;text-decoration:none}
 }
 .topbar-logo{
   display:flex;align-items:center;gap:10px;
-  font-weight:800;font-size:17px;
-  background:linear-gradient(135deg,#ff2020,#ff6600,#ff0033);
-  background-size:200% 200%;
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  animation:gradientShift 4s ease infinite;
+  cursor:pointer;
 }
 @keyframes gradientShift{
   0%,100%{background-position:0% 50%}
   50%{background-position:100% 50%}
 }
-.topbar-logo img{width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,59,59,0.5)}
+.topbar-logo img{width:36px;height:36px;border-radius:8px;object-fit:cover;box-shadow:0 0 10px rgba(255,32,32,0.4)}
 .topbar-actions{display:flex;gap:8px}
 .topbar-actions button{
   width:38px;height:38px;border-radius:50%;
@@ -866,12 +862,8 @@ a{color:inherit;text-decoration:none}
 }
 .splash-logo{
   width:90px;height:90px;border-radius:50%;
-  background:linear-gradient(135deg,#00d4ff,#a855f7,#00e676);
-  background-size:200% 200%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:40px;font-weight:900;color:#fff;
-  animation:splashPulse 1.8s ease-in-out infinite,gradientShift 4s ease infinite;
-  box-shadow:0 0 60px var(--glow),0 0 100px rgba(255,59,59,0.2);
+  animation:splashPulse 1.8s ease-in-out infinite;
+  box-shadow:0 0 60px rgba(255,32,32,0.4),0 0 100px rgba(255,59,59,0.2);
 }
 @keyframes splashPulse{
   0%,100%{transform:scale(1);box-shadow:0 0 60px var(--glow)}
@@ -879,7 +871,7 @@ a{color:inherit;text-decoration:none}
 }
 .splash-text{
   font-size:22px;font-weight:900;
-  background:linear-gradient(135deg,#00d4ff,#a855f7,#00e676);
+  background:linear-gradient(135deg,#ff2020,#ff6600,#ff0033);
   background-size:200% 200%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   animation:gradientShift 3s ease infinite;
@@ -985,14 +977,10 @@ a{color:inherit;text-decoration:none}
   min-height:100vh;padding:24px;
 }
 .login-logo{
-  width:80px;height:80px;border-radius:50%;
-  background:linear-gradient(135deg,#00d4ff,#a855f7,#00e676);
-  background-size:200% 200%;
-  display:flex;align-items:center;justify-content:center;
-  font-size:36px;font-weight:900;color:#fff;
-  margin-bottom:24px;
-  box-shadow:0 0 40px var(--glow);
-  animation:splashPulse 2s ease-in-out infinite,gradientShift 4s ease infinite;
+  width:90px;height:90px;border-radius:16px;
+  object-fit:cover;
+  margin-bottom:20px;
+  box-shadow:0 0 30px rgba(255,32,32,0.4);
 }
 .login-title{font-size:24px;font-weight:900;margin-bottom:6px}
 .login-sub{font-size:13px;color:var(--text2);margin-bottom:32px}
@@ -1118,7 +1106,7 @@ a{color:inherit;text-decoration:none}
 
 <!-- SPLASH -->
 <div class="splash" id="splash">
-  <div class="splash-logo">🏍️</div>
+  <img src="icons/logo.png" class="splash-logo" alt="" style="width:100px;height:100px;border-radius:16px;box-shadow:0 0 40px rgba(255,32,32,0.5)">
   <div class="splash-text">Biker Society</div>
   <div class="splash-bar"></div>
 </div>
@@ -1126,8 +1114,7 @@ a{color:inherit;text-decoration:none}
 <!-- TOPBAR -->
 <div class="topbar" id="topbar" style="display:none">
   <div class="topbar-logo" onclick="navigate('inicio')">
-    <img src="https://i.imgur.com/ruez2.png" onerror="this.style.display='none'" alt="">
-    <span>Biker Society</span>
+    <img src="icons/logo.png" alt="Biker Society" style="width:36px;height:36px;border-radius:8px;object-fit:cover;box-shadow:0 0 10px rgba(255,32,32,0.4)">
   </div>
   <div class="topbar-actions">
     <button onclick="showNotifications()" title="Notificaciones">🔔</button>
@@ -2004,7 +1991,7 @@ function renderPage(page) {
 function showLogin() {
   document.getElementById('page-login').style.display = 'flex';
   document.getElementById('page-login').innerHTML = `
-    <div class="login-logo">🏍️</div>
+    <img src="icons/logo.png" class="login-logo" alt="Biker Society">
     <div class="login-title">Biker Society</div>
     <div class="login-sub">La comunidad de motociclistas de Panama</div>
     <div class="login-form">
@@ -2023,7 +2010,7 @@ function showLogin() {
 
 function showRegister() {
   document.getElementById('page-login').innerHTML = `
-    <div class="login-logo">🏍️</div>
+    <img src="icons/logo.png" class="login-logo" alt="Biker Society">
     <div class="login-title">Unete a Biker Society</div>
     <div class="login-sub">Crea tu cuenta gratis</div>
     <div class="login-form">
