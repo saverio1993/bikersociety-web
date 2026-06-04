@@ -3647,6 +3647,23 @@ function renderBikerGram() {
       ` : posts.map(p => renderRacingPost(p)).join('')}
     </div>
   `;
+  // Resolve HeyValue video/audio URLs after DOM renders
+  resolveHvMedia();
+}
+
+function resolveHvMedia() {
+  if (!HV.user || !HV.pass) return;
+  document.querySelectorAll('video[data-hv-url], audio[data-hv-url]').forEach(el => {
+    const hvUrl = el.dataset.hvUrl;
+    if (!hvUrl || !hvUrl.includes('/dav/files/')) return;
+    if (el.src && el.src.startsWith('blob:')) return; // already resolved
+    resolveMediaUrl(hvUrl).then(blobUrl => {
+      if (blobUrl !== hvUrl) {
+        el.src = blobUrl;
+        el.load();
+      }
+    }).catch(() => {});
+  });
 }
 
 function viewStoryUser(userId) {
@@ -3754,6 +3771,24 @@ function renderPost(p) {
 // ============================================================
 // RACING POST — large card design for Gram feed
 // ============================================================
+// Resolve media URL: blob/data URLs pass through, HeyValue WebDAV URLs get fetched with auth
+const _mediaCache = {};
+async function resolveMediaUrl(url, type) {
+  if (!url) return url;
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('http') && !url.includes('dav/files')) return url;
+  if (_mediaCache[url]) return _mediaCache[url];
+  if (!url.includes('/dav/files/')) return url;
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) } });
+    if (!res.ok) return url;
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    _mediaCache[url] = blobUrl;
+    return blobUrl;
+  } catch { return url; }
+}
+function resolveMediaUrlSync(url) { return url; }
+
 function renderRacingPost(p) {
   const author = STATE.users.find(u => u.id === p.user_id) || {username:'?', bike_model:'', id:0};
   const likes = p.likes || [];
@@ -3768,7 +3803,7 @@ function renderRacingPost(p) {
   // Type badge
   const typeConfig = {
     image: { emoji: '📷', label: 'FOTO', color: '#ff4444' },
-    video: { emoji: '🎬', label: 'VIDEO', color: '#3b82f6' },
+    video: { emoji: '🎬', label: 'VIDEO', color: '#ff2020' },
     audio: { emoji: '🎵', label: 'AUDIO', color: '#22c55e' },
   };
   const tc = typeConfig[mediaType] || null;
@@ -3780,20 +3815,20 @@ function renderRacingPost(p) {
       ${hasMedia ? `
       <div style="position:relative;background:#000;overflow:hidden;max-height:420px">
         ${mediaType === 'video' ? `
-          <video src="${url}" controls preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline></video>
+          <video src="${url}" data-hv-url="${url}" controls preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline></video>
         ` : mediaType === 'audio' ? `
           <div style="padding:24px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.15));border-bottom:1px solid rgba(255,255,255,0.06)">
             <div style="display:flex;align-items:center;gap:14px">
               <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;animation:audioPulse 2s ease-in-out infinite;box-shadow:0 0 20px rgba(255,68,68,0.3)">🎵</div>
               <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Audio compartido</div>
+                <div style="font-size:13px;font-weight:700">Audio compartido</div>
                 <div style="font-size:11px;color:var(--text2)">${author.username} · ${time}</div>
               </div>
             </div>
-            <audio src="${url}" controls preload="metadata" style="width:100%;margin-top:14px;height:36px"></audio>
+            <audio src="${url}" data-hv-url="${url}" controls preload="metadata" style="width:100%;margin-top:14px;height:36px"></audio>
           </div>
         ` : `
-          <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:420px;object-fit:cover;background:#000" onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;text-align:center;color:#888;font-size:13px\\'>Imagen no disponible</div>'">
+          <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:420px;object-fit:cover;background:#000" onerror="this.parentElement.innerHTML='<div style=\'padding:40px;text-align:center;color:#888;font-size:13px\'>Imagen no disponible</div>'">
         `}
 
         <!-- Gradient overlay at bottom of image -->
