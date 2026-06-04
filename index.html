@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Biker Society</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -15,26 +15,26 @@
 /* Dark Racing Pro — Negro profundo + Rojo animado */
 
 :root{
-  --bg:#050810;
-  --surface:#0d0f1a;
-  --surface2:#12152a;
-  --surface3:#181b35;
-  --border:#1e2240;
-  --border2:#2a3060;
-  --accent:#00d4ff;
-  --accent2:#a855f7;
-  --accent3:#00e676;
-  --glow:rgba(0,212,255,0.4);
-  --glow2:rgba(168,85,247,0.3);
-  --text:#f0f4ff;
-  --text2:#8892b8;
-  --text3:#4a5280;
-  --success:#00e676;
-  --danger:#ff4444;
-  --warning:#ffab00;
-  --radius:14px;
+  --bg:#000000;
+  --surface:#0a0a0a;
+  --surface2:#111111;
+  --surface3:#1a1a1a;
+  --border:#2a0000;
+  --border2:#3a0000;
+  --accent:#ff2020;
+  --accent2:#ff6600;
+  --accent3:#ff0033;
+  --glow:rgba(255,32,32,0.6);
+  --glow2:rgba(255,102,0,0.5);
+  --text:#ffffff;
+  --text2:#ff6666;
+  --text3:#661111;
+  --success:#00ff44;
+  --danger:#ff0000;
+  --warning:#ffaa00;
+  --radius:12px;
   --radius-sm:8px;
-  --transition:0.25s cubic-bezier(0.4,0,0.2,1);
+  --transition:0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -51,14 +51,14 @@ a{color:inherit;text-decoration:none}
 .bg-gradient::before{
   content:'';position:absolute;
   width:600px;height:600px;
-  background:radial-gradient(circle,rgba(0,212,255,0.08) 0%,transparent 70%);
+  background:radial-gradient(circle,rgba(255,32,32,0.12) 0%,transparent 70%);
   top:-200px;right:-200px;
   animation:bgFloat 12s ease-in-out infinite;
 }
 .bg-gradient::after{
   content:'';position:absolute;
   width:500px;height:500px;
-  background:radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%);
+  background:radial-gradient(circle,rgba(255,102,0,0.08) 0%,transparent 70%);
   bottom:-150px;left:-150px;
   animation:bgFloat 18s ease-in-out infinite reverse;
 }
@@ -103,7 +103,7 @@ a{color:inherit;text-decoration:none}
 .topbar-logo{
   display:flex;align-items:center;gap:10px;
   font-weight:800;font-size:17px;
-  background:linear-gradient(135deg,#00d4ff,#a855f7,#00e676);
+  background:linear-gradient(135deg,#ff2020,#ff6600,#ff0033);
   background-size:200% 200%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   animation:gradientShift 4s ease infinite;
@@ -161,7 +161,7 @@ a{color:inherit;text-decoration:none}
 }
 .fpanel-header-title{
   font-size:17px;font-weight:800;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
 }
 .fpanel-close{
@@ -227,7 +227,7 @@ a{color:inherit;text-decoration:none}
   color:var(--text2);font-size:13px;font-weight:500;
   border:none;background:none;width:100%;text-align:left;
 }
-.fpanel-subitem:hover{background:rgba(168,85,247,0.1);color:#a855f7}
+.fpanel-subitem:hover{background:rgba(255,32,32,0.12);color:#ff2020}
 .fpanel-subitem-icon{font-size:16px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);flex-shrink:0}
 
 /* Danger item */
@@ -260,7 +260,7 @@ a{color:inherit;text-decoration:none}
   content:'';position:absolute;
   top:0;left:50%;transform:translateX(-50%);
   width:32px;height:3px;
-  background:linear-gradient(90deg,#00d4ff,#a855f7);
+  background:linear-gradient(90deg,#ff2020,#ff6600);
   border-radius:0 0 3px 3px;
   opacity:0;transition:var(--transition);
 }
@@ -291,8 +291,8 @@ a{color:inherit;text-decoration:none}
   transition:var(--transition);
 }
 .card:hover{
-  border-color:rgba(255,59,59,0.5);
-  box-shadow:0 4px 24px rgba(255,59,59,0.15),0 0 0 1px rgba(255,59,59,0.1) inset;
+  border-color:rgba(255,32,32,0.6);
+  box-shadow:0 4px 24px rgba(255,32,32,0.2),0 0 0 1px rgba(255,32,32,0.15) inset;
   transform:translateY(-2px);
 }
 .card:hover::before{opacity:1}
@@ -312,7 +312,7 @@ a{color:inherit;text-decoration:none}
   box-shadow:0 0 12px rgba(251,191,36,0.3);
 }
 .badge-red{
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;border:none;
   box-shadow:0 0 12px var(--glow);
 }
@@ -322,9 +322,9 @@ a{color:inherit;text-decoration:none}
   box-shadow:0 0 12px rgba(0,230,118,0.3);
 }
 .badge-blue{
-  background:linear-gradient(135deg,#2979ff,#1565c0);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;border:none;
-  box-shadow:0 0 12px rgba(41,121,255,0.3);
+  box-shadow:0 0 12px var(--glow);
 }
 
 /* ===== MAP ===== */
@@ -417,7 +417,7 @@ a{color:inherit;text-decoration:none}
   position:relative;overflow:hidden;
 }
 .btn-primary{
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;
   box-shadow:0 4px 16px var(--glow);
 }
@@ -465,7 +465,7 @@ a{color:inherit;text-decoration:none}
   box-shadow:0 24px 80px rgba(0,0,0,0.8),0 0 60px rgba(255,59,59,0.1);
 }
 @keyframes modalSlideIn{from{transform:translateY(20px);opacity:0}}
-.modal-title{font-size:18px;font-weight:800;margin-bottom:16px;background:linear-gradient(135deg,#00d4ff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:16px;background:linear-gradient(135deg,#ff2020,#ff6600);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 
 /* ===== POST CARD ===== */
 .post-card{
@@ -493,7 +493,7 @@ a{color:inherit;text-decoration:none}
 .post-header{padding:12px 16px;display:flex;align-items:center;gap:10px}
 .post-avatar{
   width:38px;height:38px;border-radius:50%;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:14px;color:#fff;flex-shrink:0;
   box-shadow:0 0 16px var(--glow);
@@ -543,7 +543,7 @@ a{color:inherit;text-decoration:none}
 }
 .rider-avatar{
   width:50px;height:50px;border-radius:50%;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   display:flex;align-items:center;justify-content:center;
   font-weight:900;font-size:16px;color:#fff;flex-shrink:0;
   box-shadow:0 0 20px var(--glow);
@@ -763,7 +763,7 @@ a{color:inherit;text-decoration:none}
   border-radius:20px;
   font-size:9px;
   font-weight:700;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;
   box-shadow:0 0 8px rgba(255,59,59,0.3);
   animation:pulseBadge 2s ease-in-out infinite;
@@ -820,7 +820,7 @@ a{color:inherit;text-decoration:none}
   border-bottom-left-radius:4px;
 }
 .chat-message.mine .chat-bubble{
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;border-bottom-right-radius:4px;
   box-shadow:0 4px 16px var(--glow);
 }
@@ -845,7 +845,7 @@ a{color:inherit;text-decoration:none}
 }
 .chat-input-bar button{
   width:40px;height:40px;border-radius:50%;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;border:none;font-size:16px;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 16px var(--glow);
@@ -947,7 +947,7 @@ a{color:inherit;text-decoration:none}
   border:none;background:none;
 }
 .tab.active{
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;
   box-shadow:0 2px 12px var(--glow);
 }
@@ -967,7 +967,7 @@ a{color:inherit;text-decoration:none}
 }
 .stat-val{
   font-size:24px;font-weight:900;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   background-size:200% 200%;
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
   animation:gradientShift 4s ease infinite;
@@ -1026,7 +1026,7 @@ a{color:inherit;text-decoration:none}
   cursor:pointer;transition:var(--transition);
 }
 .page-tab.active{
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;border-color:transparent;
   box-shadow:0 2px 12px var(--glow);
 }
@@ -1052,7 +1052,7 @@ a{color:inherit;text-decoration:none}
 .fab{
   position:fixed;bottom:88px;right:16px;
   width:54px;height:54px;border-radius:50%;
-  background:linear-gradient(135deg,#00d4ff,#a855f7);
+  background:linear-gradient(135deg,#ff2020,#ff6600);
   color:#fff;border:none;
   font-size:24px;
   display:flex;align-items:center;justify-content:center;
