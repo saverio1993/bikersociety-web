@@ -1039,7 +1039,11 @@ const STATE = {
   selectedRider: null,
   map: null,
   routeMarkers: [],
-  syncStatus: 'pending'
+  syncStatus: 'pending',
+  selectedRoute: null,
+  rutaWatchId: null,
+  myLocationMarker: null,
+  bikerMarkers: {}
 };
 
 // ============================================================
@@ -1574,11 +1578,11 @@ function renderInicio() {
         <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
       </div>
       ${STATE.routes.slice(0,3).map(r => `
-        <div class="card vanish" style="cursor:pointer" onclick="viewRoute(${r.id})">
+        <div class="card vanish" style="cursor:pointer" onclick="navigateToRoute(${r.id})">
           <div style="display:flex;justify-content:space-between;align-items:start">
             <div>
-              <div class="card-title">${r.name}</div>
-              <div class="card-sub">${r.start_name || 'Sin origen'} → ${r.end_name || 'Sin destino'}</div>
+              <div class="card-title">${escHtml(r.name)}</div>
+              <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
               <div style="margin-top:6px;display:flex;gap:6px">
                 <span class="badge">⚡ ${r.difficulty}</span>
               </div>
@@ -1689,19 +1693,74 @@ function initHomeMap() {
 function renderRutas() {
   const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
   const allRoutes = STATE.routes;
+  const sel = STATE.selectedRoute;
+  const isOwner = sel && sel.created_by === STATE.user?.id;
+  const creator = sel ? STATE.users.find(u => u.id === sel.created_by) : null;
+  let stopsHtml = '';
+  if (sel) {
+    try {
+      const ss = JSON.parse(sel.stops || '[]');
+      if (ss.length) {
+        stopsHtml = '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">PARADAS</div>' +
+          ss.map((s,i) => `<div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:4px">
+            <span style="background:#ff8800;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px">P${i+1}</span>
+            <span style="font-size:12px;font-weight:600">${s.name}</span>
+            <span style="font-size:10px;color:var(--text3);margin-left:auto">${parseFloat(s.lat).toFixed(4)}, ${parseFloat(s.lng).toFixed(4)}</span>
+          </div>`).join('') + '</div>';
+      }
+    } catch(e) {}
+  }
 
   document.getElementById('page-rutas').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="font-size:18px;font-weight:800">Rutas</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${sel ? `<button onclick="deselectRoute()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text2);cursor:pointer;font-size:13px">← Volver</button>` : ''}
+        <div style="font-size:18px;font-weight:800">${sel ? escHtml(sel.name) : 'Rutas'}</div>
+      </div>
       <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>
     </div>
 
+    <!-- Detalle de ruta seleccionada (inline arriba) -->
+    ${sel ? `
+    <div class="card vanish" style="margin-bottom:12px;border-color:rgba(255,59,59,0.4)">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${escHtml(sel.description || 'Sin descripción')}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid #22c55e">
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.5px">SALIDA</div>
+          <div style="font-size:12px;font-weight:700;margin-top:2px">${escHtml(sel.start_name || 'N/A')}</div>
+          <div style="font-size:10px;color:var(--text3)">${sel.start_lat}, ${sel.start_lng}</div>
+        </div>
+        <div style="padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid #ef4444">
+          <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.5px">DESTINO</div>
+          <div style="font-size:12px;font-weight:700;margin-top:2px">${escHtml(sel.end_name || 'N/A')}</div>
+          <div style="font-size:10px;color:var(--text3)">${sel.end_lat}, ${sel.end_lng}</div>
+        </div>
+      </div>
+
+      ${stopsHtml}
+
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <span class="badge">⚡ ${sel.difficulty}</span>
+        <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
+        ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
+      </div>
+
+      ${isOwner ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
+        <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
+      </div>` : ''}
+    </div>
+    ` : ''}
+
     <!-- Mapa de Rutas -->
     <div class="map-container" style="margin-bottom:16px">
-      <div id="map-rutas" style="height:280px"></div>
-      <div class="map-label">📍 Panama</div>
+      <div id="map-rutas" style="height:${sel ? '220px' : '300px'}"></div>
+      ${!sel ? '<div class="map-label">📍 Panama · Toca una ruta para ver el detalle</div>' : ''}
     </div>
 
+    ${!sel ? `
     <div class="tab-bar">
       <button class="tab ${myRoutes.length === 0 ? 'active' : ''}" onclick="showRouteTab('mis')">Todas (${allRoutes.length})</button>
       <button class="tab" onclick="showRouteTab('creadas')">Mis rutas (${myRoutes.length})</button>
@@ -1716,52 +1775,164 @@ function renderRutas() {
         </div>
       ` : allRoutes.map(r => renderRouteCard(r)).join('')}
     </div>
+    ` : ''}
   `;
 
   setTimeout(initRutasMap, 100);
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function deselectRoute() {
+  STATE.selectedRoute = null;
+  renderRutas();
 }
 
 function initRutasMap() {
   const mapEl = document.getElementById('map-rutas');
   if (!mapEl) return;
   if (STATE.map) { STATE.map.remove(); STATE.map = null; }
+  if (STATE.rutaWatchId !== null) { navigator.geolocation.clearWatch(STATE.rutaWatchId); STATE.rutaWatchId = null; }
 
   const map = L.map('map-rutas', {zoomControl:false, attributionControl:false}).setView([8.9824, -79.5199], 12);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(map);
   STATE.map = map;
 
-  STATE.routes.forEach(r => {
-    // Start marker
-    if (r.start_lat && r.start_lng) {
-      L.circleMarker([r.start_lat, r.start_lng], {
-        radius: 8, fillColor: '#ff3b3b', color: '#ff6b35', weight: 2, opacity: 1, fillOpacity: 0.8
-      }).addTo(map).bindPopup(`<b>${r.name}</b><br>🟢 Inicio: ${r.start_name || 'Inicio'}`);
-    }
-    // Stop markers
-    try {
-      const stops = JSON.parse(r.stops || '[]');
-      stops.forEach((s, i) => {
-        if (s.lat && s.lng) {
-          L.circleMarker([s.lat, s.lng], {
-            radius: 7, fillColor: '#ffaa00', color: '#ff8800', weight: 2, opacity: 1, fillOpacity: 0.8
-          }).addTo(map).bindPopup(`<b>${r.name}</b><br>🟡 Parada ${i+1}: ${s.name}`);
-        }
-      });
-    } catch(e) {}
-    // End marker
-    if (r.end_lat && r.end_lng) {
-      L.circleMarker([r.end_lat, r.end_lng], {
-        radius: 8, fillColor: '#00e676', color: '#00c853', weight: 2, opacity: 1, fillOpacity: 0.8
-      }).addTo(map).bindPopup(`<b>${r.name}</b><br>🔴 Destino: ${r.end_name || 'Destino'}`);
-    }
-  });
+  const sel = STATE.selectedRoute;
 
-  const points = [];
-  STATE.routes.forEach(r => {
-    if (r.start_lat && r.start_lng) points.push([r.start_lat, r.start_lng]);
-    if (r.end_lat && r.end_lng) points.push([r.end_lat, r.end_lng]);
+  if (sel) {
+    // === MODO RUTA SELECCIONADA ===
+    const pts = [[sel.start_lat, sel.start_lng]];
+    let stops = [];
+    try { stops = JSON.parse(sel.stops || '[]'); } catch(e) {}
+    stops.forEach(s => { if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]); });
+    pts.push([sel.end_lat, sel.end_lng]);
+
+    // SALIDA pill
+    const startDiv = L.divIcon({className:'', html:`<div style="background:#22c55e;color:#fff;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`});
+    L.marker([sel.start_lat, sel.start_lng], {icon:startDiv}).addTo(map);
+
+    // PARADA pills
+    stops.forEach((s, i) => {
+      if (!s.lat || !s.lng) return;
+      const stopDiv = L.divIcon({className:'', html:`<div style="background:#ff8800;color:#fff;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">P${i+1}</div>`});
+      L.marker([parseFloat(s.lat), parseFloat(s.lng)], {icon:stopDiv}).addTo(map);
+    });
+
+    // DESTINO pill
+    const endDiv = L.divIcon({className:'', html:`<div style="background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`});
+    L.marker([sel.end_lat, sel.end_lng], {icon:endDiv}).addTo(map);
+
+    // Placeholder line
+    const placeholder = L.polyline(pts, {color:'#ff4444', weight:5, opacity:0.35, dashArray:'12,8'}).addTo(map);
+
+    // Real road route via OSRM
+    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
+    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return;
+        placeholder.remove();
+        L.geoJSON(data.routes[0].geometry, {style: {color:'#ff4444', weight:5, opacity:1, className:'route-animated'}}).addTo(map);
+      }).catch(() => {});
+
+    // Fit to route
+    if (sel.start_lat && sel.end_lat) map.fitBounds(pts, {padding: [40, 40], maxZoom: 14});
+
+    // === UBICACION EN TIEMPO REAL ===
+    if (navigator.geolocation) {
+      // My location
+      navigator.geolocation.getCurrentPosition(pos => {
+        const {latitude:lat, longitude:lng} = pos.coords;
+        if (STATE.myLocationMarker) { STATE.myLocationMarker.remove(); }
+        const myIcon = L.divIcon({className:'', html:`<div style="width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px rgba(59,130,246,0.8)"></div>`});
+        STATE.myLocationMarker = L.marker([lat, lng], {icon:myIcon}).addTo(map).bindPopup('Mi ubicación');
+      }, () => {}, {timeout:5000});
+
+      // Watch position for live tracking
+      STATE.rutaWatchId = navigator.geolocation.watchPosition(pos => {
+        const {latitude:lat, longitude:lng} = pos.coords;
+        if (STATE.myLocationMarker) { STATE.myLocationMarker.remove(); }
+        const myIcon = L.divIcon({className:'', html:`<div style="width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px rgba(59,130,246,0.8)"></div>`});
+        STATE.myLocationMarker = L.marker([lat, lng], {icon:myIcon}).addTo(map).bindPopup('Mi ubicación (en vivo)');
+      }, () => {}, {enableHighAccuracy:true, maximumAge:5000});
+    }
+
+    // Bikers en tiempo real
+    renderBikerLiveLocations(map);
+
+  } else {
+    // === MODO VISTA GENERAL (todas las rutas) ===
+    STATE.routes.forEach(r => {
+      if (r.start_lat && r.start_lng) {
+        L.circleMarker([r.start_lat, r.start_lng], {
+          radius: 8, fillColor: '#ff3b3b', color: '#ff6b35', weight: 2, opacity: 1, fillOpacity: 0.8
+        }).addTo(map).on('click', () => selectRoute(r.id));
+      }
+      try {
+        const stops = JSON.parse(r.stops || '[]');
+        stops.forEach((s, i) => {
+          if (s.lat && s.lng) {
+            L.circleMarker([s.lat, s.lng], {
+              radius: 7, fillColor: '#ffaa00', color: '#ff8800', weight: 2, opacity: 1, fillOpacity: 0.8
+            }).addTo(map);
+          }
+        });
+      } catch(e) {}
+      if (r.end_lat && r.end_lng) {
+        L.circleMarker([r.end_lat, r.end_lng], {
+          radius: 8, fillColor: '#00e676', color: '#00c853', weight: 2, opacity: 1, fillOpacity: 0.8
+        }).addTo(map).on('click', () => selectRoute(r.id));
+      }
+    });
+
+    // Ubicación del usuario en vista general
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const {latitude:lat, longitude:lng} = pos.coords;
+        map.setView([lat, lng], 12);
+        const myIcon = L.divIcon({className:'', html:`<div style="width:14px;height:14px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 0 10px rgba(59,130,246,0.7)"></div>`});
+        L.marker([lat, lng], {icon:myIcon}).addTo(map).bindPopup('Mi ubicación');
+      }, () => {}, {timeout:5000});
+    }
+
+    const points = [];
+    STATE.routes.forEach(r => {
+      if (r.start_lat && r.start_lng) points.push([r.start_lat, r.start_lng]);
+      if (r.end_lat && r.end_lng) points.push([r.end_lat, r.end_lng]);
+    });
+    if (points.length > 0) map.fitBounds(points, {padding: [30, 30]});
+  }
+}
+
+function renderBikerLiveLocations(map) {
+  // Muestra todos los bikers activos con ubicación en tiempo real
+  // Cada biker comparte su ubicacion en STATE.users (lat/lng en tiempo real simulado)
+  STATE.users.forEach(u => {
+    if (!u.id || u.id === STATE.user?.id) return;
+    if (!u.latitude || !u.longitude) return;
+    const icon = L.divIcon({
+      className:'',
+      html:`<div style="width:18px;height:18px;background:${avatarColor(u.id)};border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;box-shadow:0 0 8px rgba(0,0,0,0.5)">${initials(u.username)}</div>`
+    });
+    if (!STATE.bikerMarkers[u.id]) {
+      STATE.bikerMarkers[u.id] = L.marker([u.latitude, u.longitude], {icon}).addTo(map).bindPopup(`🏍️ ${u.username}`);
+    }
   });
-  if (points.length > 0) map.fitBounds(points, {padding: [30, 30]});
+}
+
+function selectRoute(id) {
+  const r = STATE.routes.find(x => x.id === id);
+  if (!r) return;
+  STATE.selectedRoute = r;
+  renderRutas();
+}
+
+function navigateToRoute(id) {
+  STATE.selectedRoute = STATE.routes.find(x => x.id === id) || null;
+  navigate('rutas');
 }
 
 function showRouteTab(tab) {
@@ -1775,15 +1946,17 @@ function showRouteTab(tab) {
 
 function renderRouteCard(r) {
   const creator = STATE.users.find(u => u.id === r.created_by);
+  const isOwner = r.created_by === STATE.user?.id;
   return `
-    <div class="card vanish" style="cursor:pointer" onclick="viewRoute(${r.id})">
+    <div class="card vanish" style="cursor:pointer" onclick="selectRoute(${r.id})">
       <div style="display:flex;justify-content:space-between;align-items:start">
         <div>
-          <div class="card-title">${r.name}</div>
-          <div class="card-sub">${r.start_name || 'Sin origen'} → ${r.end_name || 'Sin destino'}</div>
-          <div style="margin-top:6px;display:flex;gap:6px">
+          <div class="card-title">${escHtml(r.name)}</div>
+          <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="badge">⚡ ${r.difficulty}</span>
-            <span class="badge">${creator ? creator.username : '?'}</span>
+            <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
+            ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
         </div>
         <div style="font-size:20px">🏍️</div>
@@ -1792,77 +1965,137 @@ function renderRouteCard(r) {
   `;
 }
 
-function viewRoute(id) {
+function editRoute(id) {
   const r = STATE.routes.find(x => x.id === id);
-  if (!r) return;
-  const creator = STATE.users.find(u => u.id === r.created_by);
+  if (!r || r.created_by !== STATE.user?.id) return;
 
-  openModal('Detalle de Ruta', `
-    <div class="map-container" style="margin-bottom:16px">
-      <div id="map-route-detail" style="height:250px"></div>
-    </div>
-    <div class="card-title" style="font-size:18px">${r.name}</div>
-    <div class="card-sub" style="margin-bottom:12px">${r.description || ''}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-      <div style="padding:12px;background:var(--surface2);border-radius:8px">
-        <div style="font-size:10px;color:var(--text2)">SALIDA</div>
-        <div style="font-size:13px;font-weight:600;margin-top:2px">${r.start_name || 'N/A'}</div>
-        <div style="font-size:11px;color:var(--text2)">${r.start_lat}, ${r.start_lng}</div>
+  let stops = [];
+  try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
+
+  // Build stop HTML
+  let stopsHtml = '';
+  stops.forEach((s, i) => {
+    stopsHtml += `<div id="edit-stop-${i}" style="margin-bottom:8px">
+      <input class="input" id="es-name-${i}" value="${escHtml(s.name)}" placeholder="Parada ${i+1}" style="margin-bottom:4px">
+      <div class="coord-row">
+        <input class="input" id="es-lat-${i}" value="${s.lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
+        <input class="input" id="es-lng-${i}" value="${s.lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
+        <button class="btn btn-secondary" style="padding:0 10px;flex:0" onclick="openGmapsEditStop(${i})">📍</button>
       </div>
-      <div style="padding:12px;background:var(--surface2);border-radius:8px">
-        <div style="font-size:10px;color:var(--text2)">DESTINO</div>
-        <div style="font-size:13px;font-weight:600;margin-top:2px">${r.end_name || 'N/A'}</div>
-        <div style="font-size:11px;color:var(--text2)">${r.end_lat}, ${r.end_lng}</div>
-      </div>
+    </div>`;
+  });
+
+  openModal('Editar Ruta', `
+    <input class="input" id="ert-name" value="${escHtml(r.name)}" placeholder="Nombre de la ruta" style="margin-bottom:12px">
+    <input class="input" id="ert-desc" value="${escHtml(r.description || '')}" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">SALIDA</div>
+    <input class="input" id="ert-start-name" value="${escHtml(r.start_name || '')}" placeholder="Nombre del punto de salida" style="margin-bottom:6px">
+    <div class="coord-row">
+      <input class="input" id="ert-start-lat" value="${r.start_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
+      <input class="input" id="ert-start-lng" value="${r.start_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
+      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('ert-start')">📍 Buscar</button>
     </div>
-    ${(() => { try { const ss = JSON.parse(r.stops || '[]'); return ss.length ? '<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">PARADAS</div>' + ss.map((s,i) => '<div style="padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:6px"><div style="font-size:12px;font-weight:600">'+s.name+'</div><div style="font-size:11px;color:var(--text2)">'+s.lat+', '+s.lng+'</div></div>').join('') + '</div>' : ''; } catch(e) { return ''; } })()}
-    <div style="display:flex;gap:6px;margin-bottom:16px">
-      <span class="badge">⚡ ${r.difficulty}</span>
-      <span class="badge">🏍️ ${creator ? creator.username : '?'}</span>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">PARADAS</div>
+    <div id="ert-stops-container">${stopsHtml}</div>
+    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:12px" onclick="addEditStopField()">+ Agregar parada</button>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">DESTINO</div>
+    <input class="input" id="ert-end-name" value="${escHtml(r.end_name || '')}" placeholder="Nombre del destino" style="margin-bottom:6px">
+    <div class="coord-row">
+      <input class="input" id="ert-end-lat" value="${r.end_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
+      <input class="input" id="ert-end-lng" value="${r.end_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
+      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('ert-end')">📍 Buscar</button>
     </div>
-    ${r.created_by === STATE.user?.id ? `<button class="btn btn-secondary" style="width:100%" onclick="deleteRoute(${r.id})">Eliminar ruta</button>` : ''}
+
+    <select class="input" id="ert-diff" style="margin-bottom:16px">
+      <option value="facil" ${r.difficulty==='facil'?'selected':''}>Facil</option>
+      <option value="intermedia" ${r.difficulty==='intermedia'?'selected':''}>Intermedia</option>
+      <option value="alta" ${r.difficulty==='alta'?'selected':''}>Alta</option>
+    </select>
+    <button class="btn btn-primary" style="width:100%" onclick="doEditRoute(${r.id})">Guardar cambios</button>
   `);
 
-  setTimeout(() => {
-    if (STATE.map) { STATE.map.remove(); STATE.map = null; }
-    const map = L.map('map-route-detail', {zoomControl:false, attributionControl:false}).setView([(r.start_lat+r.end_lat)/2, (r.start_lng+r.end_lng)/2], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(map);
+  // Patch openGmapsFor so it works with ert-start / ert-end prefixes
+  // Store original so it can still work with create route form
+  stopCounter = stops.length;
+}
 
-    // Build waypoints including stops
-    const pts = [[r.start_lat, r.start_lng]];
-    let stops = [];
-    try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
-    stops.forEach(s => { if (s.lat && s.lng) pts.push([parseFloat(s.lat), parseFloat(s.lng)]); });
-    pts.push([r.end_lat, r.end_lng]);
+function addEditStopField() {
+  stopCounter++;
+  const id = 'editstop-' + stopCounter;
+  const container = document.getElementById('ert-stops-container');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.marginBottom = '8px';
+  div.innerHTML = '<input class="input" id="' + id + '-name" placeholder="Parada ' + stopCounter + '" style="margin-bottom:4px"><div class="coord-row"><input class="input" id="' + id + '-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1"><input class="input" id="' + id + '-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1"><button class="btn btn-secondary" style="padding:0 10px;flex:0" onclick="openGmapsEditStop(\'' + id + '\')">📍</button></div>';
+  container.appendChild(div);
+}
 
-    // SALIDA pill
-    const startDiv = L.divIcon({className:'', html:`<div style="background:#22c55e;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">SALIDA</div>`});
-    L.marker([r.start_lat, r.start_lng], {icon:startDiv}).addTo(map);
+function openGmapsEditStop(stopId) {
+  const nameEl = document.getElementById(stopId + '-name') || document.getElementById('es-name-' + stopId);
+  const name = nameEl ? nameEl.value.trim() : 'Panama';
+  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name), '_blank');
+  toast('Busca en Google Maps y pega el enlace aqui');
+}
 
-    // PARADA pills
-    stops.forEach(s => {
-      if (!s.lat || !s.lng) return;
-      const stopDiv = L.divIcon({className:'', html:`<div style="background:#ff8800;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">PARADA</div>`});
-      L.marker([parseFloat(s.lat), parseFloat(s.lng)], {icon:stopDiv}).addTo(map);
-    });
+function doEditRoute(id) {
+  const name = document.getElementById('ert-name').value.trim();
+  const desc = document.getElementById('ert-desc').value.trim();
+  const startName = document.getElementById('ert-start-name').value.trim();
+  const startLat = parseFloat(document.getElementById('ert-start-lat').value) || 0;
+  const startLng = parseFloat(document.getElementById('ert-start-lng').value) || 0;
+  const endName = document.getElementById('ert-end-name').value.trim();
+  const endLat = parseFloat(document.getElementById('ert-end-lat').value) || 0;
+  const endLng = parseFloat(document.getElementById('ert-end-lng').value) || 0;
+  const diff = document.getElementById('ert-diff').value;
 
-    // DESTINO pill
-    const endDiv = L.divIcon({className:'', html:`<div style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">DESTINO</div>`});
-    L.marker([r.end_lat, r.end_lng], {icon:endDiv}).addTo(map);
+  const stops = [];
+  // Stops from edit-stop-N fields
+  document.querySelectorAll('[id^="edit-stop-"]').forEach(function(el) {
+    const idx = el.id.replace('edit-stop-', '');
+    const stopName = document.getElementById('es-name-' + idx);
+    const stopLat = document.getElementById('es-lat-' + idx);
+    const stopLng = document.getElementById('es-lng-' + idx);
+    if (stopName && stopLat && stopLng && stopName.value.trim() && stopLat.value && stopLng.value) {
+      stops.push({name: stopName.value.trim(), lat: parseFloat(stopLat.value), lng: parseFloat(stopLng.value)});
+    }
+  });
+  // Stops from editstop-N fields
+  document.querySelectorAll('[id^="editstop-"][id$="-name"]').forEach(function(el) {
+    var stopId = el.id.replace('-name', '');
+    var stopLat = document.getElementById(stopId + '-lat');
+    var stopLng = document.getElementById(stopId + '-lng');
+    if (el.value.trim() && stopLat && stopLng && stopLat.value && stopLng.value) {
+      stops.push({name: el.value.trim(), lat: parseFloat(stopLat.value), lng: parseFloat(stopLng.value)});
+    }
+  });
 
-    // Dashed placeholder while OSRM loads
-    const placeholder = L.polyline(pts, {color:'#ff4444', weight:4, opacity:0.4, dashArray:'10,10'}).addTo(map);
+  if (!name) { toast('El nombre es obligatorio'); return; }
+  const idx = STATE.routes.findIndex(x => x.id === id);
+  if (idx === -1) return;
 
-    // Real road route via OSRM
-    const coords = pts.map(p => `${p[1]},${p[0]}`).join(';');
-    fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return;
-        placeholder.remove();
-        L.geoJSON(data.routes[0].geometry, {style: {color:'#ff4444', weight:5, opacity:1, className:'route-animated'}}).addTo(map);
-      }).catch(() => {});
-  }, 100);
+  STATE.routes[idx] = {
+    ...STATE.routes[idx],
+    name,
+    description: desc,
+    start_lat: startLat,
+    start_lng: startLng,
+    start_name: startName,
+    end_lat: endLat,
+    end_lng: endLng,
+    end_name: endName,
+    difficulty: diff,
+    stops: JSON.stringify(stops)
+  };
+
+  saveState();
+  closeModal();
+  STATE.selectedRoute = STATE.routes[idx];
+  renderRutas();
+  toast('Ruta actualizada!');
 }
 
 function createRoute() {
@@ -1911,14 +2144,14 @@ function createRoute() {
 }
 
 function openGmapsFor(type) {
-  const name = document.getElementById(type === 'start' ? 'rt-start-name' : 'rt-end-name').value.trim() || 'Panama';
-  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
-  // Try to open in app first, fallback to browser
-  const appUrl = `geo:0,0?q=${encodeURIComponent(name)}`;
-  const browserUrl = url;
-  // On mobile this opens the Google Maps app
-  window.open(browserUrl, '_blank');
-  toast('Busca en Google Maps, luego comparte y pega el enlace aqui');
+  let name = '';
+  if (type === 'start') name = document.getElementById('rt-start-name').value.trim() || 'Panama';
+  else if (type === 'end') name = document.getElementById('rt-end-name').value.trim() || 'Panama';
+  else if (type === 'ert-start') name = document.getElementById('ert-start-name').value.trim() || 'Panama';
+  else if (type === 'ert-end') name = document.getElementById('ert-end-name').value.trim() || 'Panama';
+  else name = document.getElementById('rt-start-name').value.trim() || 'Panama';
+  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name), '_blank');
+  toast('Busca en Google Maps y pega el enlace aqui');
 }
 
 function parseGmapsUrl(url) {
@@ -1941,24 +2174,33 @@ function parseGmapsUrl(url) {
   return null;
 }
 
-// Auto-parse on paste into coord fields
+// Auto-parse on paste into coord fields (create & edit)
 document.addEventListener('paste', function(e) {
-  // Find if paste is in a coord input
   setTimeout(function() {
-    ['start', 'end'].forEach(function(type) {
-      const latEl = document.getElementById('rt-' + type + '-lat');
-      const lngEl = document.getElementById('rt-' + type + '-lng');
+    ['rt-start', 'rt-end', 'ert-start', 'ert-end'].forEach(function(prefix) {
+      const latEl = document.getElementById(prefix + '-lat');
+      const lngEl = document.getElementById(prefix + '-lng');
       if (!latEl || !lngEl) return;
       const latVal = latEl.value.trim();
-      // If lat field contains a full URL, parse it
       if (latVal.includes('google.com') || latVal.includes('maps')) {
         const coords = parseGmapsUrl(latVal);
         if (coords) {
           latEl.value = coords.lat;
           lngEl.value = coords.lng;
-          const preview = document.getElementById('rt-' + type + '-preview');
-          if (preview) { preview.style.display = 'block'; }
-          toast('Coordenadas extraidas: ' + coords.lat.toFixed(5) + ', ' + coords.lng.toFixed(5));
+          toast('Coordenadas extraídas: ' + coords.lat.toFixed(5) + ', ' + coords.lng.toFixed(5));
+        }
+      }
+    });
+    // Edit stop fields
+    document.querySelectorAll('[id^="editstop-"][id$="-lat"]').forEach(function(latEl) {
+      const val = latEl.value.trim();
+      if (val.includes('google.com') || val.includes('maps')) {
+        const coords = parseGmapsUrl(val);
+        if (coords) {
+          latEl.value = coords.lat;
+          const lngEl = document.getElementById(latEl.id.replace('-lat', '-lng'));
+          if (lngEl) lngEl.value = coords.lng;
+          toast('Coordenadas extraídas!');
         }
       }
     });
@@ -2050,16 +2292,17 @@ function doCreateRoute() {
   STATE.routes.push(route);
   saveState();
   closeModal();
-  navigate('rutas');
+  STATE.selectedRoute = route;
+  renderRutas();
   toast('Ruta creada!');
 }
 
 function deleteRoute(id) {
-  if (!confirm('Eliminar esta ruta?')) return;
+  if (!confirm('¿Eliminar esta ruta?')) return;
   STATE.routes = STATE.routes.filter(r => r.id !== id);
+  STATE.selectedRoute = null;
   saveState();
-  closeModal();
-  navigate('rutas');
+  renderRutas();
   toast('Ruta eliminada');
 }
 
