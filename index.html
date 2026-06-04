@@ -1008,6 +1008,7 @@ a{color:inherit;text-decoration:none}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<script src="badges.js"></script>
 <script>
 
 // ============================================================
@@ -1073,60 +1074,59 @@ const SEED_USERS = [
 ];
 
 // ============================================================
-// BADGE DEFINITIONS (stats-based, SVG icons)
+// BADGE DEFINITIONS (25 metal-bronze medals)
 // ============================================================
-// Each badge has: id, name, description, stat_type, threshold, category, points, rarity, svgColor, svgIcon
 const SEED_BADGES = [
-  // === RODAJE ===
-  {id:1,name:'Primer Ruedo',description:'Completaste tu primera rodada',stat_type:'rides',threshold:1,category:'rodaje',rarity:'common',points_bonus:50,svgGradient:'#ff4444|#ff8800',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🏍</text>'},
-  {id:2,name:'5 Ruedas',description:'5 rodadas completadas',stat_type:'rides',threshold:5,category:'rodaje',rarity:'common',points_bonus:150,svgGradient:'#ff6b35|#ffaa00',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🔥</text>'},
-  {id:3,name:'10 Ruedas',description:'10 rodadas completadas',stat_type:'rides',threshold:10,category:'rodaje',rarity:'rare',points_bonus:300,svgGradient:'#ffd700|#ff8c00',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">⚡</text>'},
-  {id:4,name:'25 Ruedas',description:'25 rodadas — te encanta la carretera',stat_type:'rides',threshold:25,category:'rodaje',rarity:'rare',points_bonus:700,svgGradient:'#00bcd4|#006994',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">👑</text>'},
-  {id:5,name:'50 Ruedas',description:'Medio centenario de rodadas',stat_type:'rides',threshold:50,category:'rodaje',rarity:'epic',points_bonus:1500,svgGradient:'#9c27b0|#e91e63',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🏆</text>'},
-  {id:6,name:'100 Ruedas',description:'Leyenda del asfalto',stat_type:'rides',threshold:100,category:'rodaje',rarity:'legendary',points_bonus:3000,svgGradient:'#1a1a2e|#ff3b3b',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="#ffd700">⭐</text>'},
-
-  // === EVENTOS ===
-  {id:7,name:'Asistencia Perfecta',description:'3 rodadas consecutivas sin faltar',stat_type:'streak',threshold:3,category:'eventos',rarity:'common',points_bonus:100,svgGradient:'#4caf50|#2e7d32',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🎯</text>'},
-  {id:8,name:'Racha de Fuego',description:'7 días seguidos conectando',stat_type:'streak',threshold:7,category:'eventos',rarity:'rare',points_bonus:300,svgGradient:'#ff5722|#ff9800',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🔥</text>'},
-  {id:9,name:'Racha Imparable',description:'15 días seguidos de actividad',stat_type:'streak',threshold:15,category:'eventos',rarity:'epic',points_bonus:800,svgGradient:'#ff1744|#d50000',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">⚡</text>'},
-
-  // === SOCIAL ===
-  {id:10,name:'Social Rider',description:'20 mensajes en el chat grupal',stat_type:'chat_messages',threshold:20,category:'social',rarity:'common',points_bonus:80,svgGradient:'#2196f3|#0d47a1',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">💬</text>'},
-  {id:11,name:'Rey del Chat',description:'100 mensajes en el chat grupal',stat_type:'chat_messages',threshold:100,category:'social',rarity:'rare',points_bonus:400,svgGradient:'#7c4dff|#651fff',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">👑</text>'},
-
-  // === FOTOS ===
-  {id:12,name:'Fotógrafo',description:'5 fotos compartidas en BIKERGRAM',stat_type:'photos',threshold:5,category:'fotos',rarity:'common',points_bonus:150,svgGradient:'#ffeb3b|#ff9800',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">📸</text>'},
-  {id:13,name:'Cazador de Momentos',description:'20 fotos compartidas',stat_type:'photos',threshold:20,category:'fotos',rarity:'rare',points_bonus:500,svgGradient:'#e91e63|#880e4f',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🎥</text>'},
-
-  // === RUTAS ===
-  {id:14,name:'Explorador',description:'Creaste tu primera ruta',stat_type:'routes_created',threshold:1,category:'rutas',rarity:'common',points_bonus:100,svgGradient:'#009688|#004d40',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🗺️</text>'},
-  {id:15,name:'Arquitecto de Rutas',description:'Creaste 5 rutas personalizadas',stat_type:'routes_created',threshold:5,category:'rutas',rarity:'rare',points_bonus:400,svgGradient:'#3f51b5|#1a237e',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🛣️</text>'},
-
-  // === DISTANCIA ===
-  {id:16,name:'Primeros 100km',description:'Acumulaste 100 km totales',stat_type:'total_km',threshold:100,category:'distancia',rarity:'common',points_bonus:200,svgGradient:'#607d8b|#263238',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🛣️</text>'},
-  {id:17,name:'500km Club',description:'500 km recorridos — trotamundos',stat_type:'total_km',threshold:500,category:'distancia',rarity:'rare',points_bonus:800,svgGradient:'#795548|#3e2723',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🌍</text>'},
-
-  // === ESPECIALES ===
-  {id:18,name:'Veterano',description:'Miembro activo por 30+ días',stat_type:'days_active',threshold:30,category:'especial',rarity:'rare',points_bonus:500,svgGradient:'#546e7a|#37474f',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🎖️</text>'},
-  {id:19,name:'Legado Biker',description:'Veterano de 90+ días',stat_type:'days_active',threshold:90,category:'especial',rarity:'epic',points_bonus:1200,svgGradient:'#1a1a1a|#c62828',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="#ffd700">🏅</text>'},
-  {id:20,name:'Destacado',description:'Reconocido por el admin del grupo',stat_type:'admin_award',threshold:1,category:'especial',rarity:'epic',points_bonus:1000,svgGradient:'#ffd700|#ff8c00',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="#1a1a1a">⭐</text>'},
+  {id:1,name:'Primer Ruedo',description:'Completaste tu primera rodada',stat_type:'rides',threshold:1,category:'rodaje',rarity:'common',points_bonus:50,svgGradient:'#ff4444|#ff8800'},
+  {id:2,name:'5 Ruedas',description:'5 rodadas completadas',stat_type:'rides',threshold:5,category:'rodaje',rarity:'common',points_bonus:150,svgGradient:'#ff6b35|#ffaa00'},
+  {id:3,name:'10 Ruedas',description:'10 rodadas completadas',stat_type:'rides',threshold:10,category:'rodaje',rarity:'rare',points_bonus:300,svgGradient:'#ffd700|#ff8c00'},
+  {id:4,name:'25 Ruedas',description:'25 rodadas - te encanta la carretera',stat_type:'rides',threshold:25,category:'rodaje',rarity:'rare',points_bonus:700,svgGradient:'#00bcd4|#006994'},
+  {id:5,name:'50 Ruedas',description:'Medio centenario de rodadas',stat_type:'rides',threshold:50,category:'rodaje',rarity:'epic',points_bonus:1500,svgGradient:'#9c27b0|#e91e63'},
+  {id:6,name:'100 Ruedas',description:'Leyenda del asfalto',stat_type:'rides',threshold:100,category:'rodaje',rarity:'legendary',points_bonus:3000,svgGradient:'#1a1a2e|#ff3b3b'},
+  {id:7,name:'200 Ruedas',description:'Doble centenario - maestro del camino',stat_type:'rides',threshold:200,category:'rodaje',rarity:'legendary',points_bonus:5000,svgGradient:'#ff3b3b|#c62828'},
+  {id:8,name:'500 Ruedas',description:'500 rodadas - mito viviente',stat_type:'rides',threshold:500,category:'rodaje',rarity:'legendary',points_bonus:10000,svgGradient:'#000000|#ff3b3b'},
+  {id:9,name:'Login Diario',description:'Te conectaste hoy',stat_type:'days_active',threshold:1,category:'eventos',rarity:'common',points_bonus:50,svgGradient:'#4caf50|#2e7d32'},
+  {id:10,name:'7 Días de Racha',description:'7 días seguidos activo',stat_type:'streak',threshold:7,category:'eventos',rarity:'rare',points_bonus:300,svgGradient:'#ff9800|#ff5722'},
+  {id:11,name:'30 Días de Racha',description:'30 días seguidos activo',stat_type:'streak',threshold:30,category:'eventos',rarity:'epic',points_bonus:1000,svgGradient:'#ff5722|#bf360c'},
+  {id:12,name:'100 Días',description:'100 días seguidos - imparable',stat_type:'streak',threshold:100,category:'eventos',rarity:'legendary',points_bonus:2500,svgGradient:'#d32f2f|#7f0000'},
+  {id:13,name:'Foto del Día',description:'Subiste 1 foto hoy',stat_type:'photos',threshold:1,category:'fotos',rarity:'common',points_bonus:80,svgGradient:'#ffeb3b|#ff9800'},
+  {id:14,name:'Publicador',description:'Hiciste 10 publicaciones',stat_type:'posts',threshold:10,category:'fotos',rarity:'rare',points_bonus:400,svgGradient:'#e91e63|#880e4f'},
+  {id:15,name:'Conversador',description:'50+ comentarios en BikerGram',stat_type:'chat_messages',threshold:50,category:'social',rarity:'common',points_bonus:150,svgGradient:'#2196f3|#0d47a1'},
+  {id:16,name:'Reaccionador',description:'100+ reacciones en posts',stat_type:'chat_messages',threshold:100,category:'social',rarity:'rare',points_bonus:400,svgGradient:'#7c4dff|#651fff'},
+  {id:17,name:'Madrugador',description:'Activo antes de las 7am (10+ veces)',stat_type:'early_bird',threshold:10,category:'especial',rarity:'rare',points_bonus:500,svgGradient:'#ffc107|#ff6f00'},
+  {id:18,name:'Noctámbulo',description:'Activo después de medianoche (10+ veces)',stat_type:'night_owl',threshold:10,category:'especial',rarity:'rare',points_bonus:500,svgGradient:'#3f51b5|#1a237e'},
+  {id:19,name:'Pionero',description:'De los primeros 10 miembros del grupo',stat_type:'founding',threshold:1,category:'especial',rarity:'epic',points_bonus:800,svgGradient:'#795548|#3e2723'},
+  {id:20,name:'Mentor',description:'Ayudaste a 5+ nuevos miembros',stat_type:'mentor',threshold:5,category:'especial',rarity:'epic',points_bonus:1200,svgGradient:'#009688|#004d40'},
+  {id:21,name:'Veterano',description:'1 año activo en el grupo',stat_type:'days_active',threshold:365,category:'especial',rarity:'epic',points_bonus:2000,svgGradient:'#546e7a|#37474f'},
+  {id:22,name:'Leyenda',description:'2 años activo - pilar del grupo',stat_type:'days_active',threshold:730,category:'especial',rarity:'legendary',points_bonus:5000,svgGradient:'#1a1a1a|#c62828'},
+  {id:23,name:'Embajador',description:'Representante oficial del grupo',stat_type:'admin_award',threshold:1,category:'especial',rarity:'epic',points_bonus:1000,svgGradient:'#ffd700|#ff8c00'},
+  {id:24,name:'Fundador',description:'Co-creador de Biker Society',stat_type:'founding',threshold:1,category:'especial',rarity:'legendary',points_bonus:10000,svgGradient:'#000000|#ffd700'},
+  {id:25,name:'Élite',description:'Top 10 del ranking general',stat_type:'admin_award',threshold:1,category:'especial',rarity:'legendary',points_bonus:3000,svgGradient:'#1a1a2e|#ffd700'},
 ];
 
+// Get badge image (metal-bronze medal from /badges.js)
+// Locked = B&W, desaturated, no glow
+// Earned = full color with glow effect
 function getBadgeSvg(badge, earned) {
-  const [c1, c2] = badge.svgGradient.split('|');
-  const opacity = earned ? 1 : 0.3;
-  const filter = earned ? '' : 'grayscale(100%)';
-  return `<svg viewBox="0 0 48 48" width="56" height="56" style="opacity:${opacity};filter:${filter};transition:all 0.3s">
-    <defs>
-      <linearGradient id="bg${badge.id}" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:${c1}"/>
-        <stop offset="100%" style="stop-color:${c2}"/>
-      </linearGradient>
-    </defs>
-    <circle cx="24" cy="24" r="22" fill="url(#bg${badge.id})" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-    <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-    ${badge.svgIcon}
-  </svg>`;
+  const img = BADGE_IMAGES[badge.id];
+  if (!img) return '';
+  if (earned) {
+    const [c1, c2] = (badge.svgGradient||'#ff4444|#ff8800').split('|');
+    return `<div style="
+      width:64px;height:64px;display:flex;align-items:center;justify-content:center;
+      border-radius:50%;
+      background:radial-gradient(circle, ${c1}33 0%, transparent 70%);
+      box-shadow:0 0 12px ${c1}aa, 0 0 4px ${c2}aa, inset 0 0 6px rgba(255,255,255,0.1);
+      animation:badgeEarned 0.5s ease-out;
+    "><img src="${img.color}" style="width:56px;height:56px;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4))" alt="${badge.name}"></div>`;
+  } else {
+    return `<div style="
+      width:64px;height:64px;display:flex;align-items:center;justify-content:center;
+      border-radius:50%;
+      background:radial-gradient(circle, #1a1a1a 0%, transparent 70%);
+      opacity:0.45;
+    "><img src="${img.bw}" style="width:56px;height:56px;display:block;filter:grayscale(100%) brightness(0.7);" alt="${badge.name}"></div>`;
+  }
 }
 
 const SEED_CHALLENGES = [
@@ -1361,6 +1361,11 @@ function getUserStats(userId) {
     streak,
     events: rides,
     posts: STATE.posts.filter(p => p.user_id === userId).length,
+    // New stats — track via user record (admin can set), default 0
+    early_bird: u?.stats?.early_bird || 0,
+    night_owl: u?.stats?.night_owl || 0,
+    founding: u?.stats?.founding || 0,
+    mentor: u?.stats?.mentor || 0,
   };
   STATE.userStats[userId] = stats;
   return stats;
