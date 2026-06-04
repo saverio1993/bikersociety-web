@@ -528,6 +528,8 @@ a{color:inherit;text-decoration:none}
   50%{transform:scale(1.1)}
   100%{transform:scale(1);opacity:1}
 }
+@keyframes audioPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,68,68,0.4)}50%{transform:scale(1.05);box-shadow:0 0 0 10px rgba(255,68,68,0)}}
+@keyframes mediaFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .badge-icon{font-size:32px;margin-bottom:8px}
 .badge-name{font-size:11px;font-weight:700;line-height:1.3}
 
@@ -1523,6 +1525,56 @@ function avatarColor(id) {
 
 function avatarText(name) {
   return (name || '?').charAt(0).toUpperCase();
+}
+
+// Render user avatar HTML — uses uploaded image if present, otherwise initials
+function renderAvatar(user, size = 64) {
+  if (!user) user = {};
+  const c1 = avatarColor(user.id);
+  const c2 = avatarColor((user.id || 0) + 1);
+  const style = `width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.36)}px;font-weight:900;color:#fff;overflow:hidden;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.25)`;
+  if (user.avatar) {
+    return `<div style="${style}"><img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
+  }
+  return `<div style="${style}">${avatarText(user.username)}</div>`;
+}
+
+// Read a File object and return data URL via Promise
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// Compress image to fit a max dimension (keeps localStorage manageable)
+// Returns data URL or null if not an image
+async function compressImage(file, maxDim = 800, quality = 0.82) {
+  if (!file.type.startsWith('image/')) return null;
+  const dataUrl = await fileToDataUrl(file);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      // Re-encode to JPEG to shrink further (unless PNG with transparency)
+      const isPng = file.type === 'image/png';
+      const out = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality);
+      resolve(out);
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
 }
 
 function formatTime(ts) {
@@ -2911,7 +2963,9 @@ function renderRiderDetail() {
       <button class="btn btn-ghost" style="padding:6px 0" onclick="navigate('bikers')">← Volver</button>
     </div>
     <div style="text-align:center;margin-bottom:20px">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${avatarColor(r.id)},${avatarColor(r.id+1)});display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px">${initials(r.username)}</div>
+      <div style="margin:0 auto 12px;display:flex;justify-content:center">
+        ${renderAvatar(r, 96)}
+      </div>
       <div style="font-size:20px;font-weight:800">${r.username} ${r.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
       <div style="color:var(--text2);font-size:13px;margin-top:4px">${r.bike_model || 'Sin moto'} · ${r.city || 'Panama'}</div>
       ${r.is_injured ? `<div style="margin-top:8px"><span class="badge-red">⚠️ ${r.injury_note || 'LESIONADO'}</span></div>` : ''}
@@ -2961,6 +3015,19 @@ function editRider(id) {
   const hasBadge20 = STATE.userBadges.find(ub => ub.user_id === id && ub.badge_id === 20);
 
   openModal('Editar Perfil', `
+    <!-- Avatar upload -->
+    <div style="text-align:center;margin-bottom:16px">
+      <div id="ed-avatar-preview" style="margin:0 auto 10px">
+        ${renderAvatar(r, 96)}
+      </div>
+      <label for="ed-avatar" style="display:inline-block;padding:8px 18px;background:var(--card);border:1px solid var(--border);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        📷 Cambiar foto
+      </label>
+      <input type="file" id="ed-avatar" accept="image/*" style="display:none" onchange="previewAvatarUpload(event, ${id})">
+      ${r.avatar ? `<button type="button" style="display:inline-block;margin-left:8px;padding:8px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--danger);cursor:pointer" onclick="clearAvatar(${id})">Quitar</button>` : ''}
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">JPG, PNG, GIF, WEBP — máx 800px</div>
+    </div>
+
     <input class="input" id="ed-username" value="${r.username}" placeholder="Usuario">
     <input class="input" id="ed-email" value="${r.email}" placeholder="Email">
     <input class="input" id="ed-bike" value="${r.bike_model}" placeholder="Modelo de moto">
@@ -3001,6 +3068,39 @@ function editRider(id) {
   `);
 }
 
+// Live preview when user selects a new avatar
+async function previewAvatarUpload(event, userId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { toast('Imagen muy grande (máx 8MB)'); return; }
+  const compressed = await compressImage(file, 800, 0.82);
+  if (!compressed) { toast('No se pudo procesar la imagen'); return; }
+  // Store on user record (saved on submit)
+  const r = STATE.users.find(u => u.id === userId);
+  if (!r) return;
+  r.avatar = compressed;
+  // Live preview in modal
+  const prev = document.getElementById('ed-avatar-preview');
+  if (prev) prev.innerHTML = renderAvatar(r, 96);
+  // Show "Quitar" button
+  event.target.insertAdjacentHTML('afterend',
+    `<button type="button" id="ed-avatar-clear" style="display:inline-block;margin-left:8px;padding:8px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--danger);cursor:pointer" onclick="clearAvatar(${userId})">Quitar</button>`);
+  toast('Foto cargada — guarda para aplicar');
+}
+
+function clearAvatar(userId) {
+  const r = STATE.users.find(u => u.id === userId);
+  if (!r) return;
+  r.avatar = null;
+  const prev = document.getElementById('ed-avatar-preview');
+  if (prev) prev.innerHTML = renderAvatar(r, 96);
+  const clr = document.getElementById('ed-avatar-clear');
+  if (clr) clr.remove();
+  const fileIn = document.getElementById('ed-avatar');
+  if (fileIn) fileIn.value = '';
+  toast('Foto quitada — guarda para confirmar');
+}
+
 function doEditRider(id) {
   const r = STATE.users.find(u => u.id === id);
   if (!r) return;
@@ -3012,6 +3112,7 @@ function doEditRider(id) {
   r.bio = document.getElementById('ed-bio').value.trim();
   const newPass = document.getElementById('ed-pass')?.value;
   if (newPass) r.password = newPass;
+  // Avatar is already set on r.avatar by previewAvatarUpload / clearAvatar
 
   if (isAdmin) {
     const edIsAdmin = document.getElementById('ed-isadmin');
@@ -3066,21 +3167,73 @@ function removeAdminAward(id) {
 // BIKERGRAM PAGE
 // ============================================================
 function renderBikerGram() {
+  // Count media types
+  const photos = STATE.posts.filter(p => p.media_type === 'image' || p.image_url).length;
+  const videos = STATE.posts.filter(p => p.media_type === 'video').length;
+  const audios = STATE.posts.filter(p => p.media_type === 'audio').length;
+
   document.getElementById('page-bikergram').innerHTML = `
     <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-      <div style="font-size:18px;font-weight:800">BikerGram</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">BikerGram</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">📷 ${photos} · 🎬 ${videos} · 🎵 ${audios}</div>
+      </div>
       <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createPost()">+ Publicar</button>
     </div>
+
+    <!-- Quick upload cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <button onclick="createPost()" style="padding:14px 6px;background:linear-gradient(135deg,rgba(255,68,68,0.1),rgba(255,136,0,0.1));border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#ff4444'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border)'">
+        <div style="font-size:24px">📷</div><div style="font-size:10px;font-weight:700">Foto</div>
+      </button>
+      <button onclick="createPost()" style="padding:14px 6px;background:linear-gradient(135deg,rgba(59,130,246,0.1),rgba(168,85,247,0.1));border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#3b82f6'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border)'">
+        <div style="font-size:24px">🎬</div><div style="font-size:10px;font-weight:700">Video</div>
+      </button>
+      <button onclick="createPost()" style="padding:14px 6px;background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(20,184,166,0.1));border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='#22c55e'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border)'">
+        <div style="font-size:24px">🎵</div><div style="font-size:10px;font-weight:700">Musica</div>
+      </button>
+    </div>
+
     <div id="bikergram-feed">
       ${STATE.posts.length === 0 ? `
         <div class="empty-state">
           <div class="empty-icon">📷</div>
           <div>No hay publicaciones todavia</div>
-          <button class="btn btn-primary" style="margin-top:12px" onclick="createPost()">Primera publicacion</button>
+          <div style="font-size:12px;color:var(--text2);margin-top:6px">Comparte tu primera foto, video o cancion</div>
+          <button class="btn btn-primary" style="margin-top:12px" onclick="createPost()">Crear publicacion</button>
         </div>
       ` : STATE.posts.map(p => renderPost(p)).join('')}
     </div>
   `;
+}
+
+// Render media block for a post (image / video / audio / none)
+function renderPostMedia(p) {
+  const url = p.media_url || p.image_url;
+  if (!url) return '';
+  if (p.media_type === 'video' || (!p.media_type && url.startsWith('data:video'))) {
+    return `<div style="position:relative;background:#000;overflow:hidden">
+      <video src="${url}" controls preload="metadata" style="display:block;width:100%;max-height:540px;background:#000" playsinline></video>
+      <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:700;backdrop-filter:blur(8px)">🎬 VIDEO</div>
+    </div>`;
+  }
+  if (p.media_type === 'audio' || (!p.media_type && url.startsWith('data:audio'))) {
+    return `<div style="background:linear-gradient(135deg,rgba(255,68,68,0.12),rgba(255,136,0,0.12));border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎵</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700">Audio compartido</div>
+          <div style="font-size:10px;color:var(--text2)">Pulsa play para escuchar</div>
+        </div>
+      </div>
+      <audio src="${url}" controls preload="metadata" style="width:100%"></audio>
+    </div>`;
+  }
+  // image (default) — show full width, max height 540, object-fit contain
+  return `<div style="position:relative;background:#000;overflow:hidden">
+    <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:540px;object-fit:contain;background:#000" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#888;font-size:12px\\'>Imagen no disponible</div>'">
+    <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:700;backdrop-filter:blur(8px)">📷 FOTO</div>
+  </div>`;
 }
 
 function renderPost(p) {
@@ -3092,7 +3245,7 @@ function renderPost(p) {
   return `
     <div class="post-card vanish">
       <div class="post-header">
-        <div class="post-avatar" style="background:${avatarColor(author.id)}">${initials(author.username)}</div>
+        <div style="width:36px;height:36px;flex-shrink:0">${renderAvatar(author, 36)}</div>
         <div style="flex:1">
           <div class="post-name">${author.username}</div>
           <div class="post-time">${timeAgo(p.created_at)}</div>
@@ -3100,7 +3253,7 @@ function renderPost(p) {
         ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
       </div>
       <div class="post-content">${p.content}</div>
-      ${p.image_url ? `<img class="post-image" src="${p.image_url}" onerror="this.style.display='none'">` : ''}
+      ${renderPostMedia(p)}
       <div class="post-actions">
         <button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike(${p.id})">
           ${isLiked ? '❤️' : '🤍'} ${likes.length}
@@ -3162,24 +3315,170 @@ function addComment(postId) {
   renderBikerGram();
 }
 
+// Draft media while composing a post — not saved until publish
+let POST_DRAFT = null;
+
 function createPost() {
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
+  POST_DRAFT = { type: null, dataUrl: null, fileName: '', fileSize: 0, aspect: null };
   openModal('Nueva Publicacion', `
-    <textarea class="input" id="post-content" rows="4" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none"></textarea>
-    <input class="input" id="post-img" placeholder="URL de imagen (opcional)">
-    <button class="btn btn-primary" style="width:100%" onclick="doCreatePost()">Publicar</button>
+    <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none"></textarea>
+
+    <!-- Media upload zone -->
+    <div id="post-media-zone" style="
+      margin-top:12px;
+      border:2px dashed var(--border);
+      border-radius:14px;
+      padding:18px;
+      text-align:center;
+      cursor:pointer;
+      transition:all 0.2s;
+      background:var(--card);
+    " onclick="document.getElementById('post-file').click()"
+       ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='rgba(255,68,68,0.05)'"
+       ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--card)'"
+       ondrop="handlePostDrop(event)">
+      <div style="font-size:32px;margin-bottom:6px">📷 🎬 🎵</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Sube una foto, video o musica</div>
+      <div style="font-size:11px;color:var(--text3)">o arrastra aqui · JPG, PNG, GIF, MP4, MOV, MP3, WAV</div>
+    </div>
+    <input type="file" id="post-file" accept="image/*,video/*,audio/*" style="display:none" onchange="handlePostFile(event)">
+
+    <!-- Preview area (filled when media selected) -->
+    <div id="post-media-preview" style="margin-top:12px;display:none"></div>
+
+    <!-- Media type indicator (auto-detected) -->
+    <div id="post-media-type" style="display:none;margin-top:8px;font-size:11px;color:var(--text2);text-align:center"></div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="doCreatePost()">Publicar</button>
   `);
+}
+
+function handlePostDrop(e) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'var(--border)';
+  e.currentTarget.style.background = 'var(--card)';
+  const file = e.dataTransfer.files[0];
+  if (file) processPostFile(file);
+}
+
+function handlePostFile(e) {
+  const file = e.target.files[0];
+  if (file) processPostFile(file);
+}
+
+async function processPostFile(file) {
+  if (file.size > 25 * 1024 * 1024) { toast('Archivo muy grande (máx 25MB)'); return; }
+
+  // Detect media type
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+  const isAudio = file.type.startsWith('audio/');
+
+  if (!isImage && !isVideo && !isAudio) { toast('Tipo de archivo no soportado'); return; }
+
+  // For images, compress; for video/audio, just convert to data URL (browsers handle playback)
+  let dataUrl;
+  if (isImage) {
+    dataUrl = await compressImage(file, 1280, 0.85);
+    if (!dataUrl) { toast('No se pudo procesar la imagen'); return; }
+  } else {
+    dataUrl = await fileToDataUrl(file);
+  }
+
+  POST_DRAFT = {
+    type: isImage ? 'image' : (isVideo ? 'video' : 'audio'),
+    dataUrl,
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type,
+  };
+
+  // Render preview
+  renderPostPreview();
+}
+
+function renderPostPreview() {
+  const preview = document.getElementById('post-media-preview');
+  const zone = document.getElementById('post-media-zone');
+  const typeIndicator = document.getElementById('post-media-type');
+  if (!POST_DRAFT || !POST_DRAFT.dataUrl) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    if (zone) zone.style.display = 'block';
+    if (typeIndicator) typeIndicator.style.display = 'none';
+    return;
+  }
+  if (zone) zone.style.display = 'none';
+  preview.style.display = 'block';
+  const sizeKB = Math.round(POST_DRAFT.fileSize / 1024);
+  const typeEmoji = POST_DRAFT.type === 'image' ? '📷' : (POST_DRAFT.type === 'video' ? '🎬' : '🎵');
+  const typeLabel = POST_DRAFT.type === 'image' ? 'Imagen' : (POST_DRAFT.type === 'video' ? 'Video' : 'Audio');
+
+  if (POST_DRAFT.type === 'image') {
+    preview.innerHTML = `
+      <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
+        <img src="${POST_DRAFT.dataUrl}" style="display:block;width:100%;max-height:480px;object-fit:contain;background:#000" onload="this.dataset.aspect=this.naturalHeight/this.naturalWidth">
+        <button type="button" onclick="clearPostMedia()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;backdrop-filter:blur(8px)">✕</button>
+        <div style="position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:20px;font-size:11px;backdrop-filter:blur(8px)">${typeEmoji} ${typeLabel} · ${sizeKB}KB</div>
+      </div>
+    `;
+  } else if (POST_DRAFT.type === 'video') {
+    preview.innerHTML = `
+      <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
+        <video src="${POST_DRAFT.dataUrl}" controls style="display:block;width:100%;max-height:480px;background:#000"></video>
+        <button type="button" onclick="clearPostMedia()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;backdrop-filter:blur(8px);z-index:5">✕</button>
+        <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:20px;font-size:11px;backdrop-filter:blur(8px)">${typeEmoji} ${typeLabel} · ${(sizeKB/1024).toFixed(1)}MB</div>
+      </div>
+    `;
+  } else {
+    // audio
+    preview.innerHTML = `
+      <div style="position:relative;border-radius:12px;background:linear-gradient(135deg,rgba(255,68,68,0.15),rgba(255,136,0,0.15));border:1px solid var(--border);padding:14px">
+        <button type="button" onclick="clearPostMedia()" style="position:absolute;top:8px;right:8px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer">✕</button>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;animation:audioPulse 2s ease-in-out infinite">🎵</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${POST_DRAFT.fileName}</div>
+            <div style="font-size:11px;color:var(--text2)">${typeEmoji} ${typeLabel} · ${sizeKB}KB</div>
+          </div>
+        </div>
+        <audio src="${POST_DRAFT.dataUrl}" controls style="width:100%"></audio>
+      </div>
+    `;
+  }
+  if (typeIndicator) {
+    typeIndicator.style.display = 'block';
+    typeIndicator.textContent = `${typeEmoji} ${typeLabel} detectado — listo para publicar`;
+  }
+}
+
+function clearPostMedia() {
+  POST_DRAFT = { type: null, dataUrl: null, fileName: '', fileSize: 0, mimeType: null };
+  const inp = document.getElementById('post-file');
+  if (inp) inp.value = '';
+  renderPostPreview();
 }
 
 function doCreatePost() {
   const content = document.getElementById('post-content').value.trim();
-  const image_url = document.getElementById('post-img').value.trim();
-  if (!content) { toast('Escribe algo'); return; }
-  STATE.posts.unshift({id:Date.now()%100000, user_id:STATE.user.id, content, image_url, created_at:new Date().toISOString(), likes:[], comments:[]});
+  if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
+  const post = {
+    id: Date.now() % 100000,
+    user_id: STATE.user.id,
+    content,
+    media_type: POST_DRAFT?.type || null,
+    media_url: POST_DRAFT?.dataUrl || null,
+    image_url: POST_DRAFT?.type === 'image' ? POST_DRAFT.dataUrl : null, // legacy field
+    created_at: new Date().toISOString(),
+    likes: [],
+    comments: []
+  };
+  STATE.posts.unshift(post);
   saveState();
+  POST_DRAFT = null;
   closeModal();
   navigate('bikergram');
-  toast('Publicado!');
 }
 
 function deletePost(id) {
@@ -3549,7 +3848,9 @@ function renderProfile() {
 
   document.getElementById('page-profile').innerHTML = `
     <div style="text-align:center;margin-bottom:24px">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${avatarColor(u.id)},${avatarColor(u.id+1)});display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px;box-shadow:0 4px 20px rgba(0,0,0,0.3)">${initials(u.username)}</div>
+      <div style="margin:0 auto 12px;display:flex;justify-content:center">
+        ${renderAvatar(u, 96)}
+      </div>
       <div style="font-size:20px;font-weight:800">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
       <div style="color:var(--text2);font-size:13px">${u.email}</div>
       <div style="color:var(--text2);font-size:13px">${u.bike_model || 'Sin moto'}</div>
