@@ -1043,7 +1043,8 @@ const STATE = {
   selectedRoute: null,
   rutaWatchId: null,
   myLocationMarker: null,
-  bikerMarkers: {}
+  bikerMarkers: {},
+  places: []
 };
 
 // ============================================================
@@ -1119,8 +1120,196 @@ const SEED_MESSAGES = [
 ];
 
 // ============================================================
-// UTILITIES
+// PLACES DATABASE (EVA Lube - Lugares de Panama)
 // ============================================================
+const SEED_PLACES = [
+  // GASOLINERAS
+  {id:1,name:'Petroautos Calle 50',category:'gasolinera',lat:8.9784,lng:-79.5180,address:'Calle 50, Panama',icon:'⛽'},
+  {id:2,name:'Petroautos Transistmica',category:'gasolinera',lat:9.0103,lng:-79.4280,address:'Transistmica, Panama',icon:'⛽'},
+  {id:3,name:'Petroautos Bethania',category:'gasolinera',lat:8.9890,lng:-79.5300,address:'Bethania, Panama',icon:'⛽'},
+  {id:4,name:'Petroautos Obarrio',category:'gasolinera',lat:8.9830,lng:-79.5080,address:'Obarrio, Panama',icon:'⛽'},
+  {id:5,name:'Petroautos Costa del Este',category:'gasolinera',lat:8.9850,lng:-79.4870,address:'Costa del Este, Panama',icon:'⛽'},
+  {id:6,name:'Texaco El Dorado',category:'gasolinera',lat:9.0190,lng:-79.5150,address:'El Dorado, Panama',icon:'⛽'},
+  {id:7,name:'Petroautos San Miguelito',category:'gasolinera',lat:9.0500,lng:-79.5200,address:'San Miguelito, Panama',icon:'⛽'},
+  {id:8,name:'PetroautosVIA Argentina',category:'gasolinera',lat:8.9950,lng:-79.5190,address:'Via Argentina, Panama',icon:'⛽'},
+  {id:9,name:'Petroautos Brisas',category:'gasolinera',lat:8.9700,lng:-79.5380,address:'Brisas del Golf, Panama',icon:'⛽'},
+  {id:10,name:'Petroautos Veracruz',category:'gasolinera',lat:8.9550,lng:-79.5580,address:'Veracruz, Panama',icon:'⛽'},
+  {id:11,name:'Petroautos Clayton',category:'gasolinera',lat:8.9750,lng:-79.5650,address:'Clayton, Panama',icon:'⛽'},
+  {id:12,name:'Petroautos Panama Viejo',category:'gasolinera',lat:8.9600,lng:-79.5400,address:'Panama Viejo, Panama',icon:'⛽'},
+  {id:13,name:'Petroautos El Chorrillo',category:'gasolinera',lat:8.9650,lng:-79.5500,address:'El Chorrillo, Panama',icon:'⛽'},
+  {id:14,name:'Petroautos瓜',category:'gasolinera',lat:8.9900,lng:-79.4700,address:'Tocumen, Panama',icon:'⛽'},
+  // CENTROS COMERCIALES
+  {id:20,name:'Albrook Mall',category:'centro_comercial',lat:8.9740,lng:-79.5600,address:'Albrook, Panama',icon:'🛍️'},
+  {id:21,name:'Multiplaza Pacific Mall',category:'centro_comercial',lat:8.9810,lng:-79.5070,address:'Costa del Este, Panama',icon:'🛍️'},
+  {id:22,name:'Altaplaza Mall',category:'centro_comercial',lat:8.9780,lng:-79.5200,address:'Calle 50, Panama',icon:'🛍️'},
+  {id:23,name:'Metropolitan Mall',category:'centro_comercial',lat:9.0100,lng:-79.5100,address:'El Dorado, Panama',icon:'🛍️'},
+  {id:24,name:'Plaza Carolina',category:'centro_comercial',lat:8.9960,lng:-79.5250,address:'Via Argentina, Panama',icon:'🛍️'},
+  {id:25,name:'SoHo Mall',category:'centro_comercial',lat:8.9850,lng:-79.5030,address:'Costa del Este, Panama',icon:'🛍️'},
+  {id:26,name:'Pacific Center',category:'centro_comercial',lat:8.9830,lng:-79.5090,address:'Punta Pacifica, Panama',icon:'🛍️'},
+  {id:27,name:'Nicanor Otero',category:'centro_comercial',lat:9.0020,lng:-79.4900,address:'San Francisco, Panama',icon:'🛍️'},
+  // LUGARES FAMOSOS PANAMA
+  {id:30,name:'Calle Uruguay',category:'lugar_famoso',lat:8.9820,lng:-79.5160,address:'Calle Uruguay, Panama',icon:'📍'},
+  {id:31,name:'Casco Antiguo',category:'lugar_famoso',lat:8.9510,lng:-79.5370,address:'Casco Antiguo, Panama',icon:'📍'},
+  {id:32,name:'Amador Causeway',category:'lugar_famoso',lat:8.9180,lng:-79.5530,address:'Causeway Amador, Panama',icon:'📍'},
+  {id:33,name:' Biomuseo',category:'lugar_famoso',lat:8.9120,lng:-79.5570,address:'Amador, Panama',icon:'📍'},
+  {id:34,name:' Cinta Costera',category:'lugar_famoso',lat:8.9650,lng:-79.5250,address:'Cinta Costera, Panama',icon:'📍'},
+  {id:35,name:'Metromall Panama',category:'lugar_famoso',lat:9.0030,lng:-79.4700,address:'Tocumen, Panama',icon:'📍'},
+  {id:36,name:'Brisas del Golf',category:'lugar_famoso',lat:8.9700,lng:-79.5400,address:'Brisas del Golf, Panama',icon:'📍'},
+  // TALLERES Y SERVICIOS
+  {id:40,name:'Lubricantes Venezuela',category:'taller',lat:8.9720,lng:-79.5200,address:'Venezuela, Panama',icon:'🔧'},
+  {id:41,name:'Lubricantes Atlantico',category:'taller',lat:9.0100,lng:-79.4800,address:'Transistmica, Panama',icon:'🔧'},
+  {id:42,name:'Moto Repuesto Panama',category:'repuesto',lat:8.9900,lng:-79.5300,address:'Bethania, Panama',icon:'🏍️'},
+  {id:43,name:'Auto Partes 507',category:'repuesto',lat:9.0200,lng:-79.5100,address:'El Dorado, Panama',icon:'🏍️'},
+];
+
+// ============================================================
+// PLACES SEARCH (Autocomplete)
+// ============================================================
+let _placeSearchTimeout = null;
+
+async function searchPlaces(query, callback) {
+  if (!query || query.length < 2) { callback([]); return; }
+  const q = query.toLowerCase();
+
+  // 1. Search local DB first (instant)
+  const local = STATE.places.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.address && p.address.toLowerCase().includes(q)) ||
+    p.category.toLowerCase().includes(q)
+  ).slice(0, 5);
+
+  // 2. Nominatim API (online search)
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Panama')}&limit=5&addressdetails=1`,
+      { headers: { 'Accept-Language': 'es' } }
+    );
+    const data = await res.json();
+    const online = (data || []).map(item => ({
+      id: 'online_' + item.place_id,
+      name: item.display_name.split(',')[0],
+      fullName: item.display_name,
+      category: item.type || 'lugar',
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      address: item.display_name,
+      icon: _categoryIcon(item.type || 'lugar'),
+      isOnline: true
+    }));
+    callback(local, online);
+  } catch(e) {
+    callback(local, []);
+  }
+}
+
+function _categoryIcon(type) {
+  const map = {
+    fuel:'⛽', gas_station:'⛽', supermarket:'🏪', mall:'🛍️',
+    commercial:'🛍️', restaurant:'🍽️', cafe:'☕', bar:'🍺',
+    hotel:'🏨', hospital:'🏥', pharmacy:'💊', parking:'🅿️',
+    atm:'🏧', bank:'🏦', place_of_worship:'⛪', school:'🏫',
+    university:'🎓', park:'🌳', beach:'🏖️', stadium:'🏟️',
+    theatre:'🎭', museum:'🏛️', highway:'🛣️', residential:'🏠',
+    service:'🔧', tyre:'🔧', 'motorcycle_shop':'🏍️', shop:'🏪',
+    default:'📍'
+  };
+  return map[type] || map.default || '📍';
+}
+
+function savePlace(place) {
+  // Avoid duplicates by lat/lng proximity
+  const exists = STATE.places.find(p =>
+    Math.abs(p.lat - place.lat) < 0.0005 &&
+    Math.abs(p.lng - place.lng) < 0.0005
+  );
+  if (!exists) {
+    place.id = Date.now() % 1000000;
+    STATE.places.push(place);
+    ls('bs_places', STATE.places);
+  }
+}
+
+function loadPlaces() {
+  STATE.places = ls('bs_places') || [...SEED_PLACES];
+}
+
+function renderPlaceDropdown(results, containerId, onSelect) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  if (!results || results.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+  results.forEach(p => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
+    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.category)}</div></div>`;
+    div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
+    div.addEventListener('mouseout', () => div.style.background = '');
+    div.addEventListener('click', () => { onSelect(p); container.style.display = 'none'; });
+    container.appendChild(div);
+  });
+  container.style.display = 'block';
+}
+
+function hidePlaceDropdown(containerId) {
+  const container = document.getElementById(containerId);
+  if (container) container.style.display = 'none';
+}
+
+function setupPlaceSearch(inputId, containerId, onSelect) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener('input', function() {
+    clearTimeout(_placeSearchTimeout);
+    const val = this.value.trim();
+    if (val.length < 2) { hidePlaceDropdown(containerId); return; }
+    _placeSearchTimeout = setTimeout(async () => {
+      await new Promise(resolve => searchPlaces(val, (local, online) => {
+        const all = [...local, ...online.filter(o => !local.find(l => Math.abs(l.lat - o.lat) < 0.001 && Math.abs(l.lng - o.lng) < 0.001))];
+        renderPlaceDropdown(all.slice(0, 8), containerId, p => {
+          input.value = p.name;
+          onSelect(p);
+        });
+        resolve();
+      }));
+    }, 300);
+  });
+  input.addEventListener('blur', () => setTimeout(() => hidePlaceDropdown(containerId), 200));
+  input.addEventListener('focus', () => { if (input.value.trim().length >= 2) input.dispatchEvent(new Event('input')); });
+}
+
+function setupPlaceSearchOnModal(container) {
+  container.querySelectorAll('[data-place-search]').forEach(function(input) {
+    const id = input.id;
+    const containerId = id + '-dropdown';
+    // Create dropdown container
+    const dropdown = document.createElement('div');
+    dropdown.id = containerId;
+    dropdown.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none';
+    input.parentElement.style.position = 'relative';
+    input.parentElement.appendChild(dropdown);
+
+    const stopPrefix = id.replace('ps-', '');
+    setupPlaceSearch(id, containerId, function(place) {
+      // Fill coords
+      const latInput = document.getElementById(stopPrefix + '-lat');
+      const lngInput = document.getElementById(stopPrefix + '-lng');
+      if (latInput) latInput.value = place.lat;
+      if (lngInput) lngInput.value = place.lng;
+      // Save to local DB
+      savePlace(place);
+      toast(place.isOnline ? 'Lugar guardado en EVA Lube 📍' : 'Lugar seleccionado');
+    });
+  });
+}
+
+function closeAllPlaceDropdowns() {
+  document.querySelectorAll('[id$="-dropdown"]').forEach(el => el.style.display = 'none');
+}
+
+
 function ls(key, val) {
   if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
   localStorage.setItem(key, JSON.stringify(val));
@@ -1284,6 +1473,7 @@ function initApp() {
   STATE.notifications = ls('bs_notif') || [];
   STATE.attendance = ls('bs_att') || [];
   STATE.user = ls('bs_session');
+  loadPlaces();
 
   // ALWAYS show UI immediately - no waiting for HeyValue
   document.getElementById('splash').style.display = 'none';
@@ -1314,6 +1504,7 @@ function saveState() {
   ls('bs_cm', STATE.chatMessages);
   ls('bs_notif', STATE.notifications);
   ls('bs_att', STATE.attendance);
+  ls('bs_places', STATE.places);
   if (HV.user) syncToCloud();
 }
 
@@ -1972,42 +2163,56 @@ function editRoute(id) {
   let stops = [];
   try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
 
-  // Build stop HTML
   let stopsHtml = '';
   stops.forEach((s, i) => {
-    stopsHtml += `<div id="edit-stop-${i}" style="margin-bottom:8px">
-      <input class="input" id="es-name-${i}" value="${escHtml(s.name)}" placeholder="Parada ${i+1}" style="margin-bottom:4px">
+    stopsHtml += `<div id="edit-stop-${i}" style="padding:10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;position:relative;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--text2)">PARADA ${i+1}</span>
+        <button onclick="this.closest('#edit-stop-${i}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
+      </div>
+      <div style="position:relative;margin-bottom:6px">
+        <input class="input" id="es-name-${i}" value="${escHtml(s.name)}" placeholder="Buscar lugar..." style="margin-bottom:0;padding-right:36px">
+        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--accent)">🔍</span>
+      </div>
+      <div id="es-name-${i}-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
       <div class="coord-row">
-        <input class="input" id="es-lat-${i}" value="${s.lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
-        <input class="input" id="es-lng-${i}" value="${s.lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
-        <button class="btn btn-secondary" style="padding:0 10px;flex:0" onclick="openGmapsEditStop(${i})">📍</button>
+        <input class="input" id="es-lat-${i}" value="${s.lat}" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" readonly>
+        <input class="input" id="es-lng-${i}" value="${s.lng}" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" readonly>
       </div>
     </div>`;
   });
 
   openModal('Editar Ruta', `
     <input class="input" id="ert-name" value="${escHtml(r.name)}" placeholder="Nombre de la ruta" style="margin-bottom:12px">
-    <input class="input" id="ert-desc" value="${escHtml(r.description || '')}" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
+    <input class="input" id="ert-desc" value="${escHtml(r.description || '')}" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">SALIDA</div>
-    <input class="input" id="ert-start-name" value="${escHtml(r.start_name || '')}" placeholder="Nombre del punto de salida" style="margin-bottom:6px">
-    <div class="coord-row">
-      <input class="input" id="ert-start-lat" value="${r.start_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
-      <input class="input" id="ert-start-lng" value="${r.start_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
-      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('ert-start')">📍 Buscar</button>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🚦</span> SALIDA</div>
+    <div style="position:relative;margin-bottom:8px">
+      <input class="input" id="ert-start-name" value="${escHtml(r.start_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
+      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    </div>
+    <div id="ert-start-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <div class="coord-row" style="margin-bottom:16px">
+      <input class="input" id="ert-start-lat" value="${r.start_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="ert-start-lng" value="${r.start_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-start')">✕</button>
     </div>
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">PARADAS</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> DESTINO</div>
+    <div style="position:relative;margin-bottom:8px">
+      <input class="input" id="ert-end-name" value="${escHtml(r.end_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
+      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    </div>
+    <div id="ert-end-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <div class="coord-row" style="margin-bottom:16px">
+      <input class="input" id="ert-end-lat" value="${r.end_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="ert-end-lng" value="${r.end_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-end')">✕</button>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> PARADAS</div>
     <div id="ert-stops-container">${stopsHtml}</div>
-    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:12px" onclick="addEditStopField()">+ Agregar parada</button>
-
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">DESTINO</div>
-    <input class="input" id="ert-end-name" value="${escHtml(r.end_name || '')}" placeholder="Nombre del destino" style="margin-bottom:6px">
-    <div class="coord-row">
-      <input class="input" id="ert-end-lat" value="${r.end_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
-      <input class="input" id="ert-end-lng" value="${r.end_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
-      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('ert-end')">📍 Buscar</button>
-    </div>
+    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addEditStopField()">+ Agregar parada</button>
 
     <select class="input" id="ert-diff" style="margin-bottom:16px">
       <option value="facil" ${r.difficulty==='facil'?'selected':''}>Facil</option>
@@ -2017,9 +2222,63 @@ function editRoute(id) {
     <button class="btn btn-primary" style="width:100%" onclick="doEditRoute(${r.id})">Guardar cambios</button>
   `);
 
-  // Patch openGmapsFor so it works with ert-start / ert-end prefixes
-  // Store original so it can still work with create route form
   stopCounter = stops.length;
+  setTimeout(() => {
+    setupModalPlaceSearch('ert-start');
+    setupModalPlaceSearch('ert-end');
+    stops.forEach((s, i) => setupEditStopPlaceSearch(i));
+  }, 100);
+}
+
+function setupEditStopPlaceSearch(idx) {
+  const nameInput = document.getElementById('es-name-' + idx);
+  const dropdown = document.getElementById('es-name-' + idx + '-dropdown');
+  const latInput = document.getElementById('es-lat-' + idx);
+  const lngInput = document.getElementById('es-lng-' + idx);
+  if (!nameInput || !dropdown) return;
+
+  let timeout = null;
+  nameInput.addEventListener('input', function() {
+    clearTimeout(timeout);
+    const val = this.value.trim();
+    if (val.length < 2) { dropdown.style.display = 'none'; return; }
+    timeout = setTimeout(async () => {
+      await new Promise(resolve => searchPlaces(val, (local, online) => {
+        const seen = new Set();
+        const merged = [...local, ...online].filter(p => {
+          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 6);
+        dropdown.innerHTML = '';
+        if (!merged.length) {
+          dropdown.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text3);text-align:center">Sin resultados</div>';
+          dropdown.style.display = 'block'; resolve(); return;
+        }
+        merged.forEach(p => {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)';
+          div.innerHTML = `<span style="font-size:13px">${p.icon || '📍'}</span><div style="flex:1"><div style="font-weight:600">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
+          div.addEventListener('mouseout', () => div.style.background = '');
+          div.addEventListener('click', () => {
+            nameInput.value = p.name;
+            if (latInput) latInput.value = p.lat;
+            if (lngInput) lngInput.value = p.lng;
+            savePlace(p);
+            dropdown.style.display = 'none';
+            toast('Guardado en EVA Lube 📍');
+            resolve();
+          });
+          dropdown.appendChild(div);
+        });
+        dropdown.style.display = 'block';
+        resolve();
+      }));
+    }, 300);
+  });
+  nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
 
 function addEditStopField() {
@@ -2029,16 +2288,74 @@ function addEditStopField() {
   if (!container) return;
   const div = document.createElement('div');
   div.id = id;
-  div.style.marginBottom = '8px';
-  div.innerHTML = '<input class="input" id="' + id + '-name" placeholder="Parada ' + stopCounter + '" style="margin-bottom:4px"><div class="coord-row"><input class="input" id="' + id + '-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1"><input class="input" id="' + id + '-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1"><button class="btn btn-secondary" style="padding:0 10px;flex:0" onclick="openGmapsEditStop(\'' + id + '\')">📍</button></div>';
+  div.style.cssText = 'padding:10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;position:relative;border:1px solid var(--border)';
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--text2)">PARADA</span>
+      <button onclick="this.closest('#${id}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
+    </div>
+    <div style="position:relative;margin-bottom:6px">
+      <input class="input" id="${id}-name" placeholder="Buscar lugar..." style="margin-bottom:0;padding-right:36px">
+      <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--accent)">🔍</span>
+    </div>
+    <div id="${id}-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <div class="coord-row">
+      <input class="input" id="${id}-lat" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="${id}-lng" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" readonly>
+    </div>`;
   container.appendChild(div);
+  setTimeout(() => setupEditstopPlaceSearch(id), 100);
 }
 
-function openGmapsEditStop(stopId) {
-  const nameEl = document.getElementById(stopId + '-name') || document.getElementById('es-name-' + stopId);
-  const name = nameEl ? nameEl.value.trim() : 'Panama';
-  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(name), '_blank');
-  toast('Busca en Google Maps y pega el enlace aqui');
+function setupEditstopPlaceSearch(stopId) {
+  const nameInput = document.getElementById(stopId + '-name');
+  const dropdown = document.getElementById(stopId + '-name-dropdown');
+  const latInput = document.getElementById(stopId + '-lat');
+  const lngInput = document.getElementById(stopId + '-lng');
+  if (!nameInput || !dropdown) return;
+
+  let timeout = null;
+  nameInput.addEventListener('input', function() {
+    clearTimeout(timeout);
+    const val = this.value.trim();
+    if (val.length < 2) { dropdown.style.display = 'none'; return; }
+    timeout = setTimeout(async () => {
+      await new Promise(resolve => searchPlaces(val, (local, online) => {
+        const seen = new Set();
+        const merged = [...local, ...online].filter(p => {
+          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 6);
+        dropdown.innerHTML = '';
+        if (!merged.length) {
+          dropdown.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text3);text-align:center">Sin resultados</div>';
+          dropdown.style.display = 'block'; resolve(); return;
+        }
+        merged.forEach(p => {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)';
+          div.innerHTML = `<span style="font-size:13px">${p.icon || '📍'}</span><div style="flex:1"><div style="font-weight:600">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
+          div.addEventListener('mouseout', () => div.style.background = '');
+          div.addEventListener('click', () => {
+            nameInput.value = p.name;
+            if (latInput) latInput.value = p.lat;
+            if (lngInput) lngInput.value = p.lng;
+            savePlace(p);
+            dropdown.style.display = 'none';
+            toast('Guardado en EVA Lube 📍');
+            resolve();
+          });
+          dropdown.appendChild(div);
+        });
+        dropdown.style.display = 'block';
+        resolve();
+      }));
+    }, 300);
+  });
+  nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
 
 function doEditRoute(id) {
@@ -2051,6 +2368,10 @@ function doEditRoute(id) {
   const endLat = parseFloat(document.getElementById('ert-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('ert-end-lng').value) || 0;
   const diff = document.getElementById('ert-diff').value;
+
+  if (!name) { toast('El nombre es obligatorio'); return; }
+  if (!startLat || !startLng) { toast('Busca y selecciona un punto de SALIDA'); return; }
+  if (!endLat || !endLng) { toast('Busca y selecciona un punto de DESTINO'); return; }
 
   const stops = [];
   // Stops from edit-stop-N fields
@@ -2100,30 +2421,42 @@ function doEditRoute(id) {
 
 function createRoute() {
   openModal('Nueva Ruta', `
-    <input class="input" id="rt-name" placeholder="Nombre de la ruta" style="margin-bottom:12px">
-    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
+    <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:12px">
+    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">SALIDA</div>
-    <input class="input" id="rt-start-name" placeholder="Nombre del punto de salida" style="margin-bottom:6px">
-    <div class="coord-row">
-      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
-      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
-      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('start')">📍 Buscar</button>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      <span>🚦</span> SALIDA
     </div>
-    <div id="rt-start-preview" style="font-size:11px;color:var(--accent);margin-bottom:12px;display:none">✓ Coordenadas cargadas</div>
+    <div style="position:relative;margin-bottom:8px">
+      <input class="input" id="rt-start-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
+      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    </div>
+    <div id="rt-start-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <div class="coord-row" style="margin-bottom:16px">
+      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('rt-start')" title="Limpiar">✕</button>
+    </div>
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">PARADAS</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      <span>🛑</span> DESTINO
+    </div>
+    <div style="position:relative;margin-bottom:8px">
+      <input class="input" id="rt-end-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
+      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    </div>
+    <div id="rt-end-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <div class="coord-row" style="margin-bottom:16px">
+      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('rt-end')" title="Limpiar">✕</button>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      <span>🛑</span> PARADAS (opcional)
+    </div>
     <div id="rt-stops-container" style="margin-bottom:6px"></div>
-    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:12px" onclick="addStopField()">+ Agregar parada</button>
-
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px">DESTINO</div>
-    <input class="input" id="rt-end-name" placeholder="Nombre del destino" style="margin-bottom:6px">
-    <div class="coord-row">
-      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1">
-      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1">
-      <button class="btn btn-secondary" style="padding:0 12px;flex:0;white-space:nowrap" onclick="openGmapsFor('end')">📍 Buscar</button>
-    </div>
-    <div id="rt-end-preview" style="font-size:11px;color:var(--accent);margin-bottom:12px;display:none">✓ Coordenadas cargadas</div>
+    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addStopField()">+ Agregar parada</button>
 
     <select class="input" id="rt-diff" style="margin-bottom:16px">
       <option value="facil">Facil</option>
@@ -2132,15 +2465,76 @@ function createRoute() {
     </select>
     <button class="btn btn-primary" style="width:100%" onclick="doCreateRoute()">Crear ruta</button>
 
-    <div style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.5">
-      <b>Como obtener coordenadas:</b><br>
-      1. Toca <b>Buscar</b> para abrir Google Maps<br>
-      2. Busca el lugar exacto<br>
-      3. Toca Compartir → Copiar enlace<br>
-      4. Pegalo en el campo de latitud<br>
-      5. Las coordenadas se extraen automaticamente
+    <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:13px">⛽ Gasolineras</span><span style="font-size:13px">🛍️ Malls</span><span style="font-size:13px">📍 Lugares</span></div>
+      Escribe para buscar o usa <b>OpenStreetMap</b> en linea. Los lugares seleccionados se guardan en <b>EVA Lube</b>.
     </div>
   `);
+
+  // Setup autocomplete for all place search inputs in the modal
+  setTimeout(() => setupModalPlaceSearch('rt-start'), 100);
+  setTimeout(() => setupModalPlaceSearch('rt-end'), 100);
+}
+
+function clearPlace(prefix) {
+  document.getElementById(prefix + '-lat').value = '';
+  document.getElementById(prefix + '-lng').value = '';
+  document.getElementById(prefix + '-name').value = '';
+  document.getElementById(prefix + '-name-dropdown').style.display = 'none';
+}
+
+function setupModalPlaceSearch(prefix) {
+  const nameInput = document.getElementById(prefix + '-name');
+  const dropdown = document.getElementById(prefix + '-name-dropdown');
+  const latInput = document.getElementById(prefix + '-lat');
+  const lngInput = document.getElementById(prefix + '-lng');
+  if (!nameInput || !dropdown) return;
+
+  let timeout = null;
+  nameInput.addEventListener('input', function() {
+    clearTimeout(timeout);
+    const val = this.value.trim();
+    if (val.length < 2) { dropdown.style.display = 'none'; return; }
+    timeout = setTimeout(async () => {
+      await new Promise(resolve => searchPlaces(val, (local, online) => {
+        const seen = new Set();
+        const merged = [...local, ...online].filter(p => {
+          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 8);
+
+        if (!merged.length) {
+          dropdown.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--text3);text-align:center">Sin resultados — escribe para buscar en OpenStreetMap</div>';
+          dropdown.style.display = 'block';
+          resolve();
+          return;
+        }
+        dropdown.innerHTML = '';
+        merged.forEach(p => {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
+          div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
+          div.addEventListener('mouseout', () => div.style.background = '');
+          div.addEventListener('click', () => {
+            nameInput.value = p.name;
+            if (latInput) latInput.value = p.lat;
+            if (lngInput) lngInput.value = p.lng;
+            savePlace(p);
+            dropdown.style.display = 'none';
+            toast(p.isOnline ? 'Guardado en EVA Lube 📍' : 'Lugar seleccionado');
+            resolve();
+          });
+          dropdown.appendChild(div);
+        });
+        dropdown.style.display = 'block';
+        resolve();
+      }));
+    }, 300);
+  });
+  nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
 
 function openGmapsFor(type) {
@@ -2214,9 +2608,78 @@ function addStopField() {
   const container = document.getElementById('rt-stops-container');
   const div = document.createElement('div');
   div.id = id;
-  div.style.marginBottom = '8px';
-  div.innerHTML = '<input class="input" id="' + id + '-name" placeholder="Parada ' + stopCounter + '" style="margin-bottom:4px"><div class="coord-row"><input class="input" id="' + id + '-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1"><input class="input" id="' + id + '-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1"><button class="btn btn-secondary" style="padding:0 10px;flex:0" onclick="openGmapsStop(\'' + id + '\')">📍</button></div>';
+  div.style.cssText = 'padding:10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;position:relative;border:1px solid var(--border)';
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--text2)">PARADA ${stopCounter}</span>
+      <button onclick="this.closest('#${id}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
+    </div>
+    <div style="position:relative;margin-bottom:6px">
+      <input class="input" id="${id}-name" placeholder="Buscar lugar..." style="margin-bottom:0;padding-right:36px">
+      <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--accent)">🔍</span>
+    </div>
+    <div id="${id}-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <div class="coord-row">
+      <input class="input" id="${id}-lat" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="${id}-lng" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" readonly>
+    </div>`;
   container.appendChild(div);
+  // Setup autocomplete for this stop
+  setTimeout(() => setupStopPlaceSearch(id), 100);
+}
+
+function setupStopPlaceSearch(stopId) {
+  const nameInput = document.getElementById(stopId + '-name');
+  const dropdown = document.getElementById(stopId + '-name-dropdown');
+  const latInput = document.getElementById(stopId + '-lat');
+  const lngInput = document.getElementById(stopId + '-lng');
+  if (!nameInput || !dropdown) return;
+
+  let timeout = null;
+  nameInput.addEventListener('input', function() {
+    clearTimeout(timeout);
+    const val = this.value.trim();
+    if (val.length < 2) { dropdown.style.display = 'none'; return; }
+    timeout = setTimeout(async () => {
+      await new Promise(resolve => searchPlaces(val, (local, online) => {
+        const seen = new Set();
+        const merged = [...local, ...online].filter(p => {
+          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 6);
+
+        if (!merged.length) {
+          dropdown.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text3);text-align:center">Sin resultados</div>';
+          dropdown.style.display = 'block';
+          resolve();
+          return;
+        }
+        dropdown.innerHTML = '';
+        merged.forEach(p => {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)';
+          div.innerHTML = `<span style="font-size:13px">${p.icon || '📍'}</span><div style="flex:1"><div style="font-weight:600">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
+          div.addEventListener('mouseout', () => div.style.background = '');
+          div.addEventListener('click', () => {
+            nameInput.value = p.name;
+            if (latInput) latInput.value = p.lat;
+            if (lngInput) lngInput.value = p.lng;
+            savePlace(p);
+            dropdown.style.display = 'none';
+            toast('Guardado en EVA Lube 📍');
+            resolve();
+          });
+          dropdown.appendChild(div);
+        });
+        dropdown.style.display = 'block';
+        resolve();
+      }));
+    }, 300);
+  });
+  nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
 
 function openGmapsStop(stopId) {
@@ -2225,32 +2688,7 @@ function openGmapsStop(stopId) {
   toast('Busca en Google Maps, luego comparte y pega el enlace aqui');
 }
 
-// Parse coords when pasting in stop fields
-var _origAddStopField = addStopField;
-addStopField = function() {
-  _origAddStopField();
-  setTimeout(function() {
-    document.querySelectorAll('[id^="stop-"][id$="-lat"]').forEach(function(el) {
-      el.removeEventListener('paste', handleStopPaste);
-      el.addEventListener('paste', handleStopPaste);
-    });
-  }, 150);
-};
 
-function handleStopPaste(e) {
-  setTimeout(function() {
-    var latEl = e.target;
-    if (!latEl.value.includes('google.com') && !latEl.value.includes('maps')) return;
-    var stopId = latEl.id.replace('-lat', '');
-    var lngEl = document.getElementById(stopId + '-lng');
-    var coords = parseGmapsUrl(latEl.value);
-    if (coords) {
-      latEl.value = coords.lat;
-      if (lngEl) lngEl.value = coords.lng;
-      toast('Coordenadas extraidas!');
-    }
-  }, 100);
-}
 
 function doCreateRoute() {
   const name = document.getElementById('rt-name').value.trim();
@@ -2275,6 +2713,8 @@ function doCreateRoute() {
   });
 
   if (!name) { toast('El nombre es obligatorio'); return; }
+  if (!startLat || !startLng) { toast('Busca y selecciona un punto de SALIDA'); return; }
+  if (!endLat || !endLng) { toast('Busca y selecciona un punto de DESTINO'); return; }
   const route = {
     id: Date.now() % 100000,
     name,
