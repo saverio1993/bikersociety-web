@@ -3934,35 +3934,20 @@ function createPost() {
     <!-- Content -->
     <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none;border-radius:14px;padding:14px;font-size:14px"></textarea>
 
-    <!-- Media upload grid (shown when no media selected) -->
-    <div id="post-media-zone" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px">
-      <button onclick="openMediaPicker('image')" style="padding:18px 6px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#ff4444';this.style.background='rgba(255,68,68,0.15)'" onmouseout="this.style.borderColor='rgba(255,68,68,0.2)';this.style.background='rgba(255,68,68,0.08)'">
-        <div style="font-size:26px">📷</div>
-        <div style="font-size:11px;font-weight:700">Foto</div>
-      </button>
-      <button onclick="openMediaPicker('video')" style="padding:18px 6px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#3b82f6';this.style.background='rgba(59,130,246,0.15)'" onmouseout="this.style.borderColor='rgba(59,130,246,0.2)';this.style.background='rgba(59,130,246,0.08)'">
-        <div style="font-size:26px">🎬</div>
-        <div style="font-size:11px;font-weight:700">Video</div>
-      </button>
-      <button onclick="openMediaPicker('audio')" style="padding:18px 6px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#22c55e';this.style.background='rgba(34,197,94,0.15)'" onmouseout="this.style.borderColor='rgba(34,197,94,0.2)';this.style.background='rgba(34,197,94,0.08)'">
-        <div style="font-size:26px">🎵</div>
-        <div style="font-size:11px;font-weight:700">Musica</div>
+    <!-- Media upload button (single) -->
+    <div style="margin-top:12px">
+      <button onclick="document.getElementById('post-file-any').click()" style="width:100%;padding:18px;background:rgba(255,32,32,0.06);border:1px dashed rgba(255,32,32,0.3);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#ff2020';this.style.background='rgba(255,32,32,0.12)'" onmouseout="this.style.borderColor='rgba(255,32,32,0.3)';this.style.background='rgba(255,32,32,0.06)'">
+        <div style="font-size:26px">📎</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2)">Agregar foto, video o audio</div>
       </button>
     </div>
 
-    <!-- Hidden file inputs -->
-    <input type="file" id="post-file-image" accept="image/*" style="display:none" onchange="handlePostFileType(event,'image')">
-    <input type="file" id="post-file-video" accept="video/*" style="display:none" onchange="handlePostFileType(event,'video')">
-    <input type="file" id="post-file-audio" accept="audio/*" style="display:none" onchange="handlePostFileType(event,'audio')">
+    <!-- Hidden file input (accepts all media) -->
+    <input type="file" id="post-file-any" accept="image/*,video/*,audio/*" style="display:none" onchange="handlePostFileAny(event)">
 
     <!-- Preview area -->
     <div id="post-media-preview" style="margin-top:12px;display:none"></div>
     <div id="post-media-type" style="display:none;margin-top:8px;font-size:11px;color:var(--text2);text-align:center"></div>
-
-    <!-- HeyValue hint -->
-    <div id="heyvalue-hint" style="margin-top:10px;padding:10px 12px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.1);border-radius:10px;font-size:11px;color:var(--text2);line-height:1.5">
-      ☁️ Los archivos se guardan en HeyValue Cloud · <a href="#" onclick="closeModal();showMoreMenu();setTimeout(()=>{const b=document.getElementById('fpanel-body');const items=b.querySelectorAll('.fpanel-item');items.forEach(i=>{if(i.textContent.includes('HeyValue'))i.click()})},300);return false" style="color:var(--accent)">Conectar cuenta</a> para acceder desde cualquier dispositivo
-    </div>
 
     <button class="btn btn-primary" style="width:100%;margin-top:14px;font-weight:700" onclick="doCreatePost()">🏍️ Publicar</button>
   `);
@@ -3971,6 +3956,12 @@ function createPost() {
 function openMediaPicker(type) {
   const el = document.getElementById('post-file-' + type);
   if (el) el.click();
+}
+
+function handlePostFileAny(e) {
+  const file = e.target.files[0];
+  if (file) processPostFile(file);
+  e.target.value = '';
 }
 
 function handlePostFileType(e, type) {

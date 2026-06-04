@@ -1071,10 +1071,26 @@ function addComment(postId) {
 
 function createPost() {
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
+  POST_DRAFT = { type: null, dataUrl: null, fileName: '', fileSize: 0, mimeType: null };
   openModal('Nueva Publicacion', `
-    <textarea class="input" id="post-content" rows="4" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none"></textarea>
-    <input class="input" id="post-img" placeholder="URL de imagen (opcional)">
-    <button class="btn btn-primary" style="width:100%" onclick="doCreatePost()">Publicar</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.06)">
+      ${renderAvatar(STATE.user, 42)}
+      <div>
+        <div style="font-size:15px;font-weight:700">${STATE.user.username}</div>
+        <div style="font-size:11px;color:var(--text2)">${STATE.user.bike_model || 'Biker'}</div>
+      </div>
+    </div>
+    <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? �&#x1F3CE;" style="resize:none;border-radius:14px;padding:14px;font-size:14px"></textarea>
+    <div style="margin-top:12px">
+      <button onclick="document.getElementById('post-file-any').click()" style="width:100%;padding:18px;background:rgba(255,32,32,0.06);border:1px dashed rgba(255,32,32,0.3);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#ff2020';this.style.background='rgba(255,32,32,0.12)'" onmouseout="this.style.borderColor='rgba(255,32,32,0.3)';this.style.background='rgba(255,32,32,0.06)'">
+        <div style="font-size:26px">📎</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text2)">Agregar foto, video o audio</div>
+      </button>
+    </div>
+    <input type="file" id="post-file-any" accept="image/*,video/*,audio/*" style="display:none" onchange="handlePostFileAny(event)">
+    <div id="post-media-preview" style="margin-top:12px;display:none"></div>
+    <div id="post-media-type" style="display:none;margin-top:8px;font-size:11px;color:var(--text2);text-align:center"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;font-weight:700" onclick="doCreatePost()">🏍&#xFE0F; Publicar</button>
   `);
 }
 
