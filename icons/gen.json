@@ -1,0 +1,40 @@
+{
+  "requests": [
+    {
+      "prompt": "Neon cyberpunk icon for biker app bottom nav. A sleek motorcycle silhouette glowing in cyan neon and purple on a dark background. Minimalist flat design, square format with transparent background, no text. High contrast, clean lines.",
+      "aspect_ratio": "1:1",
+      "resolution": "1K",
+      "output_file": "C:/Users/saverio/.mavis/.opencode/tmp/bikersociety-web/icons/nav-inicio.png"
+    },
+    {
+      "prompt": "Neon cyberpunk icon for biker app bottom nav - Routes tab. A winding road or map route glowing in cyan neon and purple on a dark background. Minimalist flat design, square format, no text.",
+      "aspect_ratio": "1:1",
+      "resolution": "1K",
+      "output_file": "C:/Users/saverio/.mavis/.opencode/tmp/bikersociety-web/icons/nav-rutas.png"
+    },
+    {
+      "prompt": "Neon cyberpunk icon for biker app bottom nav - Events tab. A calendar or event ticket glowing in cyan neon and purple on a dark background. Minimalist flat design, square format, no text.",
+      "aspect_ratio": "1:1",
+      "resolution": "1K",
+      "output_file": "C:/Users/saverio/.mavis/.opencode/tmp/bikersociety-web/icons/nav-eventos.png"
+    },
+    {
+      "prompt": "Neon cyberpunk icon for biker app bottom nav - Bikers/Community tab. Group of motorcycle riders silhouettes glowing in cyan neon and purple on a dark background. Minimalist flat design, square format, no text.",
+      "aspect_ratio": "1:1",
+      "resolution": "1K",
+      "output_file": "C:/Users/saverio/.mavis/.opencode/tmp/bikersociety-web/icons/nav-bikers.png"
+    },
+    {
+      "prompt": "Neon cyberpunk icon for biker app bottom nav - BikerGram/Photo tab. Camera lens or photo grid glowing in cyan neon and purple on a dark background. Minimalist flat design, square format, no text.",
+      "aspect_ratio": "1:1",
+      "resolution": "1K",
+      "output_file": "C:/Users/saverio/.mavis/.opencode/tmp/bikersociety-web/icons/nav-gram.png"
+    },
+    {
+      "prompt": "Neon cyberpunk icon for biker app bottom nav - More/Menu tab. Three horizontal lines or hamburger menu glowing in cyan neon and purple on a dark background. Minimalist flat design, square format, no text.",
+      "aspect_ratio": "1:1",
+      "resolution": "1K",
+      "output_file": "C:/Users/saverio/.mavis/.opencode/tmp/bikersociety-web/icons/nav-mas.png"
+    }
+  ]
+}
