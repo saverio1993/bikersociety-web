@@ -3999,24 +3999,121 @@ async function processPostFile(file) {
   const isAudio = file.type.startsWith('audio/');
   if (!isImage && !isVideo && !isAudio) { toast('Tipo de archivo no soportado'); return; }
 
+  const type = isImage ? 'image' : (isVideo ? 'video' : 'audio');
   let dataUrl;
+  let fileToUpload = file;
+
   if (isImage) {
     dataUrl = await compressImage(file, 1280, 0.85);
     if (!dataUrl) { toast('No se pudo procesar la imagen'); return; }
+  } else if (isVideo) {
+    if (file.size > 50 * 1024 * 1024) {
+      // Compress large video with FFmpeg
+      toast('Video pesado — comprimiendo...');
+      const compressed = await compressVideo(file, (pct) => {
+        // Update toast with progress
+        const el = document.getElementById('toast');
+        if (el) el.textContent = 'Comprimiendo... ' + Math.round(pct) + '%';
+      });
+      if (compressed) {
+        dataUrl = URL.createObjectURL(compressed);
+        fileToUpload = compressed;
+        toast('Compresión lista!');
+      } else {
+        toast('No se pudo comprimir — subiendo original');
+        dataUrl = await fileToDataUrl(file);
+      }
+    } else {
+      dataUrl = await fileToDataUrl(file);
+    }
   } else {
     dataUrl = await fileToDataUrl(file);
   }
 
   POST_DRAFT = {
-    type: isImage ? 'image' : (isVideo ? 'video' : 'audio'),
+    type,
     dataUrl,
-    file: file, // keep original file for HeyValue upload
+    file: fileToUpload,
     fileName: file.name,
-    fileSize: file.size,
+    fileSize: fileToUpload.size,
     mimeType: file.type,
+    originalSize: file.size,
   };
 
   renderPostPreview();
+}
+
+// ============================================================
+// VIDEO COMPRESSION via FFmpeg.wasm
+// ============================================================
+let ffmpegInstance = null;
+let ffmpegLoading = false;
+
+async function loadFFmpeg(onProgress) {
+  if (ffmpegInstance) return ffmpegInstance;
+  if (ffmpegLoading) {
+    // Wait for existing load
+    while (ffmpegLoading) await new Promise(r => setTimeout(r, 500));
+    return ffmpegInstance;
+  }
+  ffmpegLoading = true;
+  try {
+    const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm');
+    const { fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm');
+    const ff = new FFmpeg();
+    ff.on('progress', ({ progress }) => {
+      if (onProgress) onProgress(progress * 100);
+    });
+    await ff.load({
+      coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+      wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+    });
+    ffmpegInstance = { ff, fetchFile };
+    return ffmpegInstance;
+  } catch(e) {
+    ffmpegLoading = false;
+    throw e;
+  } finally {
+    ffmpegLoading = false;
+  }
+}
+
+async function compressVideo(file, onProgress) {
+  try {
+    const { ff, fetchFile } = await loadFFmpeg(onProgress);
+    const inputName = 'input_' + Date.now() + '.mp4';
+    const outputName = 'output_' + Date.now() + '.mp4';
+
+    // Write input file
+    const inputData = await fetchFile(file);
+    await ff.writeFile(inputName, inputData);
+
+    // Compress: 720p, CRF 28 (good quality), fast preset
+    await ff.exec([
+      '-i', inputName,
+      '-vf', 'scale=-2:720',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '28',
+      '-c:a', 'aac',
+      '-b:a', '96k',
+      '-movflags', '+faststart',
+      outputName
+    ]);
+
+    // Read compressed output
+    const data = await ff.readFile(outputName);
+    const blob = new Blob([data.buffer], { type: 'video/mp4' });
+
+    // Cleanup
+    await ff.deleteFile(inputName);
+    await ff.deleteFile(outputName);
+
+    return blob;
+  } catch(e) {
+    console.warn('Video compression failed:', e);
+    return null;
+  }
 }
 
 function renderPostPreview() {
@@ -4045,11 +4142,16 @@ function renderPostPreview() {
       </div>
     `;
   } else if (POST_DRAFT.type === 'video') {
+    const sizeMB = (POST_DRAFT.fileSize / 1024 / 1024).toFixed(1);
+    const origMB = POST_DRAFT.originalSize ? (POST_DRAFT.originalSize / 1024 / 1024).toFixed(1) : null;
+    const compressionNote = (origMB && origMB !== sizeMB)
+      ? `<span style="color:#22c55e"> · Comprimido ${origMB}MB → ${sizeMB}MB</span>`
+      : `<span> · ${sizeMB}MB</span>`;
     preview.innerHTML = `
       <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
         <video src="${POST_DRAFT.dataUrl}" controls style="display:block;width:100%;max-height:480px;background:#000"></video>
         <button type="button" onclick="clearPostMedia()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;backdrop-filter:blur(8px);z-index:5">✕</button>
-        <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:20px;font-size:11px;backdrop-filter:blur(8px)">${typeEmoji} ${typeLabel} · ${(sizeKB/1024).toFixed(1)}MB</div>
+        <div style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:20px;font-size:11px;backdrop-filter:blur(8px);display:flex;align-items:center;gap:4px">${typeEmoji} VIDEO${compressionNote}</div>
       </div>
     `;
   } else {
@@ -4070,7 +4172,11 @@ function renderPostPreview() {
   }
   if (typeIndicator) {
     typeIndicator.style.display = 'block';
-    typeIndicator.textContent = `${typeEmoji} ${typeLabel} detectado — listo para publicar`;
+    const origMB = POST_DRAFT.originalSize ? (POST_DRAFT.originalSize / 1024 / 1024).toFixed(1) : null;
+    const compressionNote = (POST_DRAFT.type === 'video' && origMB && origMB !== (POST_DRAFT.fileSize / 1024 / 1024).toFixed(1))
+      ? ` · Comprimido de ${origMB}MB`
+      : '';
+    typeIndicator.textContent = `${typeEmoji} ${typeLabel} detectado — listo para publicar${compressionNote}`;
   }
 }
 
@@ -4083,17 +4189,21 @@ function clearPostMedia() {
   renderPostPreview();
 }
 
-async function doCreatePost() {
+ async function doCreatePost() {
   const content = document.getElementById('post-content').value.trim();
   if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
   let mediaUrl = POST_DRAFT?.dataUrl || null;
 
-  // Upload to HeyValue if connected and we have a file
+  // Upload to HeyValue if connected
   if (HV.user && HV.pass && POST_DRAFT?.file) {
-    toast('Subiendo a HeyValue...');
-    const ext = POST_DRAFT.fileName.split('.').pop() || 'bin';
+    const fileSize = POST_DRAFT.file.size;
+    const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
+    const originalMB = POST_DRAFT.originalSize ? (POST_DRAFT.originalSize / 1024 / 1024).toFixed(1) : null;
+    toast(`Subiendo ${sizeMB}MB a HeyValue...`);
+
+    const ext = POST_DRAFT.fileName.split('.').pop() || 'mp4';
     const fileName = `gram_${Date.now()}_${Math.random().toString(36).substring(2,8)}.${ext}`;
     const folder = POST_DRAFT.type === 'image' ? '/photos' : (POST_DRAFT.type === 'video' ? '/videos' : '/audio');
     const hvPath = HV.hvPath || HV.user;
@@ -4109,7 +4219,11 @@ async function doCreatePost() {
       });
       if (r.ok || r.status === 201 || r.status === 204) {
         mediaUrl = fullPath;
-        toast('Subido a HeyValue!');
+        if (originalMB && originalMB !== sizeMB) {
+          toast(`Subido! ${originalMB}MB → ${sizeMB}MB`);
+        } else {
+          toast('Subido a HeyValue!');
+        }
       } else {
         toast('Error cloud — guardando local');
       }
