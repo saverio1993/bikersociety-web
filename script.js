@@ -458,10 +458,14 @@ async function loadNews() {
     const data = await res.json();
     if (data.status !== 'ok' || !data.items) throw new Error('Invalid response');
     const items = data.items.slice(0, 5);
-    container.innerHTML = '<div class="news-grid">' + items.map(item => `
+      container.innerHTML = '<div class="news-grid">' + items.map(item => `
       <a class="news-card" href="${item.link}" target="_blank" rel="noopener">
-        <div class="news-card-title">${item.title}</div>
-        <div class="news-card-meta">${item.author || 'BBC Mundo'} · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+        ${item.thumbnail ? `<img class="news-card-img" src="${item.thumbnail}" alt="${item.title}" onerror="this.style.display='none'">` : ''}
+        <div class="news-card-body">
+          <div class="news-card-title">${item.title}</div>
+          <div class="news-card-desc">${item.description ? item.description.replace(/<[^>]+>/g, '').substring(0, 100) + '...' : ''}</div>
+          <div class="news-card-meta">${item.author || 'BBC Mundo'} · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+        </div>
       </a>
     `).join('') + '</div>';
   } catch (e) {

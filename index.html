@@ -1907,7 +1907,7 @@ async function loadNews() {
   if (!container) return;
   container.innerHTML = '<div class="news-loading">Cargando noticias...</div>';
   try {
-    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://motos.espirituracer.com/feed')}`);
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`);
     const data = await res.json();
     if (data.status !== 'ok' || !data.items) throw new Error('Invalid response');
     const items = data.items.slice(0, 5);
@@ -1917,7 +1917,7 @@ async function loadNews() {
         <div class="news-card-body">
           <div class="news-card-title">${item.title}</div>
           <div class="news-card-desc">${item.description ? item.description.replace(/<[^>]+>/g, '').substring(0, 100) + '...' : ''}</div>
-          <div class="news-card-meta">EspirituRacer.com · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
+          <div class="news-card-meta">${item.author || 'BBC Mundo'} · ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}</div>
         </div>
       </a>
     `).join('') + '</div>';
