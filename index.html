@@ -1148,10 +1148,6 @@ a{color:inherit;text-decoration:none}
     <img src="icons/nav-rutas.png" alt="Rutas" style="width:28px;height:28px;object-fit:contain;">
     <span>Rutas</span>
   </button>
-  <button class="bnav-item" onclick="navigate('eventos')" data-page="eventos">
-    <img src="icons/nav-eventos.png" alt="Eventos" style="width:28px;height:28px;object-fit:contain;">
-    <span>Eventos</span>
-  </button>
   <button class="bnav-item" onclick="navigate('bikergram')" data-page="bikergram">
     <img src="icons/nav-gram.png" alt="Gram" style="width:28px;height:28px;object-fit:contain;">
     <span>Gram</span>
@@ -1954,7 +1950,7 @@ function renderPage(page) {
     case 'bikers': renderBikers(); break;
     case 'rider-detail': renderRiderDetail(); break;
     case 'bikergram': renderBikerGram(); break;
-    case 'eventos': renderEventos(); break;
+    case 'eventos': RUTAS_TAB = 'eventos'; renderRutas(); break;
     case 'retos': renderRetos(); break;
     case 'insignias': renderInsignias(); break;
     case 'profile': renderProfile(); break;
@@ -2403,12 +2399,17 @@ function initHomeMap() {
 // ============================================================
 // RUTAS PAGE
 // ============================================================
+let RUTAS_TAB = 'rutas'; // 'rutas' | 'eventos'
+
 function renderRutas() {
+  const sel = STATE.selectedRoute;
   const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
   const allRoutes = STATE.routes;
-  const sel = STATE.selectedRoute;
+  const upcoming = STATE.events.filter(e => e.status === 'activo');
+  const past = STATE.events.filter(e => e.status !== 'activo');
   const isOwner = sel && sel.created_by === STATE.user?.id;
   const creator = sel ? STATE.users.find(u => u.id === sel.created_by) : null;
+
   let stopsHtml = '';
   if (sel) {
     try {
@@ -2425,40 +2426,45 @@ function renderRutas() {
   }
 
   document.getElementById('page-rutas').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:8px">
-        ${sel ? `<button onclick="deselectRoute()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text2);cursor:pointer;font-size:13px">← Volver</button>` : ''}
-        <div style="font-size:18px;font-weight:800">${sel ? escHtml(sel.name) : 'Rutas'}</div>
+    <!-- Header + Tabs (always visible) -->
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${sel ? `<button onclick="deselectRoute();return" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text2);cursor:pointer;font-size:13px">← Atras</button>` : ''}
+          <div style="font-size:18px;font-weight:800">${sel ? escHtml(sel.name) : 'Explorar'}</div>
+        </div>
+        ${!sel ? `
+        <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>
+        ` : ''}
       </div>
-      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>
+
+      <!-- Unified tab bar -->
+      <div style="display:flex;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px;${sel ? 'display:none' : ''}" id="rutas-tabs">
+        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:${RUTAS_TAB==='rutas'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RUTAS_TAB==='rutas'?'#fff':'var(--text3)'}">🗺️ Rutas (${allRoutes.length})</button>
+        <button onclick="setRutasTab('eventos')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:${RUTAS_TAB==='eventos'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RUTAS_TAB==='eventos'?'#fff':'var(--text3)'}">📅 Eventos (${upcoming.length})</button>
+      </div>
     </div>
 
-    <!-- Detalle de ruta seleccionada (inline arriba) -->
+    <!-- Route detail (above map when selected) -->
     ${sel ? `
-    <div class="card vanish" style="margin-bottom:12px;border-color:rgba(255,59,59,0.4)">
+    <div class="card vanish" style="margin-bottom:10px;border-color:rgba(255,59,59,0.4)">
       <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${escHtml(sel.description || 'Sin descripción')}</div>
-
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid #22c55e">
           <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.5px">SALIDA</div>
           <div style="font-size:12px;font-weight:700;margin-top:2px">${escHtml(sel.start_name || 'N/A')}</div>
-          <div style="font-size:10px;color:var(--text3)">${sel.start_lat}, ${sel.start_lng}</div>
         </div>
         <div style="padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid #ef4444">
           <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:0.5px">DESTINO</div>
           <div style="font-size:12px;font-weight:700;margin-top:2px">${escHtml(sel.end_name || 'N/A')}</div>
-          <div style="font-size:10px;color:var(--text3)">${sel.end_lat}, ${sel.end_lng}</div>
         </div>
       </div>
-
       ${stopsHtml}
-
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
         <span class="badge">⚡ ${sel.difficulty}</span>
         <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
         ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
       </div>
-
       ${isOwner ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
@@ -2467,31 +2473,79 @@ function renderRutas() {
     </div>
     ` : ''}
 
-    <!-- Mapa de Rutas -->
-    <div class="map-container" style="margin-bottom:16px">
-      <div id="map-rutas" style="height:${sel ? '220px' : '300px'}"></div>
-      ${!sel ? '<div class="map-label">📍 Panama · Toca una ruta para ver el detalle</div>' : ''}
+    <!-- MAP — always at the top, unified -->
+    <div class="map-container" style="margin-bottom:10px;border-radius:16px;overflow:hidden;border:1px solid rgba(0,212,255,0.15)">
+      <div id="map-rutas" style="height:${sel ? '200px' : '280px'}"></div>
+      ${!sel ? '<div class="map-label">📍 Panama · Toca una ruta en el mapa o lista para ver detalle</div>' : ''}
     </div>
 
-    ${!sel ? `
-    <div class="tab-bar">
-      <button class="tab ${myRoutes.length === 0 ? 'active' : ''}" onclick="showRouteTab('mis')">Todas (${allRoutes.length})</button>
-      <button class="tab" onclick="showRouteTab('creadas')">Mis rutas (${myRoutes.length})</button>
-    </div>
-
-    <div id="rutas-list">
-      ${allRoutes.length === 0 ? `
-        <div class="empty-state">
-          <div class="empty-icon">🗺️</div>
-          <div>No hay rutas todavia</div>
-          <button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>
+    <!-- Tab content -->
+    <div id="rutas-tab-content" style="${sel ? 'display:none' : ''}">
+      ${RUTAS_TAB === 'rutas' ? `
+        <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:12px">
+          <button onclick="setRouteSubTab('todas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='todas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='todas'?'#ff4444':'var(--text2)'}">Todas (${allRoutes.length})</button>
+          <button onclick="setRouteSubTab('mis')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='mis'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='mis'?'#ff4444':'var(--text2)'}">Mis rutas (${myRoutes.length})</button>
         </div>
-      ` : allRoutes.map(r => renderRouteCard(r)).join('')}
+        <div id="rutas-list">
+          ${allRoutes.length === 0 ? `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>` :
+            (routeSubTab === 'todas' ? allRoutes : myRoutes).map(r => renderRouteCard(r)).join('')}
+        </div>
+      ` : `
+        <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:12px">
+          <button onclick="setEventSubTab('proximos')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${eventSubTab==='proximos'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${eventSubTab==='proximos'?'#ff4444':'var(--text2)'}">Proximos (${upcoming.length})</button>
+          <button onclick="setEventSubTab('pasados')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${eventSubTab==='pasados'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${eventSubTab==='pasados'?'#ff4444':'var(--text2)'}">Pasados (${past.length})</button>
+        </div>
+        <div id="eventos-list">
+          ${(eventSubTab === 'proximos' ? upcoming : past).length === 0 ? `<div class="empty-state"><div class="empty-icon">📅</div><div>Sin eventos</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createEvent()">Crear evento</button>' : ''}</div>` :
+            (eventSubTab === 'proximos' ? upcoming : past).map(ev => renderEventCard(ev)).join('')}
+        </div>
+      `}
     </div>
-    ` : ''}
   `;
 
   setTimeout(initRutasMap, 100);
+}
+
+let routeSubTab = 'todas';
+let eventSubTab = 'proximos';
+
+function setRutasTab(t) {
+  RUTAS_TAB = t;
+  renderRutas();
+}
+
+function setRouteSubTab(t) {
+  routeSubTab = t;
+  const list = document.getElementById('rutas-list');
+  if (list) {
+    const allRoutes = STATE.routes;
+    const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
+    list.innerHTML = (t === 'todas' ? allRoutes : myRoutes).map(r => renderRouteCard(r)).join('');
+  }
+  document.querySelectorAll('.sub-tab-bar button').forEach(b => {
+    b.style.background = 'var(--surface2)';
+    b.style.color = 'var(--text2)';
+  });
+  event.target.style.background = 'rgba(255,68,68,0.2)';
+  event.target.style.color = '#ff4444';
+}
+
+function setEventSubTab(t) {
+  eventSubTab = t;
+  const upcoming = STATE.events.filter(e => e.status === 'activo');
+  const past = STATE.events.filter(e => e.status !== 'activo');
+  const list = document.getElementById('eventos-list');
+  if (list) {
+    list.innerHTML = (t === 'proximos' ? upcoming : past).map(ev => renderEventCard(ev)).join('') || '<div class="empty-state"><div class="empty-icon">📅</div><div>Sin eventos</div></div>';
+  }
+  document.querySelectorAll('.sub-tab-bar button').forEach(b => {
+    b.style.background = 'var(--surface2)';
+    b.style.color = 'var(--text2)';
+  });
+  if (event && event.target) {
+    event.target.style.background = 'rgba(255,68,68,0.2)';
+    event.target.style.color = '#ff4444';
+  }
 }
 
 function escHtml(s) {
