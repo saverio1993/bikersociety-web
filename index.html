@@ -1167,8 +1167,9 @@ const SEED_PLACES = [
 // ============================================================
 let _placeSearchTimeout = null;
 
-async function searchPlaces(query, callback) {
-  if (!query || query.length < 2) { callback([]); return; }
+// Promise-based: returns { local, online } directly — no callback needed
+async function searchPlaces(query) {
+  if (!query || query.length < 2) return { local: [], online: [] };
   const q = query.toLowerCase();
 
   // 1. Search local DB first (instant)
@@ -1179,13 +1180,14 @@ async function searchPlaces(query, callback) {
   ).slice(0, 5);
 
   // 2. Nominatim API (online search)
+  let online = [];
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Panama')}&limit=5&addressdetails=1`,
       { headers: { 'Accept-Language': 'es' } }
     );
     const data = await res.json();
-    const online = (data || []).map(item => ({
+    online = (data || []).map(item => ({
       id: 'online_' + item.place_id,
       name: item.display_name.split(',')[0],
       fullName: item.display_name,
@@ -1196,10 +1198,35 @@ async function searchPlaces(query, callback) {
       icon: _categoryIcon(item.type || 'lugar'),
       isOnline: true
     }));
-    callback(local, online);
-  } catch(e) {
-    callback(local, []);
+  } catch(e) {}
+  return { local, online };
+}
+
+// Render results into a dropdown and handle selection
+function showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect }) {
+  dropdown.innerHTML = '';
+  if (!merged.length) {
+    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--text3);text-align:center">Sin resultados</div>';
+    dropdown.style.display = 'block';
+    return;
   }
+  merged.forEach(p => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
+    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+    div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
+    div.addEventListener('mouseout', () => div.style.background = '');
+    div.addEventListener('click', () => {
+      if (nameInput) nameInput.value = p.name;
+      if (latInput) latInput.value = p.lat;
+      if (lngInput) lngInput.value = p.lng;
+      savePlace(p);
+      dropdown.style.display = 'none';
+      if (onSelect) onSelect(p);
+    });
+    dropdown.appendChild(div);
+  });
+  dropdown.style.display = 'block';
 }
 
 function _categoryIcon(type) {
@@ -2243,39 +2270,15 @@ function setupEditStopPlaceSearch(idx) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      await new Promise(resolve => searchPlaces(val, (local, online) => {
-        const seen = new Set();
-        const merged = [...local, ...online].filter(p => {
-          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        }).slice(0, 6);
-        dropdown.innerHTML = '';
-        if (!merged.length) {
-          dropdown.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text3);text-align:center">Sin resultados</div>';
-          dropdown.style.display = 'block'; resolve(); return;
-        }
-        merged.forEach(p => {
-          const div = document.createElement('div');
-          div.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)';
-          div.innerHTML = `<span style="font-size:13px">${p.icon || '📍'}</span><div style="flex:1"><div style="font-weight:600">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
-          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
-          div.addEventListener('mouseout', () => div.style.background = '');
-          div.addEventListener('click', () => {
-            nameInput.value = p.name;
-            if (latInput) latInput.value = p.lat;
-            if (lngInput) lngInput.value = p.lng;
-            savePlace(p);
-            dropdown.style.display = 'none';
-            toast('Guardado en EVA Lube 📍');
-            resolve();
-          });
-          dropdown.appendChild(div);
-        });
-        dropdown.style.display = 'block';
-        resolve();
-      }));
+      const { local, online } = await searchPlaces(val);
+      const seen = new Set();
+      const merged = [...local, ...online].filter(p => {
+        const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 6);
+      showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
     }, 300);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
@@ -2320,39 +2323,15 @@ function setupEditstopPlaceSearch(stopId) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      await new Promise(resolve => searchPlaces(val, (local, online) => {
-        const seen = new Set();
-        const merged = [...local, ...online].filter(p => {
-          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        }).slice(0, 6);
-        dropdown.innerHTML = '';
-        if (!merged.length) {
-          dropdown.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text3);text-align:center">Sin resultados</div>';
-          dropdown.style.display = 'block'; resolve(); return;
-        }
-        merged.forEach(p => {
-          const div = document.createElement('div');
-          div.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)';
-          div.innerHTML = `<span style="font-size:13px">${p.icon || '📍'}</span><div style="flex:1"><div style="font-weight:600">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
-          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
-          div.addEventListener('mouseout', () => div.style.background = '');
-          div.addEventListener('click', () => {
-            nameInput.value = p.name;
-            if (latInput) latInput.value = p.lat;
-            if (lngInput) lngInput.value = p.lng;
-            savePlace(p);
-            dropdown.style.display = 'none';
-            toast('Guardado en EVA Lube 📍');
-            resolve();
-          });
-          dropdown.appendChild(div);
-        });
-        dropdown.style.display = 'block';
-        resolve();
-      }));
+      const { local, online } = await searchPlaces(val);
+      const seen = new Set();
+      const merged = [...local, ...online].filter(p => {
+        const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 6);
+      showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
     }, 300);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
@@ -2496,42 +2475,18 @@ function setupModalPlaceSearch(prefix) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      await new Promise(resolve => searchPlaces(val, (local, online) => {
-        const seen = new Set();
-        const merged = [...local, ...online].filter(p => {
-          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        }).slice(0, 8);
-
-        if (!merged.length) {
-          dropdown.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--text3);text-align:center">Sin resultados — escribe para buscar en OpenStreetMap</div>';
-          dropdown.style.display = 'block';
-          resolve();
-          return;
-        }
-        dropdown.innerHTML = '';
-        merged.forEach(p => {
-          const div = document.createElement('div');
-          div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
-          div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
-          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
-          div.addEventListener('mouseout', () => div.style.background = '');
-          div.addEventListener('click', () => {
-            nameInput.value = p.name;
-            if (latInput) latInput.value = p.lat;
-            if (lngInput) lngInput.value = p.lng;
-            savePlace(p);
-            dropdown.style.display = 'none';
-            toast(p.isOnline ? 'Guardado en EVA Lube 📍' : 'Lugar seleccionado');
-            resolve();
-          });
-          dropdown.appendChild(div);
-        });
-        dropdown.style.display = 'block';
-        resolve();
-      }));
+      const { local, online } = await searchPlaces(val);
+      const seen = new Set();
+      const merged = [...local, ...online].filter(p => {
+        const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 8);
+      showPlaceResults(dropdown, merged, {
+        nameInput, latInput, lngInput,
+        onSelect: p => toast(p.isOnline ? 'Guardado en EVA Lube 📍' : 'Lugar seleccionado')
+      });
     }, 300);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
@@ -2641,42 +2596,15 @@ function setupStopPlaceSearch(stopId) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      await new Promise(resolve => searchPlaces(val, (local, online) => {
-        const seen = new Set();
-        const merged = [...local, ...online].filter(p => {
-          const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        }).slice(0, 6);
-
-        if (!merged.length) {
-          dropdown.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text3);text-align:center">Sin resultados</div>';
-          dropdown.style.display = 'block';
-          resolve();
-          return;
-        }
-        dropdown.innerHTML = '';
-        merged.forEach(p => {
-          const div = document.createElement('div');
-          div.style.cssText = 'padding:8px 10px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border)';
-          div.innerHTML = `<span style="font-size:13px">${p.icon || '📍'}</span><div style="flex:1"><div style="font-weight:600">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
-          div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
-          div.addEventListener('mouseout', () => div.style.background = '');
-          div.addEventListener('click', () => {
-            nameInput.value = p.name;
-            if (latInput) latInput.value = p.lat;
-            if (lngInput) lngInput.value = p.lng;
-            savePlace(p);
-            dropdown.style.display = 'none';
-            toast('Guardado en EVA Lube 📍');
-            resolve();
-          });
-          dropdown.appendChild(div);
-        });
-        dropdown.style.display = 'block';
-        resolve();
-      }));
+      const { local, online } = await searchPlaces(val);
+      const seen = new Set();
+      const merged = [...local, ...online].filter(p => {
+        const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 6);
+      showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
     }, 300);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
