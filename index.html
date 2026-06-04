@@ -1044,7 +1044,8 @@ const STATE = {
   rutaWatchId: null,
   myLocationMarker: null,
   bikerMarkers: {},
-  places: []
+  places: [],
+  userStats: {}   // { userId: { rides, events, routes_created, photos, chat_messages, total_km, days_active, streak, last_active } }
 };
 
 // ============================================================
@@ -1071,21 +1072,62 @@ const SEED_USERS = [
   {id:39,username:'pablop',email:'savesrique19@gmail.com',password:'admin123',is_admin:0,is_injured:0,injury_note:'',bike_model:'',points:50,profile_pic:'',bio:'',city:'Panama',experience_level:'novato'},
 ];
 
+// ============================================================
+// BADGE DEFINITIONS (stats-based, SVG icons)
+// ============================================================
+// Each badge has: id, name, description, stat_type, threshold, category, points, rarity, svgColor, svgIcon
 const SEED_BADGES = [
-  {id:1,name:'Primer Ruedo',description:'Completaste tu primera rodada',icon:'🏍️',category:'rodadas',points_required:0},
-  {id:2,name:'5 Ruedos',description:'Has completado 5 rodadas',icon:'🔥',category:'rodadas',points_required:0},
-  {id:3,name:'10 Ruedos',description:'Has completado 10 rodadas',icon:'⚡',category:'rodadas',points_required:0},
-  {id:4,name:'25 Ruedos',description:'Has completado 25 rodadas',icon:'👑',category:'rodadas',points_required:0},
-  {id:5,name:'50 Ruedos',description:'Medio centenario de rodadas',icon:'🏆',category:'rodadas',points_required:0},
-  {id:6,name:'100 Ruedos',description:'Leyenda del asfalto',icon:'🌟',category:'rodadas',points_required:0},
-  {id:7,name:'Asistencia Perfecta',description:'3 eventos seguidos',icon:'🎯',category:'eventos',points_required:0},
-  {id:8,name:'Fotógrafo',description:'Subiste 5+ fotos',icon:'📸',category:'eventos',points_required:0},
-  {id:9,name:'Conversador',description:'50+ mensajes en chat',icon:'💬',category:'social',points_required:0},
-  {id:10,name:'Explorador',description:'Creaste 3+ rutas',icon:'📍',category:'rutas',points_required:0},
-  {id:11,name:'Destacado',description:'Destacado por admin',icon:'🔝',category:'especial',points_required:0},
-  {id:12,name:'Veterano',description:'Más de 6 meses',icon:'🎖️',category:'especial',points_required:0},
-  {id:13,name:'Rodada Épica',description:'Ruta de dificultad alta',icon:'💀',category:'rodadas',points_required:0},
+  // === RODAJE ===
+  {id:1,name:'Primer Ruedo',description:'Completaste tu primera rodada',stat_type:'rides',threshold:1,category:'rodaje',rarity:'common',points_bonus:50,svgGradient:'#ff4444|#ff8800',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🏍</text>'},
+  {id:2,name:'5 Ruedas',description:'5 rodadas completadas',stat_type:'rides',threshold:5,category:'rodaje',rarity:'common',points_bonus:150,svgGradient:'#ff6b35|#ffaa00',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🔥</text>'},
+  {id:3,name:'10 Ruedas',description:'10 rodadas completadas',stat_type:'rides',threshold:10,category:'rodaje',rarity:'rare',points_bonus:300,svgGradient:'#ffd700|#ff8c00',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">⚡</text>'},
+  {id:4,name:'25 Ruedas',description:'25 rodadas — te encanta la carretera',stat_type:'rides',threshold:25,category:'rodaje',rarity:'rare',points_bonus:700,svgGradient:'#00bcd4|#006994',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">👑</text>'},
+  {id:5,name:'50 Ruedas',description:'Medio centenario de rodadas',stat_type:'rides',threshold:50,category:'rodaje',rarity:'epic',points_bonus:1500,svgGradient:'#9c27b0|#e91e63',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🏆</text>'},
+  {id:6,name:'100 Ruedas',description:'Leyenda del asfalto',stat_type:'rides',threshold:100,category:'rodaje',rarity:'legendary',points_bonus:3000,svgGradient:'#1a1a2e|#ff3b3b',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="#ffd700">⭐</text>'},
+
+  // === EVENTOS ===
+  {id:7,name:'Asistencia Perfecta',description:'3 rodadas consecutivas sin faltar',stat_type:'streak',threshold:3,category:'eventos',rarity:'common',points_bonus:100,svgGradient:'#4caf50|#2e7d32',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🎯</text>'},
+  {id:8,name:'Racha de Fuego',description:'7 días seguidos conectando',stat_type:'streak',threshold:7,category:'eventos',rarity:'rare',points_bonus:300,svgGradient:'#ff5722|#ff9800',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🔥</text>'},
+  {id:9,name:'Racha Imparable',description:'15 días seguidos de actividad',stat_type:'streak',threshold:15,category:'eventos',rarity:'epic',points_bonus:800,svgGradient:'#ff1744|#d50000',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">⚡</text>'},
+
+  // === SOCIAL ===
+  {id:10,name:'Social Rider',description:'20 mensajes en el chat grupal',stat_type:'chat_messages',threshold:20,category:'social',rarity:'common',points_bonus:80,svgGradient:'#2196f3|#0d47a1',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">💬</text>'},
+  {id:11,name:'Rey del Chat',description:'100 mensajes en el chat grupal',stat_type:'chat_messages',threshold:100,category:'social',rarity:'rare',points_bonus:400,svgGradient:'#7c4dff|#651fff',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">👑</text>'},
+
+  // === FOTOS ===
+  {id:12,name:'Fotógrafo',description:'5 fotos compartidas en BIKERGRAM',stat_type:'photos',threshold:5,category:'fotos',rarity:'common',points_bonus:150,svgGradient:'#ffeb3b|#ff9800',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">📸</text>'},
+  {id:13,name:'Cazador de Momentos',description:'20 fotos compartidas',stat_type:'photos',threshold:20,category:'fotos',rarity:'rare',points_bonus:500,svgGradient:'#e91e63|#880e4f',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🎥</text>'},
+
+  // === RUTAS ===
+  {id:14,name:'Explorador',description:'Creaste tu primera ruta',stat_type:'routes_created',threshold:1,category:'rutas',rarity:'common',points_bonus:100,svgGradient:'#009688|#004d40',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🗺️</text>'},
+  {id:15,name:'Arquitecto de Rutas',description:'Creaste 5 rutas personalizadas',stat_type:'routes_created',threshold:5,category:'rutas',rarity:'rare',points_bonus:400,svgGradient:'#3f51b5|#1a237e',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🛣️</text>'},
+
+  // === DISTANCIA ===
+  {id:16,name:'Primeros 100km',description:'Acumulaste 100 km totales',stat_type:'total_km',threshold:100,category:'distancia',rarity:'common',points_bonus:200,svgGradient:'#607d8b|#263238',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🛣️</text>'},
+  {id:17,name:'500km Club',description:'500 km recorridos — trotamundos',stat_type:'total_km',threshold:500,category:'distancia',rarity:'rare',points_bonus:800,svgGradient:'#795548|#3e2723',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🌍</text>'},
+
+  // === ESPECIALES ===
+  {id:18,name:'Veterano',description:'Miembro activo por 30+ días',stat_type:'days_active',threshold:30,category:'especial',rarity:'rare',points_bonus:500,svgGradient:'#546e7a|#37474f',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="white">🎖️</text>'},
+  {id:19,name:'Legado Biker',description:'Veterano de 90+ días',stat_type:'days_active',threshold:90,category:'especial',rarity:'epic',points_bonus:1200,svgGradient:'#1a1a1a|#c62828',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="#ffd700">🏅</text>'},
+  {id:20,name:'Destacado',description:'Reconocido por el admin del grupo',stat_type:'admin_award',threshold:1,category:'especial',rarity:'epic',points_bonus:1000,svgGradient:'#ffd700|#ff8c00',svgIcon:'<text x="50%" y="50%" dy=".35em" text-anchor="middle" font-size="22" fill="#1a1a1a">⭐</text>'},
 ];
+
+function getBadgeSvg(badge, earned) {
+  const [c1, c2] = badge.svgGradient.split('|');
+  const opacity = earned ? 1 : 0.3;
+  const filter = earned ? '' : 'grayscale(100%)';
+  return `<svg viewBox="0 0 48 48" width="56" height="56" style="opacity:${opacity};filter:${filter};transition:all 0.3s">
+    <defs>
+      <linearGradient id="bg${badge.id}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:${c1}"/>
+        <stop offset="100%" style="stop-color:${c2}"/>
+      </linearGradient>
+    </defs>
+    <circle cx="24" cy="24" r="22" fill="url(#bg${badge.id})" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+    <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+    ${badge.svgIcon}
+  </svg>`;
+}
 
 const SEED_CHALLENGES = [
   {id:1,title:'Rey de la Carretera',description:'Recorre 100 km en rutas grupales',category:'weekly',points:500,requirement_type:'distance',requirement_count:100,icon:'🛣️'},
@@ -1258,6 +1300,125 @@ function savePlace(place) {
 
 function loadPlaces() {
   STATE.places = ls('bs_places') || [...SEED_PLACES];
+}
+
+// ============================================================
+// BADGE SYSTEM — stats-based evaluation
+// ============================================================
+function getUserStats(userId) {
+  if (!userId) return {};
+  if (STATE.userStats[userId]) return STATE.userStats[userId];
+
+  const u = STATE.users.find(x => x.id === userId);
+  const rides = STATE.attendance.filter(a => a.user_id === userId).length;
+  const routes_created = STATE.routes.filter(r => r.created_by === userId).length;
+  const photos = STATE.posts.filter(p => p.user_id === userId && p.image_url).length;
+  const chat_messages = STATE.chatMessages.filter(m => m.user_id === userId).length;
+  const posts = STATE.posts.filter(p => p.user_id === userId).length;
+  const photos_total = photos + posts; // approximation
+  const total_km = STATE.routes.filter(r => r.created_by === userId).reduce((acc, r) => {
+    // Estimate km: Haversine distance start-end
+    if (!r.start_lat || !r.end_lat) return acc;
+    const R = 6371;
+    const dLat = (r.end_lat - r.start_lat) * Math.PI / 180;
+    const dLng = (r.end_lng - r.start_lng) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(r.start_lat*Math.PI/180)*Math.cos(r.end_lat*Math.PI/180)*Math.sin(dLng/2)**2;
+    const c = 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return acc + R * c;
+  }, 0);
+
+  // Streak: consecutive days with any activity
+  const allDates = new Set();
+  STATE.attendance.filter(a => a.user_id === userId).forEach(a => allDates.add(a.date));
+  STATE.chatMessages.filter(m => m.user_id === userId).forEach(m => allDates.add(m.created_at ? m.created_at.split(' ')[0] : null));
+  STATE.posts.filter(p => p.user_id === userId).forEach(p => allDates.add(p.created_at ? p.created_at.split(' ')[0] : null));
+  allDates.delete(null);
+  const sortedDates = [...allDates].sort();
+  let streak = 0, streakCount = 0;
+  const today = new Date().toISOString().split('T')[0];
+  if (sortedDates.length > 0) {
+    const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+    const diff = (new Date(today) - lastDate) / 86400000;
+    if (diff <= 1) {
+      streakCount = 1;
+      for (let i = sortedDates.length - 2; i >= 0; i--) {
+        const d = new Date(sortedDates[i]);
+        const diff2 = (new Date(sortedDates[i+1]) - d) / 86400000;
+        if (diff2 === 1) streakCount++;
+        else break;
+      }
+      streak = streakCount;
+    }
+  }
+
+  const joinDate = u?.created_at ? new Date(u.created_at) : new Date();
+  const daysActive = Math.floor((new Date() - joinDate) / 86400000);
+
+  const stats = {
+    rides, routes_created, photos: photos_total, chat_messages,
+    total_km: Math.round(total_km),
+    days_active: daysActive,
+    streak,
+    events: rides,
+    posts: STATE.posts.filter(p => p.user_id === userId).length,
+  };
+  STATE.userStats[userId] = stats;
+  return stats;
+}
+
+function evaluateUserBadges(userId) {
+  if (!userId) return;
+  const stats = getUserStats(userId);
+  const newBadges = [];
+
+  STATE.badges.forEach(badge => {
+    const current = STATE.userBadges.find(ub => ub.user_id === userId && ub.badge_id === badge.id);
+    let value = stats[badge.stat_type] || 0;
+
+    if (badge.stat_type === 'admin_award') {
+      value = STATE.users.find(u => u.id === userId)?.is_distinguished ? 1 : 0;
+    }
+
+    const earned = value >= badge.threshold;
+
+    if (earned && !current) {
+      STATE.userBadges.push({
+        user_id: userId,
+        badge_id: badge.id,
+        earned_at: new Date().toISOString(),
+        stat_value: value
+      });
+      newBadges.push(badge);
+    } else if (earned && current) {
+      // Update stat value
+      current.stat_value = value;
+    } else if (!earned && current) {
+      // Remove if no longer qualifies
+      STATE.userBadges = STATE.userBadges.filter(ub => !(ub.user_id === userId && ub.badge_id === badge.id));
+    }
+  });
+
+  if (newBadges.length > 0) {
+    const totalBonus = newBadges.reduce((acc, b) => acc + b.points_bonus, 0);
+    const u = STATE.users.find(u => u.id === userId);
+    if (u) {
+      u.points = (u.points || 0) + totalBonus;
+      saveState();
+    }
+    if (userId === STATE.user?.id) {
+      toast(`🏅 +${newBadges.length} insignia(s)! +${totalBonus} pts`);
+    }
+  }
+}
+
+function evaluateAllBadges() {
+  STATE.users.forEach(u => evaluateUserBadges(u.id));
+}
+
+function recalculateUserStats(userId) {
+  delete STATE.userStats[userId];
+  getUserStats(userId);
+  evaluateUserBadges(userId);
 }
 
 function renderPlaceDropdown(results, containerId, onSelect) {
@@ -1491,7 +1652,7 @@ function initApp() {
   STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
   STATE.events = ls('bs_events') || [...SEED_EVENTS];
   STATE.posts = ls('bs_posts') || [...SEED_POSTS];
-  STATE.badges = ls('bs_badges') || [...SEED_BADGES];
+  STATE.badges = [...SEED_BADGES]; // Always use fresh badge definitions
   STATE.challenges = ls('bs_challenges') || [...SEED_CHALLENGES];
   STATE.userChallenges = ls('bs_uc') || [];
   STATE.userBadges = ls('bs_ub') || [];
@@ -1513,6 +1674,8 @@ function initApp() {
     if (HV.user) {
       syncFromCloud().then(() => { saveState(); });
     }
+    // Evaluate badges for all users on load
+    evaluateAllBadges();
   } else {
     showLogin();
   }
@@ -2786,34 +2949,112 @@ function renderRiderDetail() {
 function editRider(id) {
   const r = STATE.users.find(u => u.id === id);
   if (!r) return;
+  const isAdmin = STATE.user?.is_admin;
+  const isSelf = STATE.user?.id === id;
+  const hasAward = r.is_distinguished;
+  const badge20 = STATE.badges.find(b => b.id === 20);
+  const hasBadge20 = STATE.userBadges.find(ub => ub.user_id === id && ub.badge_id === 20);
+
   openModal('Editar Perfil', `
     <input class="input" id="ed-username" value="${r.username}" placeholder="Usuario">
     <input class="input" id="ed-email" value="${r.email}" placeholder="Email">
     <input class="input" id="ed-bike" value="${r.bike_model}" placeholder="Modelo de moto">
     <input class="input" id="ed-city" value="${r.city}" placeholder="Ciudad">
     <input class="input" id="ed-bio" value="${r.bio}" placeholder="Biografia">
-    <input class="input" id="ed-pass" type="password" placeholder="Nueva contrasena (opcional)">
-    <button class="btn btn-primary" style="width:100%" onclick="doEditRider(${id})">Guardar cambios</button>
-    ${id === STATE.user?.id ? `<button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger)" onclick="closeModal()">Cancelar</button>` : ''}
+    ${isSelf ? `<input class="input" id="ed-pass" type="password" placeholder="Nueva contrasena (opcional)">` : ''}
+
+    ${isAdmin && !isSelf ? `
+      <div style="margin-top:12px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--accent)">Herramientas de Admin</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div style="font-size:12px;font-weight:600">⭐ Insignia Destacado</div>
+            <div style="font-size:11px;color:var(--text2)">+${badge20?.points_bonus||0} puntos bonus</div>
+          </div>
+          ${hasBadge20
+            ? `<button class="btn btn-ghost" style="font-size:11px;color:var(--danger)" onclick="removeAdminAward(${id})">Quitar</button>`
+            : `<button class="btn btn-primary" style="font-size:11px;padding:6px 14px" onclick="giveAdminAward(${id})">Dar Destacado</button>`
+          }
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="ed-isadmin" ${r.is_admin ? 'checked' : ''} onchange>
+          Es Admin
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-top:4px">
+          <input type="checkbox" id="ed-isinjured" ${r.is_injured ? 'checked' : ''} onchange>
+          Marcado como herido
+        </label>
+        <div style="margin-top:8px">
+          <label style="font-size:12px;color:var(--text2)">Puntos (admin)</label>
+          <input class="input" id="ed-points" type="number" value="${r.points}" style="margin-top:4px">
+        </div>
+      </div>
+    ` : ''}
+
+    <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="doEditRider(${id})">Guardar cambios</button>
+    ${isSelf ? `<button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger)" onclick="closeModal()">Cancelar</button>` : ''}
   `);
 }
 
 function doEditRider(id) {
   const r = STATE.users.find(u => u.id === id);
   if (!r) return;
+  const isAdmin = STATE.user?.is_admin;
   r.username = document.getElementById('ed-username').value.trim() || r.username;
   r.email = document.getElementById('ed-email').value.trim() || r.email;
   r.bike_model = document.getElementById('ed-bike').value.trim();
   r.city = document.getElementById('ed-city').value.trim();
   r.bio = document.getElementById('ed-bio').value.trim();
-  const newPass = document.getElementById('ed-pass').value;
+  const newPass = document.getElementById('ed-pass')?.value;
   if (newPass) r.password = newPass;
+
+  if (isAdmin) {
+    const edIsAdmin = document.getElementById('ed-isadmin');
+    const edIsInjured = document.getElementById('ed-isinjured');
+    const edPoints = document.getElementById('ed-points');
+    if (edIsAdmin) r.is_admin = edIsAdmin.checked;
+    if (edIsInjured) r.is_injured = edIsInjured.checked;
+    if (edPoints) r.points = parseInt(edPoints.value) || r.points;
+  }
+
   if (STATE.user?.id === id) STATE.user = r;
   ls('bs_session', STATE.user);
   saveState();
+  recalculateUserStats(id);
   closeModal();
   navigate(id === STATE.user?.id ? 'profile' : 'rider-detail');
   toast('Perfil actualizado!');
+}
+
+function giveAdminAward(id) {
+  const r = STATE.users.find(u => u.id === id);
+  if (!r) return;
+  r.is_distinguished = true;
+  const badge20 = STATE.badges.find(b => b.id === 20);
+  const existing = STATE.userBadges.find(ub => ub.user_id === id && ub.badge_id === 20);
+  if (!existing && badge20) {
+    r.points = (r.points || 0) + badge20.points_bonus;
+    STATE.userBadges.push({
+      user_id: id, badge_id: 20, earned_at: new Date().toISOString(), stat_value: 1
+    });
+  }
+  saveState();
+  toast(`${r.username} получил статус Destacado! ⭐`);
+  closeModal();
+  if (id === STATE.user?.id) renderProfile();
+  else renderAdmin();
+}
+
+function removeAdminAward(id) {
+  const r = STATE.users.find(u => u.id === id);
+  if (!r) return;
+  r.is_distinguished = false;
+  STATE.userBadges = STATE.userBadges.filter(ub => !(ub.user_id === id && ub.badge_id === 20));
+  saveState();
+  delete STATE.userStats[id];
+  toast(`Destacado removido de ${r.username}`);
+  closeModal();
+  renderAdmin();
 }
 
 // ============================================================
@@ -3153,44 +3394,139 @@ function renderChallengeCard(c, myChallenges) {
 // INSIGNIAS PAGE
 // ============================================================
 function renderInsignias() {
-  const earned = STATE.userBadges.filter(ub => ub.user_id === STATE.user?.id).map(ub => ub.badge_id);
+  if (!STATE.user) { showLogin(); return; }
+  const uid = STATE.user.id;
+  const stats = getUserStats(uid);
+  const earned = STATE.userBadges.filter(ub => ub.user_id === uid).map(ub => ub.badge_id);
+  const totalEarned = earned.length;
+
+  const catLabels = {rodaje:'Rodaje',eventos:'Eventos',social:'Social',fotos:'Fotos',rutas:'Rutas',distancia:'Distancia',especial:'Especial'};
   const categories = [...new Set(STATE.badges.map(b => b.category))];
 
   document.getElementById('page-insignias').innerHTML = `
-    <div style="margin-bottom:16px">
-      <div style="font-size:18px;font-weight:800;margin-bottom:4px">Insignias</div>
-      <div style="font-size:12px;color:var(--text2)">${earned.length} de ${STATE.badges.length} obtenidas</div>
+    <div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <div style="font-size:20px;font-weight:900">Insignias</div>
+        <div style="font-size:12px;color:var(--accent);font-weight:700;background:rgba(255,68,68,0.15);padding:2px 10px;border-radius:20px">${totalEarned}/${STATE.badges.length}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text2)">Desbloquea insignias con tu actividad</div>
     </div>
-    ${categories.map(cat => `
-      <div style="margin-bottom:20px">
-        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase">${cat}</div>
-        <div class="badge-grid">
-          ${STATE.badges.filter(b => b.category === cat).map(b => `
-            <div class="badge-item ${earned.includes(b.id) ? 'earned' : ''}" onclick="showBadgeDetail(${b.id})">
-              <div class="badge-icon">${b.icon}</div>
-              <div class="badge-name">${b.name}</div>
-            </div>
-          `).join('')}
+
+    <!-- Quick stats bar -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+      ${[
+        {label:'Rodadas',val:stats.rides||0,icon:'🏍'},
+        {label:'Km',val:stats.total_km||0,icon:'🛣'},
+        {label:'Racha',val:stats.streak||0,icon:'🔥'},
+        {label:'Fotos',val:stats.photos||0,icon:'📸'},
+      ].map(s => `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center">
+          <div style="font-size:18px;margin-bottom:2px">${s.icon}</div>
+          <div style="font-size:16px;font-weight:800">${s.val}</div>
+          <div style="font-size:10px;color:var(--text2)">${s.label}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    ${categories.map(cat => {
+      const catBadges = STATE.badges.filter(b => b.category === cat);
+      const catEarned = catBadges.filter(b => earned.includes(b.id)).length;
+      return `
+      <div style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px">${catLabels[cat]||cat}</div>
+          <div style="font-size:11px;color:var(--text3)">${catEarned}/${catBadges.length}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          ${catBadges.map(b => {
+            const isEarned = earned.includes(b.id);
+            const ub = STATE.userBadges.find(x => x.user_id === uid && x.badge_id === b.id);
+            const currentVal = stats[b.stat_type] || 0;
+            const pct = Math.min(100, Math.round((currentVal / b.threshold) * 100));
+            const rarityColors = {common:'#9e9e9e',rare:'#2196f3',epic:'#9c27b0',legendary:'#ffd700'};
+            const rarityColor = rarityColors[b.rarity] || '#9e9e9e';
+
+            return `
+              <div style="
+                background:var(--card);
+                border:1px solid ${isEarned ? rarityColor : 'var(--border)'};
+                border-radius:14px;
+                padding:14px 8px 12px;
+                text-align:center;
+                cursor:pointer;
+                position:relative;
+                transition:all 0.25s;
+                ${!isEarned ? 'opacity:0.7' : ''}
+              " onclick="showBadgeDetail(${b.id})">
+                ${isEarned
+                  ? `<div style="position:absolute;top:6px;right:6px;width:8px;height:8px;background:#4caf50;border-radius:50%;box-shadow:0 0 6px #4caf50"></div>`
+                  : ''
+                }
+                <div style="margin-bottom:6px;display:flex;justify-content:center">
+                  ${getBadgeSvg(b, isEarned)}
+                </div>
+                <div style="font-size:11px;font-weight:700;margin-bottom:4px;line-height:1.2">${b.name}</div>
+                ${!isEarned ? `
+                  <div style="font-size:9px;color:var(--text3);margin-bottom:6px">${currentVal}/${b.threshold}</div>
+                  <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+                    <div style="height:100%;width:${pct}%;background:${rarityColor};border-radius:2px;transition:width 0.5s"></div>
+                  </div>
+                  <div style="font-size:9px;color:var(--text3);margin-top:3px">${pct}%</div>
+                ` : `
+                  <div style="font-size:9px;color:#4caf50">+${b.points_bonus} pts</div>
+                `}
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
-    `).join('')}
+    `}).join('')}
   `;
 }
 
 function showBadgeDetail(id) {
   const b = STATE.badges.find(x => x.id === id);
   if (!b) return;
-  const earned = STATE.userBadges.find(ub => ub.badge_id === id && ub.user_id === STATE.user?.id);
-  openModal(b.name, `
+  if (!STATE.user) { showLogin(); return; }
+  const uid = STATE.user.id;
+  const earned = STATE.userBadges.find(ub => ub.badge_id === id && ub.user_id === uid);
+  const stats = getUserStats(uid);
+  const currentVal = stats[b.stat_type] || 0;
+  const rarityColors = {common:'#9e9e9e',rare:'#2196f3',epic:'#9c27b0',legendary:'#ffd700'};
+  const rarityLabels = {common:'Común',rare:'Rara',epic:'Épica',legendary:'Legendaria'};
+  const rarityColor = rarityColors[b.rarity] || '#9e9e9e';
+  const rarityLabel = rarityLabels[b.rarity] || b.rarity;
+  const pct = Math.min(100, Math.round((currentVal / b.threshold) * 100));
+
+  openModal(`${b.name} <span style="font-size:11px;font-weight:400;color:${rarityColor}">${rarityLabel}</span>`, `
     <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:60px;margin-bottom:8px">${b.icon}</div>
-      <div style="font-size:16px;font-weight:700">${b.name}</div>
-      <div style="color:var(--text2);font-size:13px;margin-top:4px">${b.description}</div>
+      <div style="margin-bottom:12px">${getBadgeSvg(b, !!earned)}</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">${b.name}</div>
+      <div style="color:var(--text2);font-size:13px;margin-bottom:8px">${b.description}</div>
+      <div style="display:inline-block;background:${rarityColor}22;color:${rarityColor};font-size:11px;font-weight:700;padding:2px 12px;border-radius:20px;border:1px solid ${rarityColor}44">${rarityLabel}</div>
     </div>
-    ${earned
-      ? `<div style="text-align:center"><span class="badge-green">✅ Ganada el ${new Date(earned.earned_at).toLocaleDateString()}</span></div>`
-      : `<div style="text-align:center;color:var(--text3);font-size:13px">Sigue participando para desbloquear esta insignia</div>`
-    }
+    ${earned ? `
+      <div style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:10px;padding:12px;text-align:center">
+        <div style="color:#4caf50;font-size:13px;font-weight:700">✅ Desbloqueada</div>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px">el ${new Date(earned.earned_at).toLocaleDateString()}</div>
+        <div style="color:var(--accent);font-size:13px;font-weight:700;margin-top:6px">+${b.points_bonus} puntos</div>
+      </div>
+    ` : `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+          <span style="color:var(--text2)">Progreso</span>
+          <span style="font-weight:700">${currentVal} / ${b.threshold}</span>
+        </div>
+        <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${rarityColor},${rarityColor}aa);border-radius:4px;transition:width 0.5s"></div>
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--text3);margin-top:6px">${pct}% completo</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Recompensa al desbloquear</div>
+        <div style="color:var(--accent);font-size:16px;font-weight:800">+${b.points_bonus} puntos</div>
+      </div>
+    `}
   `);
 }
 
@@ -3204,45 +3540,96 @@ function renderProfile() {
   const progress = levelProgress(u.points);
   const next = nextLevel(u.points);
   const earned = STATE.userBadges.filter(ub => ub.user_id === u.id).map(ub => ub.badge_id);
-  const myAtt = STATE.attendance.filter(a => a.user_id === u.id).length;
-  const myRoutes = STATE.routes.filter(r => r.created_by === u.id).length;
+  const stats = getUserStats(u.id);
 
   document.getElementById('page-profile').innerHTML = `
     <div style="text-align:center;margin-bottom:24px">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${avatarColor(u.id)},${avatarColor(u.id+1)});display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px">${initials(u.username)}</div>
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${avatarColor(u.id)},${avatarColor(u.id+1)});display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px;box-shadow:0 4px 20px rgba(0,0,0,0.3)">${initials(u.username)}</div>
       <div style="font-size:20px;font-weight:800">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
       <div style="color:var(--text2);font-size:13px">${u.email}</div>
       <div style="color:var(--text2);font-size:13px">${u.bike_model || 'Sin moto'}</div>
       ${u.bio ? `<div style="color:var(--text2);font-size:13px;margin-top:6px;font-style:italic">"${u.bio}"</div>` : ''}
     </div>
 
-    <div class="points-bar" style="margin-bottom:16px">
-      <div class="points-level">
-        <div class="points-label">Nivel ${lv.name}</div>
-        <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
+    <!-- Points / Level -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px">Nivel</div>
+          <div style="font-size:22px;font-weight:900;background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${lv.name}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:900;color:var(--accent)">${u.points}</div>
+          <div style="font-size:11px;color:var(--text2)">puntos</div>
+        </div>
       </div>
-      <div class="points-value">${u.points} pts</div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:3px;transition:width 0.5s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px">
+        <span>${lv.min} pts</span>
+        <span>${next ? next.min : 'MAX'} pts</span>
+      </div>
     </div>
 
-    <div class="stat-row vanish" style="animation-delay:0.05s">
-      <div class="stat-box"><div class="stat-val">${myAtt}</div><div class="stat-lbl">Eventos</div></div>
-      <div class="stat-box"><div class="stat-val">${myRoutes}</div><div class="stat-lbl">Rutas</div></div>
-      <div class="stat-box"><div class="stat-val">${earned.length}</div><div class="stat-lbl">Insignias</div></div>
+    <!-- Stats Grid -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+      ${[
+        {label:'Rodadas',val:stats.rides||0,sub:'completadas',color:'#ff4444'},
+        {label:'Racha',val:stats.streak||0,sub:'días seguidos',color:'#ff8800'},
+        {label:'Km Totales',val:stats.total_km||0,sub:'kilómetros',color:'#607d8b'},
+        {label:'Rutas Creadas',val:stats.routes_created||0,sub:'rutas',color:'#009688'},
+        {label:'Fotos',val:stats.photos||0,sub:'compartidas',color:'#ffeb3b'},
+        {label:'Mensajes',val:stats.chat_messages||0,sub:'en chat',color:'#2196f3'},
+        {label:'Insignias',val:earned.length,sub:'de ${STATE.badges.length}',color:'#9c27b0'},
+        {label:'Días Activo',val:stats.days_active||0,sub:'desde unión',color:'#546e7a'},
+      ].map(s => `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${s.color}"></div>
+          <div style="font-size:20px;font-weight:900;margin-bottom:2px">${s.val}</div>
+          <div style="font-size:12px;font-weight:700">${s.label}</div>
+          <div style="font-size:10px;color:var(--text3)">${s.sub}</div>
+        </div>
+      `).join('')}
     </div>
 
-    <div class="vanish" style="animation-delay:0.1s">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">MIS INSIGNIAS</div>
-      <div class="badge-grid">
-        ${STATE.badges.map(b => `
-          <div class="badge-item ${earned.includes(b.id) ? 'earned' : ''}" title="${b.description}">
-            <div class="badge-icon">${b.icon}</div>
-            <div class="badge-name">${b.name}</div>
+    <!-- Earned Badges -->
+    ${earned.length > 0 ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Insignias Obtenidas</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        ${STATE.badges.filter(b => earned.includes(b.id)).map(b => `
+          <div style="text-align:center;cursor:pointer" onclick="showBadgeDetail(${b.id})">
+            <div style="margin-bottom:4px;display:flex;justify-content:center">${getBadgeSvg(b, true)}</div>
+            <div style="font-size:10px;font-weight:600;line-height:1.2">${b.name}</div>
           </div>
         `).join('')}
       </div>
     </div>
+    ` : ''}
 
-    <div style="margin-top:20px" class="vanish" style="animation-delay:0.15s">
+    <!-- Locked Badges preview -->
+    ${earned.length < STATE.badges.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Próximas Insignias</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        ${STATE.badges.filter(b => !earned.includes(b.id)).slice(0,4).map(b => {
+          const currentVal = stats[b.stat_type] || 0;
+          const pct = Math.min(100, Math.round((currentVal / b.threshold) * 100));
+          return `
+            <div style="text-align:center;cursor:pointer;opacity:0.5" onclick="showBadgeDetail(${b.id})">
+              <div style="margin-bottom:4px;display:flex;justify-content:center">${getBadgeSvg(b, false)}</div>
+              <div style="font-size:10px;font-weight:600;line-height:1.2">${b.name}</div>
+              <div style="font-size:9px;color:var(--text3)">${pct}%</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:12px" onclick="navigate('insignias')">Ver todas las insignias →</button>
+    </div>
+    ` : ''}
+
+    <div style="margin-top:20px">
       <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="editRider(${u.id})">Editar perfil</button>
       <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('rutas');setTimeout(createRoute,300)">Crear ruta</button>
       <button class="btn btn-ghost" style="width:100%;color:var(--danger)" onclick="logout()">Cerrar sesion</button>
