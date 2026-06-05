@@ -2016,11 +2016,12 @@ async function syncToCloud() {
 async function syncFromCloud() {
   if (!HV.user) return;
   const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
+  const results = await Promise.all(tables.map(t => loadFromHV(t)));
   let loaded = false;
-  for (const t of tables) {
-    const data = await loadFromHV(t);
+  tables.forEach((t, i) => {
+    const data = results[i];
     if (data && Array.isArray(data)) { STATE[t] = data; loaded = true; }
-  }
+  });
   if (loaded) {
     STATE.users = STATE.users.length ? STATE.users : [...SEED_USERS];
     STATE.badges = STATE.badges.length ? STATE.badges : [...SEED_BADGES];
@@ -3915,74 +3916,22 @@ function removeAdminAward(id) {
 // ============================================================
 // BIKERGRAM PAGE
 // ============================================================
- let GRAM_SORT = 'newest'; // newest | popular | commented
-
 function renderBikerGram() {
   const photos = STATE.posts.filter(p => p.media_type === 'image' || p.image_url).length;
   const videos = STATE.posts.filter(p => p.media_type === 'video').length;
   const audios = STATE.posts.filter(p => p.media_type === 'audio').length;
   const totalPosts = STATE.posts.length;
 
-  // Build stories: users with at least one media post in last 7 days
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const storyUsers = {};
-  STATE.posts.forEach(p => {
-    if ((p.media_type === 'image' || p.media_type === 'video') && new Date(p.created_at) > sevenDaysAgo) {
-      if (!storyUsers[p.user_id]) {
-        const u = STATE.users.find(x => x.id === p.user_id);
-        if (u) storyUsers[p.user_id] = { user: u, post: p };
-      }
-    }
-  });
-  const storyList = Object.values(storyUsers);
-
-  // Sort posts
-  let posts = [...STATE.posts];
-  if (GRAM_SORT === 'popular') posts.sort((a,b) => (b.likes?.length||0) - (a.likes?.length||0));
-  else if (GRAM_SORT === 'commented') posts.sort((a,b) => (b.comments?.length||0) - (a.comments?.length||0));
-  else posts.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  // Posts sorted by newest first (always)
+  let posts = [...STATE.posts].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
   document.getElementById('page-bikergram').innerHTML = `
-    <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div>
-        <div style="font-size:20px;font-weight:900;letter-spacing:-0.5px">
-          <span style="background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Biker</span><span style="color:#fff">Gram</span>
-        </div>
-        ${totalPosts > 0 ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">📷 ${photos} · 🎬 ${videos} · 🎵 ${audios}</div>` : ''}
+    <!-- Header — clean -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:20px;font-weight:900;letter-spacing:-0.5px">
+        <span style="background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Biker</span><span style="color:#fff">Gram</span>
       </div>
       <button onclick="createPost()" style="width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff4444,#ff8800);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(255,68,68,0.4);flex-shrink:0">+</button>
-    </div>
-
-    <!-- Stories bar -->
-    ${storyList.length > 0 || STATE.user ? `
-    <div style="margin-bottom:14px">
-      <div style="display:flex;gap:10px;overflow-x:auto;padding:4px 2px;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain">
-        ${STATE.user ? `
-        <!-- Add story button -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="createPost()">
-          <div style="width:62px;height:62px;border-radius:50%;background:rgba(255,68,68,0.15);border:2px dashed rgba(255,68,68,0.4);display:flex;align-items:center;justify-content:center;font-size:24px">+</div>
-          <div style="font-size:10px;color:var(--text3);text-align:center;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Tu story</div>
-        </div>` : ''}
-        ${storyList.map(s => `
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="viewStoryUser(${s.user.id})">
-            <div style="width:64px;height:64px;border-radius:50%;padding:3px;background:${s.user.is_admin ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'linear-gradient(135deg,#ff4444,#ff8800)'};display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,68,68,0.3)">
-              <div style="width:100%;height:100%;border-radius:50%;border:3px solid #0a0a0a;overflow:hidden;background:var(--surface)">
-                ${s.post.media_type === 'image' || s.post.image_url ? `<img src="${s.post.media_url || s.post.image_url}" style="width:100%;height:100%;object-fit:cover">` : s.post.media_type === 'video' ? `<video src="${s.post.media_url}" muted style="width:100%;height:100%;object-fit:cover"></video>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.2))">🎬</div>`}
-              </div>
-            </div>
-            <div style="font-size:10px;color:var(--text3);text-align:center;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.user.username}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    ` : ''}
-
-    <!-- Sort tabs -->
-    <div style="display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px">
-      <button onclick="setGramSort('newest')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='newest'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='newest'?'#fff':'var(--text3)'}">Recientes</button>
-      <button onclick="setGramSort('popular')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='popular'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='popular'?'#fff':'var(--text3)'}">🔥 Populares</button>
-      <button onclick="setGramSort('commented')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='commented'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='commented'?'#fff':'var(--text3)'}">💬 Comentados</button>
     </div>
 
     <!-- Feed -->
@@ -4021,17 +3970,6 @@ function resolveHvMedia() {
       }
     }).catch(() => {});
   });
-}
-
-function viewStoryUser(userId) {
-  // Filter feed to show posts from this user only
-  STATE.gramFilterUser = userId;
-  renderBikerGram();
-}
-
-function setGramSort(s) {
-  GRAM_SORT = s;
-  renderBikerGram();
 }
 
 // Render media block for a post (image / video / audio / none)
