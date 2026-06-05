@@ -1128,6 +1128,7 @@ a{color:inherit;text-decoration:none}
   0%{background-position:200% 0}
   100%{background-position:-200% 0}
 }
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 
 /* ===== GLOW TEXT ===== */
 .glow-text{
@@ -2197,6 +2198,91 @@ async function syncFromCloud() {
 }
 
 // ============================================================
+// PWA INSTALL
+// ============================================================
+var _installPromptEvent = null;
+var _appInstalled = false;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  // Prevent Chrome's mini-infobar
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  _installPromptEvent = e;
+  console.log('[BS] beforeinstallprompt captured');
+  // Show floating install banner if not dismissed this session
+  if (!sessionStorage.getItem('bs_install_dismissed') && !isAppInstalled()) {
+    showInstallBanner();
+  }
+  // Refresh any visible "Instalar app" menu item
+  try { showMoreMenu(); } catch(_) {}
+});
+
+window.addEventListener('appinstalled', function() {
+  _appInstalled = true;
+  _installPromptEvent = null;
+  console.log('[BS] App installed');
+  toast('✅ Biker Society instalada en tu pantalla');
+  hideInstallBanner();
+  try { showMoreMenu(); } catch(_) {}
+});
+
+function isAppInstalled() {
+  // Standalone display mode = installed PWA
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.matchMedia('(display-mode: fullscreen)').matches ||
+         window.navigator.standalone === true;
+}
+
+async function installApp() {
+  if (!_installPromptEvent) {
+    if (isAppInstalled()) {
+      toast('La app ya esta instalada');
+    } else {
+      toast('Tu navegador no soporta instalar la app. Usa el menu del navegador: Compartir > Agregar a pantalla de inicio');
+    }
+    return;
+  }
+  _installPromptEvent.prompt();
+  const result = await _installPromptEvent.userChoice;
+  console.log('[BS] install choice:', result.outcome);
+  _installPromptEvent = null;
+  hideInstallBanner();
+  if (result.outcome === 'accepted') {
+    toast('📲 Instalando Biker Society...');
+  } else {
+    toast('Instalacion cancelada');
+  }
+  try { showMoreMenu(); } catch(_) {}
+}
+
+function dismissInstallBanner() {
+  sessionStorage.setItem('bs_install_dismissed', '1');
+  hideInstallBanner();
+}
+
+function hideInstallBanner() {
+  const b = document.getElementById('install-banner');
+  if (b) b.remove();
+}
+
+function showInstallBanner() {
+  if (document.getElementById('install-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'install-banner';
+  b.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:linear-gradient(135deg,#1a1a2e,#2a1a3e);border:1px solid rgba(0,212,255,0.4);border-radius:14px;padding:12px 14px;z-index:9990;box-shadow:0 8px 32px rgba(0,0,0,0.6);display:flex;align-items:center;gap:10px;animation:slideUp 0.3s ease';
+  b.innerHTML = `
+    <img src="icons/logo.png" style="width:42px;height:42px;border-radius:10px;flex-shrink:0">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;margin-bottom:2px">📲 Instalar Biker Society</div>
+      <div style="font-size:11px;color:var(--text2)">Acceso rapido desde tu pantalla</div>
+    </div>
+    <button onclick="installApp()" style="background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:12px;font-weight:700;padding:8px 14px;border-radius:10px;cursor:pointer;flex-shrink:0">Instalar</button>
+    <button onclick="dismissInstallBanner()" style="background:transparent;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0">&times;</button>
+  `;
+  document.body.appendChild(b);
+}
+
+// ============================================================
 // APP INIT
 // ============================================================
 function initApp() {
@@ -3069,6 +3155,27 @@ function showMoreMenu() {
       <span class="fpanel-item-arrow">→</span>
     </div>
     ` : ''}
+
+    <!-- App -->
+    <div class="fpanel-section-label">APP</div>
+    ${isAppInstalled() ? `
+    <div class="fpanel-item" style="cursor:default;opacity:0.7">
+      <div class="fpanel-item-icon" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3)">✅</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">App instalada</span>
+        <span class="fpanel-item-sub">Biker Society en tu pantalla</span>
+      </div>
+    </div>
+    ` : `
+    <div class="fpanel-item" onclick="installApp()">
+      <div class="fpanel-item-icon" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3)">📲</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">${_installPromptEvent ? 'Instalar app' : 'Como instalar'}</span>
+        <span class="fpanel-item-sub">${_installPromptEvent ? 'Icono en tu pantalla de inicio' : 'Menu del navegador > Agregar a inicio'}</span>
+      </div>
+      <span class="fpanel-item-arrow">→</span>
+    </div>
+    `}
 
     <div class="fpanel-divider"></div>
 
