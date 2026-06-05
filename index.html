@@ -4407,6 +4407,11 @@ function createRoute() {
       <span style="font-size:11px;color:var(--text3)">📍 Usa el mapa para buscar lugares</span>
       <button onclick="closeModal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;line-height:1">✕</button>
     </div>
+
+    <button onclick="useMyLocationBoth()" style="width:100%;margin-bottom:12px;padding:10px;background:rgba(255,32,32,0.08);border:1px solid rgba(255,32,32,0.3);border-radius:12px;color:#ff6666;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      📍 Usar mi ubicacion para SALIDA y DESTINO
+    </button>
+
     <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:10px">
     <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
 
@@ -4511,6 +4516,9 @@ function useMyLocation(prefix) {
       const { latitude: lat, longitude: lng } = pos.coords;
       document.getElementById(prefix + '-lat').value = lat.toFixed(6);
       document.getElementById(prefix + '-lng').value = lng.toFixed(6);
+      // Also set in _routePOI so POI picker knows
+      if (prefix === 'rt-start') { _routePOI.start = { lat, lng }; }
+      else if (prefix === 'rt-end') { _routePOI.end = { lat, lng }; }
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
           headers: { 'Accept-Language': 'es' }
@@ -4522,6 +4530,42 @@ function useMyLocation(prefix) {
       } catch(e) {
         document.getElementById(prefix + '-name').value = 'Mi ubicacion';
         toast('Ubicacion detectada');
+      }
+    },
+    err => { toast('Sin acceso a ubicacion'); },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function useMyLocationBoth() {
+  if (!navigator.geolocation) {
+    toast('Geolocalizacion no disponible');
+    return;
+  }
+  toast('Obteniendo ubicacion...');
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      // Fill SALIDA
+      document.getElementById('rt-start-lat').value = lat.toFixed(6);
+      document.getElementById('rt-start-lng').value = lng.toFixed(6);
+      // Fill DESTINO
+      document.getElementById('rt-end-lat').value = lat.toFixed(6);
+      document.getElementById('rt-end-lng').value = lng.toFixed(6);
+      _routePOI.start = { lat, lng };
+      _routePOI.end   = { lat, lng };
+      // Reverse geocode
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+          headers: { 'Accept-Language': 'es' }
+        });
+        const data = await res.json();
+        const name = data.address?.road || data.address?.neighbourhood || data.address?.suburb || data.address?.city || data.address?.town || 'Mi ubicacion';
+        const nameEl = document.getElementById('rt-start-selected-name');
+        if (nameEl) nameEl.textContent = name;
+        toast('✅ Salida y destino configurados: ' + name);
+      } catch(e) {
+        toast('✅ Salida y destino configurados');
       }
     },
     err => { toast('Sin acceso a ubicacion'); },
