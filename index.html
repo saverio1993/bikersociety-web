@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Biker Society</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BikerApp">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%231a1a2e'/><text x='256' y='340' font-size='280' text-anchor='middle' fill='%23ff4444'>🏍️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -2213,6 +2217,8 @@ function initApp() {
     if (HV.user && HV.pass) {
       syncPostsFromCloud(); // loads from cloud, localStorage posts shown instantly
     }
+    // Start live location tracking
+    startGeolocation();
   } else {
     showLogin();
   }
@@ -2232,6 +2238,168 @@ function initApp() {
 
   // Evaluate badges for all users on load
   evaluateAllBadges();
+
+  // Register PWA Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('[BS] SW registered:', reg.scope);
+      // Register for background sync if supported
+      if ('sync' in reg) {
+        reg.sync.register('location-sync').catch(() => {});
+      }
+      // Listen for background location messages from SW
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data?.type === 'BG_LOCATION') {
+          handleBackgroundLocation(e.data.lat, e.data.lng);
+        }
+      });
+    }).catch(err => console.warn('[BS] SW registration failed:', err));
+  }
+}
+
+// Handle location updates from background SW sync
+function handleBackgroundLocation(lat, lng) {
+  if (!STATE.user) return;
+  STATE.userLocation = { lat, lng, updated_at: Date.now() };
+  // Try to auto-confirm attendance for any active route
+  checkAttendanceForActiveRoutes();
+}
+
+// Auto-confirm attendance for routes active today
+function checkAttendanceForActiveRoutes() {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const curMin = now.getHours() * 60 + now.getMinutes();
+
+  STATE.routes.filter(r => r.date === today).forEach(route => {
+    if (!route.start_lat || !route.start_lng) return;
+    if (!STATE.userLocation) return;
+
+    // Check if within time window (-60min to +30min of departure)
+    const depMin = route.time ? (parseInt(route.time.slice(0,2))*60 + parseInt(route.time.slice(3,5))) : null;
+    if (depMin !== null && (curMin < depMin - 60 || curMin > depMin + 30)) return;
+
+    // Check geofence (300m)
+    const dist = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.start_lat), parseFloat(route.start_lng));
+    if (dist <= 300) confirmAttendance(route.id, 'auto');
+
+    // Check destination too (for arrival)
+    if (route.end_lat && route.end_lng) {
+      const distEnd = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.end_lat), parseFloat(route.end_lng));
+      if (distEnd <= 300) confirmAttendance(route.id, 'auto', true);
+    }
+  });
+}
+
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function confirmAttendance(routeId, method, isArrival) {
+  STATE.attendance = STATE.attendance || [];
+  const existing = STATE.attendance.find(a => a.route_id === routeId && a.user_id === STATE.user.id && !!a.is_arrival === !!isArrival);
+  if (existing) return; // already confirmed
+  STATE.attendance.push({
+    id: Date.now() % 100000,
+    user_id: STATE.user.id,
+    route_id: routeId,
+    confirmed_at: new Date().toISOString(),
+    method: method || 'manual',
+    is_arrival: isArrival || false,
+    lat: STATE.userLocation?.lat || null,
+    lng: STATE.userLocation?.lng || null
+  });
+  ls('bs_att', STATE.attendance);
+  saveToHV('attendance', STATE.attendance).catch(() => {});
+  if (method === 'auto') toast('✅ Asistencia confirmada automaticamente');
+}
+
+// ── Live Location System ────────────────────────────────────────────────
+var _geoWatchId = null;
+var _locationPollInterval = null;
+var _lastLocationSave = 0;
+
+function startGeolocation() {
+  if (!navigator.geolocation) { toast('GPS no disponible en este navegador'); return; }
+
+  // Stop any existing tracking
+  stopGeolocation();
+
+  // Watch position continuously
+  _geoWatchId = navigator.geolocation.watchPosition(
+    pos => {
+      STATE.userLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        updated_at: Date.now()
+      };
+      // Save to HeyValue
+      saveLocationToHV();
+      // Check auto-attendance
+      checkAttendanceForActiveRoutes();
+    },
+    err => { console.warn('[BS] GPS error:', err.message); },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+  );
+
+  // Also poll members' locations every 30s
+  _locationPollInterval = setInterval(() => {
+    loadMembersLocation();
+  }, 30000);
+
+  // Initial load
+  loadMembersLocation();
+}
+
+function stopGeolocation() {
+  if (_geoWatchId !== null) {
+    navigator.geolocation.clearWatch(_geoWatchId);
+    _geoWatchId = null;
+  }
+  if (_locationPollInterval) {
+    clearInterval(_locationPollInterval);
+    _locationPollInterval = null;
+  }
+}
+
+async function saveLocationToHV() {
+  if (!HV.user || !HV.pass || !STATE.user || !STATE.userLocation) return;
+  const now = Date.now();
+  // Save to HeyValue max every 60s (avoid rate limit)
+  if (now - _lastLocationSave < 60000) return;
+  _lastLocationSave = now;
+  try {
+    const locData = {
+      lat: STATE.userLocation.lat,
+      lng: STATE.userLocation.lng,
+      accuracy: STATE.userLocation.accuracy,
+      username: STATE.user.username,
+      updated_at: now
+    };
+    await saveToHV('member_location_' + STATE.user.id, locData);
+  } catch(e) { /* silent fail */ }
+}
+
+async function loadMembersLocation() {
+  if (!HV.user || !HV.pass) return;
+  STATE.membersLocation = STATE.membersLocation || {};
+  for (const u of STATE.users) {
+    if (u.id === STATE.user?.id) continue;
+    try {
+      const data = await loadFromHV('member_location_' + u.id);
+      if (data && data.lat && data.lng) {
+        // Only use if updated in last 5 minutes
+        if (Date.now() - (data.updated_at || 0) < 300000) {
+          STATE.membersLocation[u.id] = data;
+        }
+      }
+    } catch(e) {}
+  }
 }
 
 async function autoConnectHeyValue() {
