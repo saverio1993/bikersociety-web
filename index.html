@@ -2114,10 +2114,11 @@ async function autoConnectHeyValue() {
     if (STATE._refreshTimer) clearInterval(STATE._refreshTimer);
     STATE._refreshTimer = setInterval(async () => {
       if (STATE.currentPage === 'bikergram') {
+        const prev = STATE.posts.length;
         await syncPostsFromCloud();
-        renderBikerGram();
+        if (STATE.posts.length !== prev) renderBikerGram(); // solo re-render si hay cambios reales
       }
-    }, 2000);
+    }, 3000); // cada 3s, no cada 2s
   } catch(e) {
     console.warn('HeyValue auto-connect failed:', e.message);
   }
@@ -2171,9 +2172,9 @@ function navigate(page) {
   STATE.currentPage = page;
   renderPage(page);
 
-  // Load posts from cloud immediately when entering BikerGram
+  // Refresh posts from cloud when entering BikerGram (no flicker — render happens once via timer)
   if (page === 'bikergram' && HV.connected) {
-    syncPostsFromCloud().then(() => renderBikerGram());
+    syncPostsFromCloud();
   }
 }
 
