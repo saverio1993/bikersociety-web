@@ -2450,13 +2450,6 @@ function handleBackgroundLocation(lat, lng) {
   checkAttendanceForActiveRoutes();
 }
 
-// Handle location updates from background SW sync
-function handleBackgroundLocation(lat, lng) {
-  if (!STATE.user || _activeRouteId === null) return;
-  STATE.userLocation = { lat, lng, updated_at: Date.now() };
-  checkAttendanceForActiveRoutes();
-}
-
 // Auto-confirm attendance for the currently active route only
 function checkAttendanceForActiveRoutes() {
   if (!_activeRouteId || !STATE.userLocation) return;
@@ -2501,14 +2494,68 @@ function confirmAttendance(routeId, method, isArrival) {
   if (method === 'auto') toast('✅ Asistencia confirmada automaticamente');
 }
 
-// Manual check-in: "Estoy aquí"
+// Manual check-in: "Estoy aquí" — verifica GPS antes de confirmar
 function manualCheckin(routeId) {
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
   if (!navigator.onLine) { toast('Sin conexion — intenta luego'); return; }
-  confirmAttendance(routeId, 'manual', false);
-  // Refresh just the attendance panel in the detail card
-  refreshAttendancePanel(routeId);
-  toast('✅ Asistencia confirmada');
+
+  const route = STATE.routes.find(r => r.id === routeId);
+  if (!route) { toast('Ruta no encontrada'); return; }
+
+  // Si la ruta no tiene coordenadas de destino, confirmar sin GPS
+  if (!route.end_lat || !route.end_lng) {
+    confirmAttendance(routeId, 'manual', false);
+    refreshAttendancePanel(routeId);
+    toast('✅ Asistencia confirmada');
+    return;
+  }
+
+  // Verificar ubicación GPS real
+  if (!navigator.geolocation) {
+    toast('⚠️ Tu dispositivo no soporta GPS — confirmando sin verificar ubicacion');
+    confirmAttendance(routeId, 'manual', false);
+    refreshAttendancePanel(routeId);
+    return;
+  }
+
+  // Mostrar estado de carga
+  const btn = document.querySelector('#manual-checkin-' + routeId + ' button');
+  if (btn) { btn.textContent = '📍 Verificando ubicacion...'; btn.disabled = true; }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const dist = haversineM(
+        pos.coords.latitude, pos.coords.longitude,
+        parseFloat(route.end_lat), parseFloat(route.end_lng)
+      );
+
+      // Restaurar botón
+      if (btn) { btn.textContent = '📍 Estoy aquí — Confirmar asistencia'; btn.disabled = false; }
+
+      if (dist <= 300) {
+        confirmAttendance(routeId, 'manual', false);
+        refreshAttendancePanel(routeId);
+        toast('✅ Asistencia confirmada — estas en el punto de encuentro');
+      } else if (dist <= 1000) {
+        toast('⚠️ Estas a ' + Math.round(dist) + ' metros del destino. Acercate mas para confirmar.');
+      } else {
+        toast('❌ Estas demasiado lejos (' + Math.round(dist/1000) + ' km). Debes estar en el lugar para confirmar asistencia.');
+      }
+    },
+    err => {
+      // Restaurar botón
+      if (btn) { btn.textContent = '📍 Estoy aquí — Confirmar asistencia'; btn.disabled = false; }
+
+      if (err.code === 1) {
+        toast('⚠️ Permiso de ubicacion denegado. Activa el GPS en tu dispositivo.');
+      } else if (err.code === 2) {
+        toast('⚠️ No se pudo obtener tu ubicacion. Verifica la señal GPS.');
+      } else {
+        toast('⚠️ Error al obtener ubicacion. Intenta de nuevo.');
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
 }
 
 // Refresh the attendance panel DOM element directly
@@ -3567,7 +3614,7 @@ function renderRutas() {
         <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
         ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
       </div>
-      ${sel.date ? `
+      ${(sel.date || (sel.end_lat && sel.end_lng)) ? `
       <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);border-radius:10px;margin-bottom:12px">
         <span style="font-size:18px">📅</span>
         <div>
@@ -3581,7 +3628,7 @@ function renderRutas() {
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
-      ${sel.date ? `
+      ${(sel.date || (sel.end_lat && sel.end_lng)) ? `
       <div id="gps-panel-${sel.id}">
         ${_activeRouteId === sel.id ? `
         <div style="padding:10px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;margin-bottom:8px">
@@ -4759,7 +4806,6 @@ function cancelPOIPicker() {
       if (btn) btn.style.display = '';
     }
   });
->>>>>>> 32a6cd45ae5f448b46ab7ee7127d284f350b78aa
 }
 
 function setupModalPlaceSearch(prefix) {
