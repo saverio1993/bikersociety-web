@@ -3482,9 +3482,15 @@ function doEditRoute(id) {
 
 function createRoute() {
   if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear rutas'); return; }
+  // Preload POIs if not loaded yet
+  if (!window.panamaPOIs) loadPanamaPOIs();
   openModal('Nueva Ruta', `
-    <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:12px">
-    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:11px;color:var(--text3)">📍 Usa el mapa para buscar lugares</span>
+      <button onclick="closeModal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;line-height:1">✕</button>
+    </div>
+    <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:10px">
+    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
 
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🚦</span> SALIDA
@@ -3696,12 +3702,16 @@ function startPOIPicker(target) {
 
 function selectPOIFromMap(lat, lng, name) {
   fillPOIFields(_poiPickTarget, lat, lng, name);
+  // Reopen the route creation modal so user can continue
+  createRoute();
 }
 
 function selectPOIFromMapAlt(lat, lng, name) {
   // Select for the OTHER target (SALIDA↔DESTINO)
   var alt = _poiPickTarget === 'start' ? 'end' : 'start';
   fillPOIFields(alt, lat, lng, name);
+  // Reopen the route creation modal so user can continue
+  createRoute();
 }
 
 function fillPOIFields(target, lat, lng, name) {
