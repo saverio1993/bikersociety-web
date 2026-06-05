@@ -1843,8 +1843,6 @@ function renderAvatar(user, size, style) {
   }
   return `<div style="${style}"><div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${Math.round(size*0.38)}px">${avatarText(user.username)}</div></div>`;
 }
-  return `<div style="${style}">${avatarText(user.username)}</div>`;
-}
 
 // Read a File object and return data URL via Promise
 function fileToDataUrl(file) {
