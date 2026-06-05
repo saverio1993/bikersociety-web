@@ -1574,15 +1574,18 @@ function getWeeklyRankings() {
   const weekStart = getWeekStart();
   const weekStartStr = weekStart.toISOString().slice(0,10);
 
-  // Accumulators: userId -> { km, events, photos }
+  // Accumulators: userId -> { km, likes, photos }
   const acc = {};
 
-  // Attendance to events this week
-  STATE.attendance.forEach(a => {
-    const attDate = (a.confirmed_at || a.date || '').slice(0,10);
-    if (!attDate || attDate < weekStartStr) return;
-    if (!acc[a.user_id]) acc[a.user_id] = { km:0, events:0, photos:0 };
-    acc[a.user_id].events++;
+  // Posts likes received this week
+  STATE.posts.forEach(p => {
+    if (!p.created_at) return;
+    const postDate = p.created_at.slice(0,10);
+    if (postDate < weekStartStr) return;
+    const likeCount = (p.likes || []).length;
+    if (likeCount === 0) return;
+    if (!acc[p.user_id]) acc[p.user_id] = { km:0, likes:0, photos:0 };
+    acc[p.user_id].likes += likeCount;
   });
 
   // Posts with photos this week
@@ -1591,7 +1594,7 @@ function getWeeklyRankings() {
     const postDate = p.created_at.slice(0,10);
     if (postDate < weekStartStr) return;
     if (!p.image_url) return;
-    if (!acc[p.user_id]) acc[p.user_id] = { km:0, events:0, photos:0 };
+    if (!acc[p.user_id]) acc[p.user_id] = { km:0, likes:0, photos:0 };
     acc[p.user_id].photos++;
   });
 
@@ -1599,16 +1602,16 @@ function getWeeklyRankings() {
   const kmRanking = Object.entries(acc)
     .map(([uid, data]) => ({ user_id: parseInt(uid), km: data.km }))
     .sort((a,b) => b.km - a.km);
-  const eventsRanking = Object.entries(acc)
-    .map(([uid, data]) => ({ user_id: parseInt(uid), events: data.events }))
-    .sort((a,b) => b.events - a.events);
+  const likesRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), likes: data.likes }))
+    .sort((a,b) => b.likes - a.likes);
   const photosRanking = Object.entries(acc)
     .map(([uid, data]) => ({ user_id: parseInt(uid), photos: data.photos }))
     .sort((a,b) => b.photos - a.photos);
 
   return {
     km: kmRanking[0] || null,
-    events: eventsRanking[0] || null,
+    likes: likesRanking[0] || null,
     photos: photosRanking[0] || null
   };
 }
@@ -2501,9 +2504,9 @@ function renderInicio() {
     ${(() => {
       const w = getWeeklyRankings();
       const uKm = w.km ? STATE.users.find(x => x.id === w.km.user_id) : null;
-      const uEv = w.events ? STATE.users.find(x => x.id === w.events.user_id) : null;
+      const uLk = w.likes ? STATE.users.find(x => x.id === w.likes.user_id) : null;
       const uPh = w.photos ? STATE.users.find(x => x.id === w.photos.user_id) : null;
-      const hasAny = uKm || uEv || uPh;
+      const hasAny = uKm || uLk || uPh;
       if (!hasAny) return '';
       const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
       const today = new Date();
@@ -2523,15 +2526,15 @@ function renderInicio() {
             <div style="font-size:16px;font-weight:900;color:var(--accent)">${w.km.km} km</div>
           </div>
           ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">🛣️</div><div style="font-size:10px;color:var(--text2)">REY DEL ASFALTO</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
-          ${uEv ? `
-          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #ff8800;cursor:pointer" onclick="viewRider(${uEv.id})">
-            <div style="font-size:24px;margin-bottom:4px">🎟️</div>
-            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DE EVENTOS</div>
-            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uEv.id)}">${initials(uEv.username)}</div>
-            <div style="font-size:12px;font-weight:700">${uEv.username}</div>
-            <div style="font-size:16px;font-weight:900;color:#ff8800">${w.events.events} asistencias</div>
+          ${uLk ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #ff8800;cursor:pointer" onclick="viewRider(${uLk.id})">
+            <div style="font-size:24px;margin-bottom:4px">❤️</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DE LIKES</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uLk.id)}">${initials(uLk.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uLk.username}</div>
+            <div style="font-size:16px;font-weight:900;color:#ff8800">${w.likes.likes} likes</div>
           </div>
-          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">🎟️</div><div style="font-size:10px;color:var(--text2)">REY DE EVENTOS</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">❤️</div><div style="font-size:10px;color:var(--text2)">REY DE LIKES</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
           ${uPh ? `
           <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #22c55e;cursor:pointer" onclick="viewRider(${uPh.id})">
             <div style="font-size:24px;margin-bottom:4px">📸</div>
