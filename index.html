@@ -2006,9 +2006,7 @@ async function syncToCloud() {
   if (!HV.user) return;
   STATE.syncStatus = 'syncing';
   const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
-  for (const t of tables) {
-    await saveToHV(t, STATE[t] || []);
-  }
+  await Promise.all(tables.map(t => saveToHV(t, STATE[t] || [])));
   await saveToHV('meta', {lastSync: new Date().toISOString(), version: 1});
   STATE.syncStatus = 'synced';
 }
@@ -2121,9 +2119,9 @@ async function autoConnectHeyValue() {
   }
 }
 
-function saveState() {
+async function saveState() {
   saveLocal();
-  if (HV.connected && STATE._cloudSynced !== false) syncToCloud();
+  if (HV.connected && STATE._cloudSynced !== false) await syncToCloud();
 }
 
 // Save to localStorage only (no cloud sync)
@@ -4679,7 +4677,7 @@ function clearPostMedia() {
     comments: []
   };
   STATE.posts.unshift(post);
-  saveState();
+  await saveState();
   POST_DRAFT = null;
   closeModal();
   navigate('bikergram');
