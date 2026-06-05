@@ -404,6 +404,10 @@ a{color:inherit;text-decoration:none}
   75%{transform:scale(1.15)}
   100%{transform:scale(1)}
 }
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.6;transform:scale(1.15)}
+}
 .like-btn:hover{color:var(--danger);background:rgba(255,59,59,0.1)}
 .like-btn.liked{
   color:var(--danger);
@@ -2310,6 +2314,46 @@ function confirmAttendance(routeId, method, isArrival) {
   if (method === 'auto') toast('✅ Asistencia confirmada automaticamente');
 }
 
+// Manual check-in: "Estoy aquí"
+function manualCheckin(routeId) {
+  if (!STATE.user) { toast('Inicia sesion primero'); return; }
+  if (!navigator.onLine) { toast('Sin conexion — intenta luego'); return; }
+  confirmAttendance(routeId, 'manual', false);
+  // Refresh just the attendance panel in the detail card
+  refreshAttendancePanel(routeId);
+  toast('✅ Asistencia confirmada');
+}
+
+// Refresh the attendance panel DOM element directly
+function refreshAttendancePanel(routeId) {
+  const panel = document.getElementById('attendance-panel-' + routeId);
+  const btnWrap = document.getElementById('manual-checkin-' + routeId);
+  if (!panel && !btnWrap) return;
+  const att = STATE.attendance || [];
+  const confirmed = att.filter(a => a.route_id === routeId);
+  const confirmedUsers = confirmed.map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
+  const totalMembers = 1;
+  const pendingCount = 0;
+  let html = '';
+  if (confirmedUsers.length === 0) {
+    html = `<div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">Nadie ha confirmado asistencia aun</div>`;
+  } else {
+    html = confirmedUsers.map(u => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${escHtml(u.username)}${u.id === STATE.user?.id ? ' (tu)' : ''}</div>
+          <div style="font-size:10px;color:var(--text3)">${confirmed.find(a=>a.user_id===u.id)?.note || 'Confirmado'}</div>
+        </div>
+        <span style="font-size:10px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅</span>
+      </div>`).join('');
+  }
+  if (panel) panel.innerHTML = html;
+  if (btnWrap) {
+    btnWrap.innerHTML = `<div style="margin-top:8px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;text-align:center;font-size:12px;color:#22c55e;font-weight:600">✅ Ya confirmaste tu asistencia</div>`;
+  }
+}
+
 // ── Live Location System ──────────────────────────────────────────────────────
 // GPS OFF by default. Activates when:
 //   a) AUTO: route date==today AND time <= now <= time+2h
@@ -2378,6 +2422,162 @@ function stopGPS() {
     _activeRouteId = null;
     _activeWindowStart = null;
   }
+  // Re-render rutas so the GPS panel reflects the change
+  try { renderRutas(); } catch(e) {}
+}
+
+// ── Live Map Modal ──────────────────────────────────────────────────────
+var _liveMapInterval = null;
+
+function showLiveMap(routeId) {
+  const route = STATE.routes.find(r => r.id === routeId);
+  if (!route) return;
+
+  // Force-load members now
+  loadMembersLocation();
+
+  const content = `
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <div style="font-size:20px">🗺️</div>
+      <div>
+        <div style="font-size:14px;font-weight:800">${escHtml(route.name)}</div>
+        <div style="font-size:11px;color:var(--text2)">Ubicacion en tiempo real</div>
+      </div>
+      <div id="live-gps-indicator" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <div style="width:8px;height:8px;border-radius:50%;background:#888"></div>
+        <span style="font-size:11px;color:var(--text2)">Sin GPS</span>
+      </div>
+    </div>
+    <div id="live-map" style="height:320px;border-radius:12px;overflow:hidden;border:1px solid var(--border);margin-bottom:12px"></div>
+    <div id="live-attendance-list" style="max-height:200px;overflow-y:auto">
+      <div style="text-align:center;padding:20px;color:var(--text2);font-size:12px">Cargando...</div>
+    </div>
+  `;
+
+  openModal('Mapa en Vivo', content);
+
+  setTimeout(() => initLiveMap(route), 100);
+}
+
+function initLiveMap(route) {
+  if (!window.L) return;
+
+  const mapEl = document.getElementById('live-map');
+  if (!mapEl) return;
+
+  // Center on route start
+  const centerLat = parseFloat(route.start_lat) || 8.9824;
+  const centerLng = parseFloat(route.start_lng) || -79.5199;
+
+  const map = L.map('live-map', { zoomControl: true }).setView([centerLat, centerLng], 14);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Route start marker
+  if (route.start_lat && route.start_lng) {
+    L.marker([route.start_lat, route.start_lng], {
+      icon: L.divIcon({ html: '🟢', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+    }).addTo(map).bindPopup('Salida: ' + (route.start_name || 'Punto de salida'));
+  }
+
+  // Route end marker
+  if (route.end_lat && route.end_lng) {
+    L.marker([route.end_lat, route.end_lng], {
+      icon: L.divIcon({ html: '🔴', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+    }).addTo(map).bindPopup('Destino: ' + (route.end_name || 'Destino'));
+  }
+
+  // Geofence circle (300m)
+  if (route.start_lat && route.start_lng) {
+    L.circle([route.start_lat, route.start_lng], {
+      radius: 300,
+      color: '#22c55e',
+      fillColor: '#22c55e',
+      fillOpacity: 0.08,
+      weight: 1.5
+    }).addTo(map);
+  }
+
+  // User's own marker
+  let userMarker = null;
+  function updateMyMarker() {
+    if (!STATE.userLocation) return;
+    const pos = [STATE.userLocation.lat, STATE.userLocation.lng];
+    if (!userMarker) {
+      userMarker = L.circleMarker(pos, {
+        radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
+      }).addTo(map).bindPopup('Tu ubicacion');
+    } else {
+      userMarker.setLatLng(pos);
+    }
+    // Update GPS indicator
+    const ind = document.getElementById('live-gps-indicator');
+    if (ind) ind.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e"></div><span style="font-size:11px;color:#22c55e">GPS activo</span>';
+  }
+
+  if (STATE.userLocation) updateMyMarker();
+
+  // Members markers
+  let memberMarkers = {};
+  function updateMembers() {
+    if (!STATE.membersLocation) return;
+    const list = document.getElementById('live-attendance-list');
+    let html = '<div style="padding:4px 0 8px;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Participantes</div>';
+
+    Object.entries(STATE.membersLocation).forEach(([uid, loc]) => {
+      const u = STATE.users.find(x => x.id === parseInt(uid));
+      if (!u) return;
+
+      // Update or create marker
+      if (!memberMarkers[uid]) {
+        memberMarkers[uid] = L.circleMarker([loc.lat, loc.lng], {
+          radius: 7, color: '#ff8800', fillColor: '#ff8800', fillOpacity: 0.85, weight: 2
+        }).addTo(map).bindPopup(u.username);
+      } else {
+        memberMarkers[uid].setLatLng([loc.lat, loc.lng]);
+      }
+
+      // Check if confirmed
+      const confirmed = (STATE.attendance || []).find(a => a.user_id === parseInt(uid) && a.route_id === route.id);
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="width:32px;height:32px;border-radius:50%;background:#ff8800;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${escHtml(u.username)}</div>
+          <div style="font-size:10px;color:var(--text3)">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+        </div>
+        ${confirmed ? '<span style="font-size:11px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅ Confirmado</span>' : ''}
+      </div>`;
+    });
+
+    // My own entry
+    const myConfirmed = (STATE.attendance || []).find(a => a.user_id === STATE.user?.id && a.route_id === route.id);
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <div style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${(STATE.user?.username||'?').charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${escHtml(STATE.user?.username || 'Tu')} (tu)</div>
+        <div style="font-size:10px;color:var(--text3)">${STATE.userLocation ? (STATE.userLocation.lat.toFixed(4)+', '+STATE.userLocation.lng.toFixed(4)) : 'Sin GPS'}</div>
+      </div>
+      ${myConfirmed ? '<span style="font-size:11px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅ Confirmado</span>' : ''}
+    </div>`;
+
+    if (list) list.innerHTML = html;
+  }
+
+  updateMembers();
+
+  // Refresh map + list every 15s while modal is open
+  _liveMapInterval = setInterval(() => {
+    if (!document.getElementById('live-map')) {
+      clearInterval(_liveMapInterval);
+      return;
+    }
+    loadMembersLocation().then(() => {
+      if (STATE.userLocation) updateMyMarker();
+      updateMembers();
+    });
+  }, 15000);
 }
 
 // Auto-check every 30s: is the 2h window still open?
@@ -3194,9 +3394,71 @@ function renderRutas() {
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
-      <button onclick="exportRouteGPX(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
-        📥 Exportar GPX (para GPS)
+      <button onclick="exportRouteGPX(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
+        📥 Exportar GPX
       </button>
+      ${sel.date ? `
+      <div id="gps-panel-${sel.id}">
+        ${_activeRouteId === sel.id ? `
+        <div style="padding:10px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 1.5s infinite"></div>
+            <span style="font-size:13px;font-weight:700;color:#22c55e">GPS Activo</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto">${STATE.userLocation ? (STATE.userLocation.lat.toFixed(4)+', '+STATE.userLocation.lng.toFixed(4)) : 'Obteniendo...'}</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="stopGPS()" style="flex:1;padding:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer">⏹️ Apagar GPS</button>
+            <button onclick="showLiveMap(${sel.id})" style="flex:1;padding:8px;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:8px;color:#ff4444;font-size:12px;font-weight:700;cursor:pointer">👥 Ver Mapa</button>
+          </div>
+        </div>
+        ` : `
+        <button onclick="startGPS(${sel.id})" style="width:100%;padding:10px;background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.35);border-radius:10px;color:#ff4444;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(255,68,68,0.2)'" onmouseout="this.style.background='rgba(255,68,68,0.1)'">
+          📍 Activar GPS en esta ruta
+        </button>`}
+      </div>
+
+      <!-- Attendance panel -->
+      <div style="margin-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📋 Asistencia</div>
+        <div id="attendance-panel-${sel.id}">${(() => {
+          const att = STATE.attendance || [];
+          const confirmed = att.filter(a => a.route_id === sel.id);
+          const confirmedUsers = confirmed.map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
+          const totalMembers = (sel.members || '').split(',').filter(Boolean).length || 1;
+          const pendingCount = Math.max(0, totalMembers - confirmedUsers.length);
+          if (confirmedUsers.length === 0) {
+            return `<div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">
+              Nadie ha confirmado asistencia aun
+            </div>`;
+          }
+          return confirmedUsers.map(u => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">${escHtml(u.username)}${u.id === STATE.user?.id ? ' (tu)' : ''}</div>
+                <div style="font-size:10px;color:var(--text3)">${confirmed.find(a=>a.user_id===u.id)?.note || 'Confirmado'}</div>
+              </div>
+              <span style="font-size:10px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅</span>
+            </div>`).join('') + `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px">
+              <span style="font-size:11px;color:var(--text2)">${pendingCount} pendiente${pendingCount!==1?'s':''}</span>
+            </div>`;
+        })()}</div>
+
+        <!-- Manual check-in: "Estoy aquí" -->
+        <div id="manual-checkin-${sel.id}">
+        ${(() => {
+          const att = STATE.attendance || [];
+          const myAtt = att.find(a => a.user_id === STATE.user?.id && a.route_id === sel.id);
+          if (myAtt) {
+            return `<div style="margin-top:8px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;text-align:center;font-size:12px;color:#22c55e;font-weight:600">✅ Ya confirmaste tu asistencia</div>`;
+          }
+          return `<button onclick="manualCheckin(${sel.id})" style="width:100%;margin-top:8px;padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;color:#22c55e;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">
+            📍 Estoy aquí — Confirmar asistencia
+          </button>`;
+        })()}
+        </div>
+      </div>` : ''}
     </div>
     ` : ''}
 
