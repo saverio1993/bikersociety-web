@@ -2108,9 +2108,9 @@ async function autoConnectHeyValue() {
     await hvRequest('MKCOL', '/BikerApp');
     await hvRequest('MKCOL', '/BikerApp/profiles');
     HV.connected = true;
+    STATE._cloudSynced = true; // allow cloud uploads ONLY after this flag is set
     // Sync data from cloud — cloud is the source of truth
     await syncFromCloud();
-    STATE._cloudSynced = true; // allow cloud uploads now
     saveLocal(); // save to localStorage only, don't re-upload
     // Re-render current page with cloud data
     if (STATE.currentPage) renderPage(STATE.currentPage);
@@ -2135,7 +2135,10 @@ async function syncPostsFromCloud() {
   if (data && Array.isArray(data)) {
     const cloudMap = new Map(data.map(item => [item.id, item]));
     const localOnly = (STATE.posts || []).filter(item => !cloudMap.has(item.id));
-    STATE.posts = [...localOnly, ...data].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    // Sort BOTH cloud and local posts by date before merging
+    const sortedCloud = [...data].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    const sortedLocal = [...localOnly].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    STATE.posts = [...sortedLocal, ...sortedCloud];
   }
 }
 
