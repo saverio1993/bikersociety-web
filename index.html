@@ -3731,12 +3731,17 @@ function renderBikerGram() {
 
 function resolveHvMedia() {
   if (!HV.user || !HV.pass) return;
-  document.querySelectorAll('video[data-hv-url], audio[data-hv-url]').forEach(el => {
-    const hvUrl = el.dataset.hvUrl;
-    if (!hvUrl || !hvUrl.includes('/dav/files/')) return;
-    if (el.src && el.src.startsWith('blob:')) return; // already resolved
-    resolveMediaUrl(hvUrl).then(blobUrl => {
-      if (blobUrl !== hvUrl) {
+  document.querySelectorAll('video[src], audio[src]').forEach(el => {
+    const src = el.src;
+    // Skip data URLs, blob URLs, and already-resolved URLs
+    if (!src || src.startsWith('data:') || src.startsWith('blob:')) return;
+    // Only handle HeyValue WebDAV URLs
+    if (!src.includes('/dav/files/')) return;
+    // Already resolved?
+    if (el.dataset.hvResolved === '1') return;
+    el.dataset.hvResolved = '1';
+    resolveMediaUrl(src).then(blobUrl => {
+      if (blobUrl !== src) {
         el.src = blobUrl;
         el.load();
       }
