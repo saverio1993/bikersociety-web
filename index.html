@@ -499,7 +499,10 @@ a{color:inherit;text-decoration:none}
 .post-time{font-size:11px;color:var(--text2)}
 .post-content{padding:0 16px 12px;font-size:14px;line-height:1.5}
 .post-image{width:100%;max-height:400px;object-fit:contain;display:block;background:#000}
-.post-actions{padding:8px 16px;display:flex;gap:16px;border-top:1px solid var(--border)}
+.post-actions{padding:6px 12px;display:flex;gap:4px;border-top:1px solid var(--border);align-items:center}
+.post-action-btn{background:rgba(255,255,255,0.06);border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px;transition:all 0.15s;flex:1;justify-content:center}
+.post-action-btn:hover{background:rgba(255,68,68,0.15);color:#fff}
+.post-action-btn:active{transform:scale(0.96)}
 
 /* ===== EVENT CARD ===== */
 .event-card{
@@ -4852,11 +4855,16 @@ function clearPostMedia() {
   toast('Publicado!');
 }
 
-function deletePost(id) {
+async function deletePost(id) {
   if (!confirm('Eliminar esta publicacion?')) return;
+  // Delete from IndexedDB immediately
+  if (DB) await idbDelete('posts', id);
+  // Remove from STATE
   STATE.posts = STATE.posts.filter(p => p.id !== id);
   saveState();
   renderBikerGram();
+  // Delete from cloud in background
+  if (HV.connected) syncQueueProcess();
   toast('Eliminado');
 }
 
@@ -6403,17 +6411,17 @@ function renderPostCardEnhanced(p) {
       ` : ''}
 
       <div class="post-actions">
-        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px" onclick="toggleLike(${p.id})">
-          ${isLiked ? '❤️' : '🤍'} ${likes.length || ''}
+        <button class="post-action-btn" onclick="toggleLike(${p.id})">
+          ${isLiked ? '❤️' : '🤍'} <span>${likes.length || ''}</span>
         </button>
-        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px;position:relative" onclick="showReactionPicker(${p.id}, this)">
-          😀 Reaktion
+        <button class="post-action-btn" style="position:relative" onclick="showReactionPicker(${p.id}, this)">
+          😀 <span>Reaccionar</span>
         </button>
-        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px" onclick="toggleComments(${p.id})">
-          💬 ${p.comments_count || comments.length || ''}
+        <button class="post-action-btn" onclick="toggleComments(${p.id})">
+          💬 <span>${p.comments_count || comments.length || ''}</span>
         </button>
-        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px" onclick="sharePost(${p.id})">
-          ↗️ Compartir
+        <button class="post-action-btn" onclick="sharePost(${p.id})">
+          ↗️ <span>Compartir</span>
         </button>
       </div>
 
