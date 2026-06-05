@@ -2070,7 +2070,11 @@ function initApp() {
   document.getElementById('bottomnav').style.display = 'flex';
 
   if (STATE.user) {
-    navigate('inicio');
+    navigate('bikergram'); // Start on BikerGram for instant social feed
+    // Immediately fetch latest posts from cloud in background (non-blocking)
+    if (HV.user && HV.pass) {
+      syncPostsFromCloud(); // loads from cloud, localStorage posts shown instantly
+    }
   } else {
     showLogin();
   }
