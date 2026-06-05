@@ -1973,6 +1973,11 @@ async function hvRequest(method, path, body) {
   try {
     const r = await fetch(HV.url + '/nc' + path, opts);
     if (r.status === 207) return {ok:true, data: await r.json()};
+    if (r.status === 200) {
+      const t = await r.text();
+      try { return {ok:true, data: JSON.parse(t)}; } 
+      catch(_) { return {ok:true, data: t}; }
+    }
     if (r.status === 204 || r.status === 201) return {ok:true};
     const t = await r.text();
     return {ok:false, error: t.substring(0,200), status: r.status};
@@ -2100,6 +2105,8 @@ async function autoConnectHeyValue() {
     // Sync data from cloud
     await syncFromCloud();
     saveState();
+    // Re-render current page with cloud data
+    if (STATE.currentPage) renderPage(STATE.currentPage);
   } catch(e) {
     console.warn('HeyValue auto-connect failed:', e.message);
   }
