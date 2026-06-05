@@ -1238,6 +1238,26 @@ const STATE = {
 };
 
 // ============================================================
+// PANAMA POIs DATABASE (loaded from data/panama_pois.json)
+// ============================================================
+let PANAMA_POIS = [];
+let _poisLoaded = false;
+
+async function loadPanamaPOIs() {
+  if (_poisLoaded) return;
+  try {
+    const res = await fetch('data/panama_pois.json');
+    if (res.ok) {
+      PANAMA_POIS = await res.json();
+      _poisLoaded = true;
+      console.log('[BS] Panama POIs loaded:', PANAMA_POIS.length, 'places');
+    }
+  } catch(e) {
+    console.warn('[BS] Could not load Panama POIs:', e.message);
+  }
+}
+
+// ============================================================
 // INITIAL DATA (from SQL dump)
 // ============================================================
 const SEED_USERS = [
@@ -1402,14 +1422,25 @@ async function searchPlaces(query) {
   if (!query || query.length < 2) return { local: [], online: [] };
   const q = query.toLowerCase();
 
-  // 1. Search local DB first (instant)
+  // 1. Search local saved places first (instant)
   const local = STATE.places.filter(p =>
     p.name.toLowerCase().includes(q) ||
     (p.address && p.address.toLowerCase().includes(q)) ||
     p.category.toLowerCase().includes(q)
   ).slice(0, 5);
 
-  // 2. Nominatim API (online search)
+  // 2. Search Panama POIs database (local JSON, instant)
+  let panamaPOIs = [];
+  if (PANAMA_POIS.length) {
+    panamaPOIs = PANAMA_POIS.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.address && p.address.toLowerCase().includes(q)) ||
+      p.category.toLowerCase().includes(q) ||
+      (p.subcategory && p.subcategory.toLowerCase().includes(q))
+    ).slice(0, 8);
+  }
+
+  // 3. Nominatim API (online search)
   let online = [];
   try {
     const res = await fetch(
@@ -1429,7 +1460,7 @@ async function searchPlaces(query) {
       isOnline: true
     }));
   } catch(e) {}
-  return { local, online };
+  return { local, panamaPOIs, online };
 }
 
 // Render results into a dropdown and handle selection
@@ -1443,7 +1474,9 @@ function showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onS
   merged.forEach(p => {
     const div = document.createElement('div');
     div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
-    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+    const sub = p.subcategory ? ` · ${p.subcategory}` : '';
+    const addr = p.address ? ` · ${p.address.slice(0, 40)}` : '';
+    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}${sub}${addr}${p.isPOI ? ' · DB' : ''}</div></div>`;
     div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
     div.addEventListener('mouseout', () => div.style.background = '');
     div.addEventListener('click', () => {
@@ -1684,7 +1717,9 @@ function renderPlaceDropdown(results, containerId, onSelect) {
   results.forEach(p => {
     const div = document.createElement('div');
     div.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
-    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.category)}</div></div>`;
+    const sub = p.subcategory ? ` · ${p.subcategory}` : '';
+    const addr = p.address ? ` · ${p.address.slice(0, 35)}` : '';
+    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.category)}${sub}${addr}</div></div>`;
     div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
     div.addEventListener('mouseout', () => div.style.background = '');
     div.addEventListener('click', () => { onSelect(p); container.style.display = 'none'; });
@@ -1706,15 +1741,13 @@ function setupPlaceSearch(inputId, containerId, onSelect) {
     const val = this.value.trim();
     if (val.length < 2) { hidePlaceDropdown(containerId); return; }
     _placeSearchTimeout = setTimeout(async () => {
-      await new Promise(resolve => searchPlaces(val, (local, online) => {
-        const all = [...local, ...online.filter(o => !local.find(l => Math.abs(l.lat - o.lat) < 0.001 && Math.abs(l.lng - o.lng) < 0.001))];
-        renderPlaceDropdown(all.slice(0, 8), containerId, p => {
-          input.value = p.name;
-          onSelect(p);
-        });
-        resolve();
-      }));
-    }, 300);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
+      const all = [...local, ...panamaPOIs, ...online.filter(o => !local.find(l => Math.abs(l.lat - o.lat) < 0.001 && Math.abs(l.lng - o.lng) < 0.001))];
+      renderPlaceDropdown(all.slice(0, 8), containerId, p => {
+        input.value = p.name;
+        onSelect(p);
+      });
+    }, 100);
   });
   input.addEventListener('blur', () => setTimeout(() => hidePlaceDropdown(containerId), 200));
   input.addEventListener('focus', () => { if (input.value.trim().length >= 2) input.dispatchEvent(new Event('input')); });
@@ -1724,12 +1757,23 @@ function setupPlaceSearchOnModal(container) {
   container.querySelectorAll('[data-place-search]').forEach(function(input) {
     const id = input.id;
     const containerId = id + '-dropdown';
-    // Create dropdown container
+    // Create dropdown on body so it's never clipped by modal overflow
     const dropdown = document.createElement('div');
     dropdown.id = containerId;
-    dropdown.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none';
-    input.parentElement.style.position = 'relative';
-    input.parentElement.appendChild(dropdown);
+    dropdown.style.cssText = 'position:fixed;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none;width:300px';
+    document.body.appendChild(dropdown);
+
+    // Position dropdown below input on input/focus/scroll
+    function positionDropdown() {
+      const rect = input.getBoundingClientRect();
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top = rect.bottom + 2 + 'px';
+      dropdown.style.width = Math.max(rect.width, 250) + 'px';
+    }
+    input.addEventListener('focus', positionDropdown);
+    input.addEventListener('input', positionDropdown);
+    window.addEventListener('scroll', positionDropdown, true);
+    window.addEventListener('resize', positionDropdown);
 
     const stopPrefix = id.replace('ps-', '');
     setupPlaceSearch(id, containerId, function(place) {
@@ -2069,6 +2113,7 @@ function initApp() {
   STATE.attendance = ls('bs_att') || [];
   STATE.user = ls('bs_session');
   loadPlaces();
+  loadPanamaPOIs();  // Load 2,693 Panama POIs in background
 
   // ALWAYS show UI immediately - no waiting for HeyValue
   document.getElementById('splash').style.display = 'none';
@@ -3269,16 +3314,16 @@ function setupEditStopPlaceSearch(idx) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 6);
+      }).slice(0, 8);
       showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3322,16 +3367,16 @@ function setupEditstopPlaceSearch(stopId) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 6);
+      }).slice(0, 8);
       showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3475,9 +3520,9 @@ function setupModalPlaceSearch(prefix) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
@@ -3487,7 +3532,7 @@ function setupModalPlaceSearch(prefix) {
         nameInput, latInput, lngInput,
         onSelect: p => toast(p.isOnline ? 'Guardado en EVA Lube 📍' : 'Lugar seleccionado')
       });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3596,16 +3641,16 @@ function setupStopPlaceSearch(stopId) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 6);
+      }).slice(0, 8);
       showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
