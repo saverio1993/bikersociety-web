@@ -1910,7 +1910,7 @@ function renderAvatar(user, size, style) {
   const c2 = avatarColor((user.id || 0) + 1);
   style = style || '';
   // Priority: bs_avatar localStorage key > user.avatar > user.profile_pic
-  const savedAvatar = getAvatar();
+  const savedAvatar = (user.id === STATE.user?.id) ? getAvatar() : null;
   const pic = savedAvatar || user.avatar || user.profile_pic;
   if (pic) {
     const src = pic.startsWith('data:') ? pic : (pic + '?t=' + Date.now());
@@ -2384,9 +2384,17 @@ function initApp() {
       const idx = STATE.users.findIndex(u => u.id === session.id);
       if (idx >= 0) STATE.user = STATE.users[idx];
       else STATE.user = session;
-      try { const savedAvatar = getAvatar(); if (savedAvatar) { STATE.user.avatar = savedAvatar; STATE.user.profile_pic = savedAvatar; } } catch(e) {}
+      try { const savedAvatar = getAvatar(); if (savedAvatar) { STATE.user.avatar = savedAvatar; STATE.user.profile_pic = savedAvatar; if (idx >= 0) { STATE.users[idx].avatar = savedAvatar; STATE.users[idx].profile_pic = savedAvatar; } } } catch(e) {}
     }
     STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
+    // Filter out deleted routes that may have been restored by cloud sync
+    if (STATE._deletedRouteIds && STATE._deletedRouteIds.length > 0) {
+      const filtered = STATE.routes.filter(r => !STATE._deletedRouteIds.includes(r.id));
+      if (filtered.length !== STATE.routes.length) {
+        STATE.routes = filtered;
+        ls('bs_routes', STATE.routes);
+      }
+    }
     STATE.events = ls('bs_events') || [...SEED_EVENTS];
     STATE.posts = ls('bs_posts') || [...SEED_POSTS];
     STATE.badges = [...SEED_BADGES];
