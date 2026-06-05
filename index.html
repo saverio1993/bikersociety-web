@@ -4648,11 +4648,6 @@ function clearPostMedia() {
     toast(`Subiendo a la nube (${sizeMB}MB)...`);
     
     try {
-      // Ensure folder exists
-      await ensureHVDir('/' + HV.gramFolder);
-      await ensureHVDir('/' + HV.gramFolder + '/' + typeFolder);
-      
-      // Upload file via WebDAV PUT
       const buffer = POST_DRAFT.dataUrl.startsWith('data:') 
         ? dataURLtoBlob(POST_DRAFT.dataUrl) 
         : await fetch(POST_DRAFT.dataUrl).then(r => r.blob());
@@ -4676,6 +4671,7 @@ function clearPostMedia() {
       }
     } catch(e) {
       toast('Error subiendo: ' + e.message);
+      console.error('Upload error:', e);
     }
   }
 
