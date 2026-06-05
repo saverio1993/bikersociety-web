@@ -2086,10 +2086,15 @@ async function syncFromCloud() {
   tables.forEach((t, i) => {
     const data = results[i];
     if (data && Array.isArray(data)) {
+      // Block deleted IDs from being restored (routes + posts)
+      const deletedRouteIds = STATE._deletedRouteIds || [];
+      const deletedPostIds = STATE._deletedIds || [];
+      const blockedIds = new Set([...deletedRouteIds, ...deletedPostIds]);
+      const filtered = data.filter(item => !blockedIds.has(item.id));
       // Merge by ID: cloud wins for same IDs, keep local-only items
-      const cloudMap = new Map(data.map(item => [item.id, item]));
+      const cloudMap = new Map(filtered.map(item => [item.id, item]));
       const localOnly = (STATE[t] || []).filter(item => !cloudMap.has(item.id));
-      STATE[t] = [...localOnly, ...data];
+      STATE[t] = [...localOnly, ...filtered];
       loaded = true;
     }
   });
@@ -2098,7 +2103,9 @@ async function syncFromCloud() {
     STATE.badges = STATE.badges.length ? STATE.badges : [...SEED_BADGES];
     STATE.challenges = STATE.challenges.length ? STATE.challenges : [...SEED_CHALLENGES];
     STATE.events = STATE.events.length ? STATE.events : [...SEED_EVENTS];
-    STATE.routes = STATE.routes.length ? STATE.routes : [...SEED_ROUTES];
+    // Never restore SEED_ROUTES if routes were deleted (preserve deleted state)
+    const hasDeletedRoutes = (STATE._deletedRouteIds || []).length > 0;
+    STATE.routes = (!hasDeletedRoutes && STATE.routes.length) ? STATE.routes : (hasDeletedRoutes ? [] : [...SEED_ROUTES]);
     STATE.posts = STATE.posts.length ? STATE.posts : [...SEED_POSTS];
     STATE.chatChannels = STATE.chatChannels.length ? STATE.chatChannels : [...SEED_CHANNELS];
     STATE.chatMessages = STATE.chatMessages.length ? STATE.chatMessages : [...SEED_MESSAGES];
@@ -2140,6 +2147,7 @@ function initApp() {
   STATE.comments = ls('bs_comments') || [];
   STATE.follows = ls('bs_follows') || [];
   STATE._deletedIds = ls('_deletedPosts') || [];
+  STATE._deletedRouteIds = ls('_deletedRoutes') || [];
   // Init IndexedDB in background
   initIndexedDB().catch(() => {});
   loadPlaces();
@@ -3994,11 +4002,26 @@ function doCreateRoute() {
   toast('Ruta creada!');
 }
 
-function deleteRoute(id) {
+async function deleteRoute(id) {
   if (!confirm('¿Eliminar esta ruta?')) return;
+  // Mark as deleted to block cloud sync from restoring it
+  STATE._deletedRouteIds = STATE._deletedRouteIds || [];
+  STATE._deletedRouteIds.push(id);
+  ls('_deletedRoutes', STATE._deletedRouteIds);
+  // Delete from IndexedDB if exists
+  if (DB) { try { await idbDelete('routes', id); } catch(e) {} }
+  // Remove from STATE
   STATE.routes = STATE.routes.filter(r => r.id !== id);
   STATE.selectedRoute = null;
-  saveState();
+  // Save local immediately
+  ls('bs_routes', STATE.routes);
+  // Push to cloud immediately so it doesn't come back
+  if (HV.connected) {
+    await saveToHV('routes', STATE.routes);
+    // After cloud synced, remove from deleted list
+    STATE._deletedRouteIds = STATE._deletedRouteIds.filter(i => i !== id);
+    ls('_deletedRoutes', STATE._deletedRouteIds);
+  }
   renderRutas();
   toast('Ruta eliminada');
 }
@@ -6185,6 +6208,10 @@ function initIndexedDB() {
       if (!db.objectStoreNames.contains('sync_queue')) {
         const sq = db.createObjectStore('sync_queue', {keyPath: 'id', autoIncrement: true});
         sq.createIndex('status', 'status', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('routes')) {
+        const rr = db.createObjectStore('routes', {keyPath: 'id'});
+        rr.createIndex('created_by', 'created_by', {unique: false});
       }
     };
   });
