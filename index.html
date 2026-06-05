@@ -2723,7 +2723,7 @@ function renderRutas() {
           <div style="font-size:18px;font-weight:800">${sel ? escHtml(sel.name) : 'Explorar'}</div>
         </div>
         ${!sel ? `
-        <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>
+        ${STATE.user?.is_admin ? `<button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>` : ''}
         ` : ''}
       </div>
 
@@ -2806,7 +2806,7 @@ function renderRutas() {
               return true;
             });
             if (sourceList.length === 0) {
-              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
+              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>' : ''}</div>`;
             }
             if (filtered.length === 0) {
               return `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
@@ -3350,6 +3350,7 @@ function doEditRoute(id) {
 }
 
 function createRoute() {
+  if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear rutas'); return; }
   openModal('Nueva Ruta', `
     <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:12px">
     <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
@@ -5302,6 +5303,7 @@ setInterval(() => {
 }, 3000);
 
 function createEvent() {
+  if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear eventos'); return; }
   openModal('Crear Evento', `
     <input class="input" id="ev-title" placeholder="Titulo del evento">
     <input class="input" id="ev-desc" placeholder="Descripcion (opcional)">
