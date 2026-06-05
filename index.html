@@ -4035,7 +4035,7 @@ function renderPostMedia(p) {
   }
   // image (default) — adaptive sizing based on aspect ratio
   return `<div style="position:relative;background:#000;overflow:hidden">
-    <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:75vh;object-fit:contain;background:#000;cursor:zoom-in"
+    <img src="${url}" loading="lazy" data-lightbox="1" style="display:block;width:100%;max-height:75vh;object-fit:contain;background:#000;cursor:zoom-in"
          onclick="openLightbox('${url}')"
          onload="(function(img){
            var ratio = img.naturalHeight / img.naturalWidth;
@@ -4311,9 +4311,9 @@ function bindDoubleTapLike() {
   let lastTap = 0;
   let lastTarget = null;
   document.addEventListener('click', (e) => {
-    // Find closest media element
+    // Find closest media element — skip lightbox images
     const media = e.target.closest('img[src], video[src]');
-    if (!media) return;
+    if (!media || media.dataset.lightbox === '1') return;
     // Find which post it belongs to
     const card = media.closest('[data-post-id]');
     if (!card) return;
