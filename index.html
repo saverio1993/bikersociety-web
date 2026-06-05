@@ -2226,7 +2226,11 @@ async function syncPostsFromCloud() {
 
 async function saveState() {
   saveLocal();
-  if (HV.connected && STATE._cloudSynced !== false) await syncToCloud();
+  // Only sync to cloud if all posts with media are fully synced (media uploaded to HeyValue)
+  if (HV.connected && STATE._cloudSynced !== false) {
+    const allSynced = (STATE.posts || []).every(p => !p.media_url || p.media_url.startsWith('data:') || p.media_url.startsWith('blob:') || p.synced);
+    if (allSynced) await syncToCloud();
+  }
 }
 
 // Save to localStorage only (no cloud sync)
