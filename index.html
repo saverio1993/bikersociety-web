@@ -1837,7 +1837,9 @@ function renderAvatar(user, size = 64) {
   const style = `width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.36)}px;font-weight:900;color:#fff;overflow:hidden;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.25)`;
   const pic = user.avatar || user.profile_pic;
   if (pic) {
-    return `<div style="${style}"><img src="${pic}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
+    // Cache-bust: add ?v=timestamp to force reload
+    const src = pic.includes('?') ? pic : pic + '?v=' + Date.now();
+    return `<div style="${style}"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
   }
   return `<div style="${style}">${avatarText(user.username)}</div>`;
 }
@@ -1908,6 +1910,8 @@ async function handleProfilePicChange(e) {
       STATE.users[idx].profile_pic = avatarUrl;
     }
     saveState();
+    // Also update session so refresh preserves avatar
+    ls('bs_session', STATE.user);
     toast('Foto actualizada!');
 
     // Refresh profile view
@@ -2115,6 +2119,13 @@ function initApp() {
   STATE._cloudSynced = false; // block cloud uploads until initial sync completes
   // Load from localStorage first - USE SEED AS ABSOLUTE FALLBACK
   STATE.users = ls('bs_users') || [...SEED_USERS];
+  // Restore logged-in session
+  const session = ls('bs_session');
+  if (session) {
+    const idx = STATE.users.findIndex(u => u.id === session.id);
+    if (idx >= 0) STATE.user = STATE.users[idx];
+    else STATE.user = session;
+  }
   STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
   STATE.events = ls('bs_events') || [...SEED_EVENTS];
   STATE.posts = ls('bs_posts') || [...SEED_POSTS];
