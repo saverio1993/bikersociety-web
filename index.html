@@ -4631,6 +4631,7 @@ function clearPostMedia() {
 
  async function doCreatePost() {
   const content = document.getElementById('post-content').value.trim();
+  console.log('[doCreatePost] POST_DRAFT:', JSON.stringify({file:!!POST_DRAFT?.file, type:POST_DRAFT?.type, dataUrlLen:POST_DRAFT?.dataUrl?.length, dataUrlStart:(POST_DRAFT?.dataUrl||'').substring(0,40)}));
   if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
@@ -4662,9 +4663,8 @@ function clearPostMedia() {
       });
       
       if (r.ok || r.status === 201 || r.status === 204) {
-        // Success — use cloud URL
-        const fullPathAuth = HV.url.replace('https://', 'https://' + HV.user + ':' + HV.pass + '@') + '/nc' + path;
-        mediaUrl = fullPathAuth;
+        // Success — use cloud URL via proxy (no creds in URL, nginx handles auth)
+        mediaUrl = HV.url + '/nc' + path;
         toast('Subido a la nube ✓');
       } else {
         toast('Error cloud — guardando local');
