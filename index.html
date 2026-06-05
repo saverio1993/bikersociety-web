@@ -2995,6 +2995,8 @@ function renderRutas() {
 let routeSubTab = 'todas';
 let eventSubTab = 'proximos';
 let routeFilter = { difficulty: 'todas', maxKm: 500 };
+// Store selected POI data so it survives modal recreation
+let _routePOI = { start: null, end: null };
 
 // Haversine distance in km
 function routeDistanceKm(r) {
@@ -3515,6 +3517,13 @@ function createRoute() {
   if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear rutas'); return; }
   // Preload POIs if not loaded yet
   if (!window.panamaPOIs) loadPanamaPOIs();
+  // Pre-fill from saved POI state
+  const s = _routePOI.start || {};
+  const e = _routePOI.end || {};
+  const startDisplay = s.lat ? 'block' : 'none';
+  const startBtnDisplay = s.lat ? 'none' : 'flex';
+  const endDisplay = e.lat ? 'block' : 'none';
+  const endBtnDisplay = e.lat ? 'none' : 'flex';
   openModal('Nueva Ruta', `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <span style="font-size:11px;color:var(--text3)">📍 Usa el mapa para buscar lugares</span>
@@ -3526,38 +3535,38 @@ function createRoute() {
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🚦</span> SALIDA
     </div>
-    <div id="rt-start-selected" style="display:none;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
-      <span id="rt-start-selected-name" style="flex:1;color:var(--text);font-weight:600"></span>
+    <div id="rt-start-selected" style="display:${startDisplay};padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
+      <span id="rt-start-selected-name" style="flex:1;color:var(--text);font-weight:600">${s.name || ''}</span>
       <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-start')">✕</button>
     </div>
-    <button class="btn btn-ghost" id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s" 
+    <button class="btn btn-ghost" id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${startBtnDisplay}" 
       onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
       onclick="startPOIPicker('start')">
       📍 Buscar en el mapa
     </button>
     <div class="coord-row" style="margin-bottom:16px">
-      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" value="${s.lat ? s.lat.toFixed(6) : ''}" readonly>
+      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" value="${s.lng ? s.lng.toFixed(6) : ''}" readonly>
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('rt-start')" title="Limpiar">✕</button>
     </div>
 
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🛑</span> DESTINO
     </div>
-    <div id="rt-end-selected" style="display:none;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
-      <span id="rt-end-selected-name" style="flex:1;color:var(--text);font-weight:600"></span>
+    <div id="rt-end-selected" style="display:${endDisplay};padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
+      <span id="rt-end-selected-name" style="flex:1;color:var(--text);font-weight:600">${e.name || ''}</span>
       <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-end')">✕</button>
     </div>
-    <button class="btn btn-ghost" id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s" 
+    <button class="btn btn-ghost" id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${endBtnDisplay}" 
       onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
       onclick="startPOIPicker('end')">
       📍 Buscar en el mapa
     </button>
     <div class="coord-row" style="margin-bottom:16px">
-      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" value="${e.lat ? e.lat.toFixed(6) : ''}" readonly>
+      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" value="${e.lng ? e.lng.toFixed(6) : ''}" readonly>
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('rt-end')" title="Limpiar">✕</button>
     </div>
 
@@ -3587,14 +3596,11 @@ var _poiPickTarget = null;
 var _poiMarkers = null;
 
 function clearPlace(prefix) {
-  document.getElementById(prefix + '-lat').value = '';
-  document.getElementById(prefix + '-lng').value = '';
-  // Hide selected-name pill
-  var sel = document.getElementById(prefix + '-selected');
-  if (sel) sel.style.display = 'none';
-  // Show map button
-  var btn = document.getElementById(prefix + '-map-btn');
-  if (btn) btn.style.display = '';
+  // Clear from state so form re-renders without this POI
+  if (prefix === 'rt-start') _routePOI.start = null;
+  else if (prefix === 'rt-end') _routePOI.end = null;
+  // Reopen modal to reflect cleared state
+  createRoute();
 }
 
 function startPOIPicker(target) {
@@ -3748,25 +3754,15 @@ function selectPOIFromMapAlt(lat, lng, name) {
 }
 
 function fillPOIFields(target, lat, lng, name) {
-  document.getElementById('rt-' + target + '-lat').value = lat.toFixed(6);
-  document.getElementById('rt-' + target + '-lng').value = lng.toFixed(6);
-  
-  // Show selected pill
-  var sel = document.getElementById('rt-' + target + '-selected');
-  var selName = document.getElementById('rt-' + target + '-selected-name');
-  if (sel && selName) {
-    selName.textContent = name || 'Lugar seleccionado';
-    sel.style.display = 'flex';
-  }
-  // Hide map button for this target
-  var btn = document.getElementById('rt-' + target + '-map-btn');
-  if (btn) btn.style.display = 'none';
-  
+  // Store in state so it survives modal recreation
+  _routePOI[target] = { lat: lat, lng: lng, name: name || 'Lugar seleccionado' };
   // Save to local places
   savePlace({name: name, lat: lat, lng: lng, isOnline: false});
-  
+  // Close the POI picker
   cancelPOIPicker();
   toast('✅ ' + name + ' → ' + (target === 'start' ? 'SALIDA' : 'DESTINO'));
+  // Reopen modal with pre-filled values
+  createRoute();
 }
 
 function cancelPOIPicker() {
