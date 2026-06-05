@@ -2106,6 +2106,16 @@ async function autoConnectHeyValue() {
     saveLocal(); // save to localStorage only, don't re-upload
     // Re-render current page with cloud data
     if (STATE.currentPage) renderPage(STATE.currentPage);
+    // Start background refresh every 5s
+    if (STATE._refreshTimer) clearInterval(STATE._refreshTimer);
+    STATE._refreshTimer = setInterval(async () => {
+      const prevCount = STATE.posts.length;
+      await syncFromCloud();
+      if (STATE.posts.length !== prevCount) {
+        saveLocal();
+        if (STATE.currentPage === 'bikergram') renderBikerGram();
+      }
+    }, 5000);
   } catch(e) {
     console.warn('HeyValue auto-connect failed:', e.message);
   }
@@ -4356,11 +4366,11 @@ function createPost() {
     <!-- Content -->
     <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none;border-radius:14px;padding:14px;font-size:14px"></textarea>
 
-    <!-- Media upload button (single) -->
+    <!-- Media upload button — compact -->
     <div style="margin-top:12px">
-      <button onclick="document.getElementById('post-file-any').click()" style="width:100%;padding:18px;background:rgba(255,32,32,0.06);border:1px dashed rgba(255,32,32,0.3);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#ff2020';this.style.background='rgba(255,32,32,0.12)'" onmouseout="this.style.borderColor='rgba(255,32,32,0.3)';this.style.background='rgba(255,32,32,0.06)'">
-        <div style="font-size:26px">📎</div>
-        <div style="font-size:12px;font-weight:700;color:var(--text2)">Agregar foto, video o audio</div>
+      <button onclick="document.getElementById('post-file-any').click()" style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='rgba(255,68,68,0.5)';this.style.background='rgba(255,68,68,0.08)';this.style.color='#fff'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.background='rgba(255,255,255,0.04)';this.style.color='var(--text2)'">
+        <span style="font-size:18px">📷</span>
+        <span style="font-weight:500">Adjuntar foto, video o audio</span>
       </button>
     </div>
 
@@ -4589,39 +4599,35 @@ function clearPostMedia() {
   if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
+  // Replace publish button with uploading indicator
+  const pubBtn = document.querySelector('#modal-content .btn-primary');
+  if (pubBtn) {
+    pubBtn.outerHTML = `<div id="upload-status" style="margin-top:14px;text-align:center">
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;color:var(--text2)">
+        <span style="animation:pulse 1s infinite">⬆️</span> Subiendo...
+      </div>
+      <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:6px;overflow:hidden">
+        <div id="upload-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:2px;transition:width 0.3s"></div>
+      </div>
+    </div>`;
+  }
+
   let mediaUrl = null;
 
-  // Upload to HeyValue (Nextcloud) via WebDAV with progress bar
+  // Upload to HeyValue (Nextcloud) via WebDAV with mini progress
   if (HV.user && HV.pass && POST_DRAFT?.file) {
     const fileSize = POST_DRAFT.file.size;
-    const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
     const typeFolder = POST_DRAFT.type === 'video' ? 'videos' : POST_DRAFT.type === 'audio' ? 'audio' : 'photos';
     const ext = POST_DRAFT.file.name.split('.').pop() || 'jpg';
     const filename = Date.now() + '_' + Math.random().toString(36).substring(2,8) + '.' + ext;
     const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
     const uploadUrl = HV.url + '/nc' + path;
 
-    // Show progress bar
-    const progId = 'upload-progress-' + Date.now();
-    const modalContent = document.getElementById('modal-content');
-    const progHTML = `<div id="${progId}" style="margin-top:12px;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:11px">
-        <span style="color:var(--text2)">⬆️ Subiendo a la nube (${sizeMB}MB)...</span>
-        <span id="${progId}-pct" style="font-weight:700;color:var(--accent)">0%</span>
-      </div>
-      <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">
-        <div id="${progId}-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:3px;transition:width 0.3s"></div>
-      </div>
-    </div>`;
-    modalContent.insertAdjacentHTML('beforeend', progHTML);
-
     try {
-      // Get blob for upload
       const buffer = POST_DRAFT.dataUrl.startsWith('data:') 
         ? dataURLtoBlob(POST_DRAFT.dataUrl) 
         : await fetch(POST_DRAFT.dataUrl).then(r => r.blob());
 
-      // XHR for progress tracking
       mediaUrl = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', uploadUrl);
@@ -4631,10 +4637,8 @@ function clearPostMedia() {
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
             const pct = Math.round((e.loaded / e.total) * 100);
-            const pctEl = document.getElementById(progId + '-pct');
-            const barEl = document.getElementById(progId + '-bar');
-            if (pctEl) pctEl.textContent = pct + '%';
-            if (barEl) barEl.style.width = pct + '%';
+            const bar = document.getElementById('upload-bar');
+            if (bar) bar.style.width = pct + '%';
           }
         };
 
@@ -4648,29 +4652,16 @@ function clearPostMedia() {
 
         xhr.onerror = () => reject(new Error('Error de conexión'));
         xhr.ontimeout = () => reject(new Error('Timeout de subida'));
-        xhr.timeout = 300000; // 5 min timeout
+        xhr.timeout = 300000;
         xhr.send(buffer);
       });
 
-      // Success — update progress bar
-      const pctEl = document.getElementById(progId + '-pct');
-      const barEl = document.getElementById(progId + '-bar');
-      const progEl = document.getElementById(progId);
-      if (pctEl) { pctEl.textContent = '✓'; pctEl.style.color = '#22c55e'; }
-      if (barEl) barEl.style.background = '#22c55e';
-      if (progEl) setTimeout(() => progEl.remove(), 2000);
-
     } catch(e) {
-      // Upload failed — show error, do NOT save locally
-      const progEl = document.getElementById(progId);
-      if (progEl) {
-        progEl.innerHTML = `<div style="color:#ff4444;font-weight:700;text-align:center">⚠️ Error de subida — intentalo de nuevo</div>`;
-      }
-      toast('Error de subida');
-      return; // STOP — don't create the post
+      const st = document.getElementById('upload-status');
+      if (st) st.innerHTML = '<div style="color:#ff4444;font-weight:700;font-size:13px">⚠️ Error de subida</div>';
+      return;
     }
   } else if (POST_DRAFT?.dataUrl && !HV.user) {
-    // No cloud configured — use data URL (no other option)
     mediaUrl = POST_DRAFT.dataUrl;
   }
 
