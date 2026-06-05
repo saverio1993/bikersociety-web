@@ -4638,38 +4638,8 @@ function clearPostMedia() {
 
   let mediaUrl = POST_DRAFT?.dataUrl || null;
 
-  // Upload to HeyValue + store as data URL for persistence
-  if (HV.user && HV.pass && POST_DRAFT?.file) {
-    const fileSize = POST_DRAFT.file.size;
-    const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
-    toast(`Subiendo ${sizeMB}MB a HeyValue...`);
-
-    const ext = POST_DRAFT.fileName.split('.').pop() || 'mp4';
-    const fileName = `gram_${Date.now()}_${Math.random().toString(36).substring(2,8)}.${ext}`;
-    const folder = POST_DRAFT.type === 'image' ? '/photos' : (POST_DRAFT.type === 'video' ? '/videos' : '/audio');
-    const hvPath = HV.hvPath || HV.user;
-    const path = '/' + HV.gramFolder + folder + '/' + fileName;
-    const fullPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
-    // Embed credentials in URL for auth — resolveHvMedia() will use these
-    const fullPathAuth = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
-
-    try {
-      const buffer = await POST_DRAFT.file.arrayBuffer();
-      const r = await fetch(fullPath, {
-        method: 'PUT',
-        headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': POST_DRAFT.mimeType },
-        body: buffer
-      });
-      if (r.ok || r.status === 201 || r.status === 204) {
-        mediaUrl = fullPathAuth;
-        toast('Subido a HeyValue!');
-      } else {
-        toast('Error cloud — guardando local');
-      }
-    } catch(e) {
-      toast('Error subiendo: ' + e.message);
-    }
-  }
+  // Cloud upload disabled — using local data URLs
+  // Media persists in localStorage as data URL (base64 for images)
 
   const post = {
     id: Date.now() % 100000,
