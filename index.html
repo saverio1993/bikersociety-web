@@ -4451,12 +4451,13 @@ function handlePostFile(e) {
 }
 
 async function processPostFile(file) {
-  if (file.size > 1024 * 1024 * 1024) { toast('Archivo muy grande (máx 1GB)'); return; }
-
   const isImage = file.type.startsWith('image/');
   const isVideo = file.type.startsWith('video/');
   const isAudio = file.type.startsWith('audio/');
   if (!isImage && !isVideo && !isAudio) { toast('Tipo de archivo no soportado'); return; }
+
+  // Images: max 50MB. Video/audio: no limit.
+  if (isImage && file.size > 50 * 1024 * 1024) { toast('Imagen muy grande (máx 50MB)'); return; }
 
   const type = isImage ? 'image' : (isVideo ? 'video' : 'audio');
   let dataUrl;
@@ -4631,13 +4632,12 @@ function clearPostMedia() {
 
  async function doCreatePost() {
   const content = document.getElementById('post-content').value.trim();
-  console.log('[doCreatePost] POST_DRAFT:', JSON.stringify({file:!!POST_DRAFT?.file, type:POST_DRAFT?.type, dataUrlLen:POST_DRAFT?.dataUrl?.length, dataUrlStart:(POST_DRAFT?.dataUrl||'').substring(0,40)}));
   if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
-  let mediaUrl = POST_DRAFT?.dataUrl || null;
+  let mediaUrl = null;
 
-  // Upload to HeyValue (Nextcloud) via WebDAV
+  // Upload to HeyValue (Nextcloud) via WebDAV with progress bar
   if (HV.user && HV.pass && POST_DRAFT?.file) {
     const fileSize = POST_DRAFT.file.size;
     const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
@@ -4645,35 +4645,82 @@ function clearPostMedia() {
     const ext = POST_DRAFT.file.name.split('.').pop() || 'jpg';
     const filename = Date.now() + '_' + Math.random().toString(36).substring(2,8) + '.' + ext;
     const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
-    
-    toast(`Subiendo a la nube (${sizeMB}MB)...`);
-    
+    const uploadUrl = HV.url + '/nc' + path;
+
+    // Show progress bar
+    const progId = 'upload-progress-' + Date.now();
+    const modalContent = document.getElementById('modal-content');
+    const progHTML = `<div id="${progId}" style="margin-top:12px;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:11px">
+        <span style="color:var(--text2)">⬆️ Subiendo a la nube (${sizeMB}MB)...</span>
+        <span id="${progId}-pct" style="font-weight:700;color:var(--accent)">0%</span>
+      </div>
+      <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">
+        <div id="${progId}-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:3px;transition:width 0.3s"></div>
+      </div>
+    </div>`;
+    modalContent.insertAdjacentHTML('beforeend', progHTML);
+
     try {
+      // Get blob for upload
       const buffer = POST_DRAFT.dataUrl.startsWith('data:') 
         ? dataURLtoBlob(POST_DRAFT.dataUrl) 
         : await fetch(POST_DRAFT.dataUrl).then(r => r.blob());
-      
-      const r = await fetch(HV.url + '/nc' + path, {
-        method: 'PUT',
-        headers: { 
-          Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass),
-          'Content-Type': POST_DRAFT.mimeType || 'application/octet-stream'
-        },
-        body: buffer
+
+      // XHR for progress tracking
+      mediaUrl = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Authorization', 'Basic ' + btoa(HV.user + ':' + HV.pass));
+        xhr.setRequestHeader('Content-Type', POST_DRAFT.mimeType || 'application/octet-stream');
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            const pctEl = document.getElementById(progId + '-pct');
+            const barEl = document.getElementById(progId + '-bar');
+            if (pctEl) pctEl.textContent = pct + '%';
+            if (barEl) barEl.style.width = pct + '%';
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status === 201 || xhr.status === 204 || xhr.status === 200) {
+            resolve(uploadUrl);
+          } else {
+            reject(new Error('HTTP ' + xhr.status));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Error de conexión'));
+        xhr.ontimeout = () => reject(new Error('Timeout de subida'));
+        xhr.timeout = 300000; // 5 min timeout
+        xhr.send(buffer);
       });
-      
-      if (r.ok || r.status === 201 || r.status === 204) {
-        // Success — use cloud URL via proxy (no creds in URL, nginx handles auth)
-        mediaUrl = HV.url + '/nc' + path;
-        toast('Subido a la nube ✓');
-      } else {
-        toast('Error cloud — guardando local');
-      }
+
+      // Success — update progress bar
+      const pctEl = document.getElementById(progId + '-pct');
+      const barEl = document.getElementById(progId + '-bar');
+      const progEl = document.getElementById(progId);
+      if (pctEl) { pctEl.textContent = '✓'; pctEl.style.color = '#22c55e'; }
+      if (barEl) barEl.style.background = '#22c55e';
+      if (progEl) setTimeout(() => progEl.remove(), 2000);
+
     } catch(e) {
-      toast('Error subiendo: ' + e.message);
-      console.error('Upload error:', e);
+      // Upload failed — show error, do NOT save locally
+      const progEl = document.getElementById(progId);
+      if (progEl) {
+        progEl.innerHTML = `<div style="color:#ff4444;font-weight:700;text-align:center">⚠️ Error de subida — intentalo de nuevo</div>`;
+      }
+      toast('Error de subida');
+      return; // STOP — don't create the post
     }
+  } else if (POST_DRAFT?.dataUrl && !HV.user) {
+    // No cloud configured — use data URL (no other option)
+    mediaUrl = POST_DRAFT.dataUrl;
   }
+
+  if (!mediaUrl) { toast('No se pudo preparar el archivo'); return; }
 
   const post = {
     id: Date.now() % 100000,
