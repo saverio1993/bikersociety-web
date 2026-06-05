@@ -1843,8 +1843,12 @@ function closeAllPlaceDropdowns() {
 
 
 function ls(key, val) {
-  if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
-  localStorage.setItem(key, JSON.stringify(val));
+  try {
+    if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch(e) {
+    console.warn('[BS] localStorage error for key:', key, e.message);
+  }
   return val;
 }
 
@@ -1904,7 +1908,7 @@ function saveAvatar(dataUrl) {
   try { localStorage.setItem('bs_avatar', dataUrl); } catch(e) { /* quota full — ignore */ }
 }
 function getAvatar() {
-  try { return localStorage.getItem('bs_avatar'); } catch(e) { return null; }
+  try { return localStorage.getItem('bs_avatar') || null; } catch(e) { return null; }
 }
 
 async function handleProfilePicChange(e) {
@@ -2173,75 +2177,84 @@ async function syncFromCloud() {
 // APP INIT
 // ============================================================
 function initApp() {
+  // ── Phase 1: Load state from localStorage — wrapped in try/catch to guarantee splash hides ──
   try {
-  STATE._cloudSynced = false; // block cloud uploads until initial sync completes
-  // Load from localStorage first - USE SEED AS ABSOLUTE FALLBACK
-  STATE.users = ls('bs_users') || [...SEED_USERS];
-  // Restore logged-in session
-  const session = ls('bs_session');
-  if (session) {
-    const idx = STATE.users.findIndex(u => u.id === session.id);
-    if (idx >= 0) STATE.user = STATE.users[idx];
-    else STATE.user = session;
-    // Restore avatar from dedicated key (takes priority over STATE object)
-    const savedAvatar = getAvatar();
-    if (savedAvatar) {
-      STATE.user.avatar = savedAvatar;
-      STATE.user.profile_pic = savedAvatar;
+    STATE._cloudSynced = false;
+    STATE.users = ls('bs_users') || [...SEED_USERS];
+    const session = ls('bs_session');
+    if (session) {
+      const idx = STATE.users.findIndex(u => u.id === session.id);
+      if (idx >= 0) STATE.user = STATE.users[idx];
+      else STATE.user = session;
+      try { const savedAvatar = getAvatar(); if (savedAvatar) { STATE.user.avatar = savedAvatar; STATE.user.profile_pic = savedAvatar; } } catch(e) {}
     }
+    STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
+    STATE.events = ls('bs_events') || [...SEED_EVENTS];
+    STATE.posts = ls('bs_posts') || [...SEED_POSTS];
+    STATE.badges = [...SEED_BADGES];
+    STATE.challenges = ls('bs_challenges') || [...SEED_CHALLENGES];
+    STATE.userChallenges = ls('bs_uc') || [];
+    STATE.userBadges = ls('bs_ub') || [];
+    STATE.chatChannels = ls('bs_cc') || [...SEED_CHANNELS];
+    STATE.chatMessages = ls('bs_cm') || [...SEED_MESSAGES];
+    STATE.notifications = ls('bs_notif') || [];
+    STATE.attendance = ls('bs_att') || [];
+    STATE.comments = ls('bs_comments') || [];
+    STATE.follows = ls('bs_follows') || [];
+    STATE._deletedIds = ls('_deletedPosts') || [];
+    STATE._deletedRouteIds = ls('_deletedRoutes') || [];
+  } catch(err) {
+    console.error('[BS] State load failed, using seeds:', err);
+    STATE.users = [...SEED_USERS];
+    STATE.routes = [...SEED_ROUTES];
+    STATE.events = [...SEED_EVENTS];
+    STATE.posts = [...SEED_POSTS];
+    STATE.badges = [...SEED_BADGES];
+    STATE.challenges = [...SEED_CHALLENGES];
+    STATE.userChallenges = [];
+    STATE.userBadges = [];
+    STATE.chatChannels = [...SEED_CHANNELS];
+    STATE.chatMessages = [...SEED_MESSAGES];
+    STATE.notifications = [];
+    STATE.attendance = [];
+    STATE.comments = [];
+    STATE.follows = [];
+    STATE._deletedIds = [];
+    STATE._deletedRouteIds = [];
   }
-  STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
-  STATE.events = ls('bs_events') || [...SEED_EVENTS];
-  STATE.posts = ls('bs_posts') || [...SEED_POSTS];
-  STATE.badges = [...SEED_BADGES]; // Always use fresh badge definitions
-  STATE.challenges = ls('bs_challenges') || [...SEED_CHALLENGES];
-  STATE.userChallenges = ls('bs_uc') || [];
-  STATE.userBadges = ls('bs_ub') || [];
-  STATE.chatChannels = ls('bs_cc') || [...SEED_CHANNELS];
-  STATE.chatMessages = ls('bs_cm') || [...SEED_MESSAGES];
-  STATE.notifications = ls('bs_notif') || [];
-  STATE.attendance = ls('bs_att') || [];
-  STATE.comments = ls('bs_comments') || [];
-  STATE.follows = ls('bs_follows') || [];
-  STATE._deletedIds = ls('_deletedPosts') || [];
-  STATE._deletedRouteIds = ls('_deletedRoutes') || [];
-  // Init IndexedDB in background
-  initIndexedDB().catch(() => {});
-  loadPlaces();
-  loadPanamaPOIs();  // Load 2,693 Panama POIs in background
 
-  // ALWAYS show UI immediately - no waiting for HeyValue
-  document.getElementById('splash').style.display = 'none';
-  document.getElementById('topbar').style.display = 'flex';
-  document.getElementById('bottomnav').style.display = 'flex';
+  // ── Phase 2: Show UI immediately — this MUST run so splash always hides ──
+  const splashEl = document.getElementById('splash');
+  if (splashEl) splashEl.style.display = 'none';
 
   if (STATE.user) {
-    navigate('bikergram'); // Start on BikerGram for instant social feed
-    // Immediately fetch latest posts from cloud in background (non-blocking)
-    if (HV.user && HV.pass) {
-      syncPostsFromCloud(); // loads from cloud, localStorage posts shown instantly
-    }
-    // Check if a route is active right now — auto-activate GPS
-    autoActivateGPS();
+    const topbarEl = document.getElementById('topbar');
+    const bottomnavEl = document.getElementById('bottomnav');
+    if (topbarEl) topbarEl.style.display = 'flex';
+    if (bottomnavEl) bottomnavEl.style.display = 'flex';
+    navigate('bikergram');
+    // Background ops — defer so UI renders first
+    setTimeout(() => {
+      initIndexedDB().catch(() => {});
+      loadPlaces();
+      loadPanamaPOIs();
+      if (HV.user && HV.pass) { syncPostsFromCloud(); autoConnectHeyValue(); }
+      autoActivateGPS();
+      evaluateAllBadges();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    }, 50);
   } else {
     showLogin();
+    setTimeout(() => {
+      initIndexedDB().catch(() => {});
+      loadPlaces();
+      loadPanamaPOIs();
+      if (HV.user && HV.pass) autoConnectHeyValue();
+      evaluateAllBadges();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    }, 50);
   }
-  } catch(err) {
-    console.error('[BS] initApp crashed:', err);
-    // Force show login as last resort
-    try {
-      document.getElementById('splash').style.display = 'none';
-      document.getElementById('topbar').style.display = 'flex';
-      document.getElementById('bottomnav').style.display = 'flex';
-      if (typeof showLogin === 'function') showLogin();
-    } catch(_) {}
-  }
-
-  // Auto-connect HeyValue in background — non-blocking
-  autoConnectHeyValue();
-
-  // Evaluate badges for all users on load
-  evaluateAllBadges();
+}
 
   // Register PWA Service Worker
   if ('serviceWorker' in navigator) {
@@ -6724,20 +6737,19 @@ function downloadLightboxImage() {
 // ============================================================
 // INIT
 // ============================================================
-// Safety: hide splash after 3s no matter what (in case any sync blocks)
+// Safety: hide splash after 5s no matter what (catch any crash in initApp)
 setTimeout(() => {
   const s = document.getElementById('splash');
   if (s && s.style.display !== 'none') {
-    console.warn('[BS] Splash safety timeout — forcing hide');
+    console.warn('[BS] Splash safety timeout — initApp may have crashed, forcing UI');
     s.style.display = 'none';
     const t = document.getElementById('topbar');
     const b = document.getElementById('bottomnav');
-    if (t) t.style.display = 'flex';
-    if (b) b.style.display = 'flex';
-    if (typeof navigate === 'function' && STATE.user) navigate('inicio');
-    else if (typeof showLogin === 'function') showLogin();
+    if (t) t.style.display = 'none';
+    if (b) b.style.display = 'none';
+    if (typeof showLogin === 'function') showLogin();
   }
-}, 3000);
+}, 5000);
 document.addEventListener('DOMContentLoaded', () => {
   // ONE-TIME CLEANUP: clear all BikerGram posts
   if (!localStorage.getItem('_postsCleaned')) {
