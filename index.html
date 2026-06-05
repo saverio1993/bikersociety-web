@@ -3555,8 +3555,8 @@ function renderRutas() {
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
-      <button onclick="exportRouteGPX(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
-        📥 Exportar GPX
+      <button onclick="openRouteInNav(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
+        🧭 Usar Waze o Maps para seguir ruta
       </button>
       ${sel.date ? `
       <div id="gps-panel-${sel.id}">
@@ -3695,10 +3695,12 @@ function routeDistanceKm(r) {
 }
 
 // Export route as GPX file
-function exportRouteGPX(routeId) {
+// ── Open route in Waze / Google Maps / Apple Maps ────────────────────────────
+// Universal scheme (Android + iOS) — waze:// and comgooglemaps:// open native app if installed
+// Falls back to https URL that opens in browser if app not installed
+function openRouteInNav(routeId) {
   const r = STATE.routes.find(x => x.id === routeId);
   if (!r) return;
-  const creator = STATE.users.find(u => u.id === r.created_by);
   let stops = [];
   try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
   const allPoints = [
@@ -3707,27 +3709,94 @@ function exportRouteGPX(routeId) {
     { name: r.end_name || 'Destino', lat: r.end_lat, lng: r.end_lng },
   ].filter(p => p.lat && p.lng);
 
-  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Biker Society" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>${escHtml(r.name)}</name>
-    <desc>${escHtml(r.description || '')}</desc>
-    <author><name>${escHtml(creator?.username || 'Biker Society')}</name></author>
-    <time>${new Date().toISOString()}</time>
-  </metadata>
-  <rte>
-    <name>${escHtml(r.name)}</name>
-    ${allPoints.map(p => `<rtept lat="${p.lat}" lon="${p.lng}"><name>${escHtml(p.name)}</name></rtept>`).join('\n    ')}
-  </rte>
-</gpx>`;
-  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${r.name.replace(/[^a-z0-9]/gi, '-')}.gpx`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-  toast('GPX exportado');
+  if (allPoints.length < 2) {
+    toast('Esta ruta no tiene puntos de salida y destino');
+    return;
+  }
+
+  const start = allPoints[0];
+  const end = allPoints[allPoints.length - 1];
+
+  // Detect platform
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  // ── Waze deep link ─────────────────────────────────────────────────────
+  // waze://?ll=lat,lng&navigate=yes — single point navigation
+  // For multi-point: waze doesn't support waypoints, so we send to destination
+  const wazeUrl = `waze://?ll=${end.lat},${end.lng}&navigate=yes`;
+  const wazeWebUrl = `https://waze.com/ul?ll=${end.lat},${end.lng}&navigate=yes`;
+
+  // ── Google Maps deep link ─────────────────────────────────────────────
+  // comgooglemaps://?saddr=lat,lng&daddr=lat,lng&directionsmode=motorcycle
+  // Fallback: https://www.google.com/maps/dir/?api=1&...
+  const mapsMode = 'motorcycle';
+  const gmapsUrl = `comgooglemaps://?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&directionsmode=${mapsMode}`;
+  const gmapsWebUrl = `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&travelmode=motorcycle`;
+
+  // ── Apple Maps (iOS only) ─────────────────────────────────────────────
+  const appleMapsUrl = `https://maps.apple.com/?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&dirflg=d`;
+
+  // Build modal with 3 options
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const body = `
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">${escHtml(r.name)}</div>
+      <div style="font-size:11px;color:var(--text3)">${escHtml(start.name)} → ${escHtml(end.name)}</div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <button onclick="navigateWith('${wazeUrl}', '${wazeWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#33ccff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🧭</div>
+        <div style="flex:1;text-align:left">
+          <div>Waze</div>
+          <div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'Abre waze.com'}</div>
+        </div>
+        <span style="font-size:18px">→</span>
+      </button>
+      <button onclick="navigateWith('${gmapsUrl}', '${gmapsWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.08);color:#22c55e;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🗺️</div>
+        <div style="flex:1;text-align:left">
+          <div>Google Maps</div>
+          <div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'maps.google.com'}</div>
+        </div>
+        <span style="font-size:18px">→</span>
+      </button>
+      ${isIOS ? `
+      <button onclick="window.open('${appleMapsUrl}','_blank');closeModal();" style="padding:14px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#a855f7;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🍎</div>
+        <div style="flex:1;text-align:left">
+          <div>Apple Maps</div>
+          <div style="font-size:11px;font-weight:400;opacity:0.8">Solo en iPhone/iPad</div>
+        </div>
+        <span style="font-size:18px">→</span>
+      </button>` : ''}
+    </div>
+    <div style="margin-top:14px;padding:10px;background:rgba(255,136,0,0.08);border:1px solid rgba(255,136,0,0.2);border-radius:10px;font-size:11px;color:var(--text2);text-align:center">
+      ${isIOS || isAndroid ? 'Si la app no abre, ya tenes Google Maps en el telefono — toca el boton' : 'Abre desde el celular para que use las apps instaladas'}
+    </div>
+  `;
+  openModal('🧭 Seguir ruta en...', body);
+}
+
+// Try native app deep link first, fall back to web URL after a short delay
+function navigateWith(nativeUrl, webUrl) {
+  const start = Date.now();
+  // Try native app
+  window.location.href = nativeUrl;
+  // If still on page after 1.5s, the app didn't open — go to web URL
+  setTimeout(() => {
+    if (Date.now() - start < 2500) {
+      // Page is still here (focus not lost), so native didn't work
+      window.open(webUrl, '_blank');
+    }
+  }, 1500);
+  // Try to close modal
+  setTimeout(() => closeModal(), 500);
+}
+
+// Keep exportRouteGPX as a hidden fallback for power users
+function exportRouteGPX(routeId) {
+  openRouteInNav(routeId);
 }
 
 function setRutasTab(t) {
@@ -3954,7 +4023,7 @@ function renderRouteCard(r) {
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">
           <div style="font-size:20px">🏍️</div>
-          <button onclick="event.stopPropagation();exportRouteGPX(${r.id})" title="Exportar GPX" style="width:30px;height:30px;border-radius:8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">📥</button>
+          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze/Maps" style="width:30px;height:30px;border-radius:8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">🧭</button>
         </div>
       </div>
     </div>
