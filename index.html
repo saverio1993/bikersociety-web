@@ -3535,17 +3535,36 @@ function clearPlace(prefix) {
 function startPOIPicker(target) {
   _poiPickTarget = target;
   
-  // Hide modal overlay to reveal map
-  var overlay = document.querySelector('.modal-overlay');
-  if (overlay) overlay.style.display = 'none';
+  // Close modal completely to free the map
+  closeModal();
   
-  // Show floating picker bar
+  // Show floating picker bar with search
   var bar = document.createElement('div');
   bar.id = 'poi-picker-bar';
-  bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface, #1a1a2e);border:1px solid var(--accent);border-radius:12px;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(255,68,68,0.3);font-size:13px;color:var(--text)';
-  bar.innerHTML = '<span style="font-size:16px">📍</span> Selecciona <b>' + (target === 'start' ? 'SALIDA' : 'DESTINO') + '</b> en el mapa <span style="color:var(--text3);font-size:11px">— haz clic en un marcador</span>' +
-    '<button onclick="cancelPOIPicker()" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">✕ Cancelar</button>';
+  bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface, #1a1a2e);border:1px solid var(--accent);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(255,68,68,0.3);font-size:13px;color:var(--text);flex-wrap:wrap;max-width:95vw';
+  bar.innerHTML = '<span style="font-size:16px">📍</span> <b>' + (target === 'start' ? 'SALIDA' : 'DESTINO') + '</b>' +
+    '<input id="poi-map-search" type="text" placeholder="🔍 Buscar por nombre..." style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;outline:none" autocomplete="off">' +
+    '<button onclick="cancelPOIPicker()" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap">✕ Cancelar</button>';
   document.body.appendChild(bar);
+  
+  // Search filter — debounced re-render
+  var searchTimeout = null;
+  document.getElementById('poi-map-search').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    var q = this.value.trim().toLowerCase();
+    searchTimeout = setTimeout(function() {
+      var pois = window.panamaPOIs || [];
+      if (q.length >= 2) {
+        pois = pois.filter(function(p) {
+          return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.subcategory || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.category || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.address || '').toLowerCase().indexOf(q) !== -1;
+        });
+      }
+      renderPOIs(pois);
+    }, 100);
+  });
   
   // Load POIs onto map
   loadPOIsToMap();
@@ -3615,7 +3634,8 @@ function startPOIPicker(target) {
     
     STATE.map.addLayer(_poiMarkers);
     
-    // Delegate click events from popup buttons
+    // Delegate click events from popup buttons (remove old listener first)
+    STATE.map.off('popupopen');
     STATE.map.on('popupopen', function(e) {
       setTimeout(function() {
         document.querySelectorAll('[data-poi-id][data-action]').forEach(function(btn) {
@@ -3689,9 +3709,8 @@ function cancelPOIPicker() {
     _poiMarkers = null;
   }
   
-  // Restore modal overlay
-  var overlay = document.querySelector('.modal-overlay');
-  if (overlay) overlay.style.display = '';
+  // Re-open modal
+  document.getElementById('modal').classList.add('open');
   
   // If this was the SALIDA picker and nothing was selected, re-show both map buttons
   ['start', 'end'].forEach(function(t) {
