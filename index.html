@@ -1980,6 +1980,7 @@ async function syncFromCloud() {
 // APP INIT
 // ============================================================
 function initApp() {
+  try {
   // Load from localStorage first - USE SEED AS ABSOLUTE FALLBACK
   STATE.users = ls('bs_users') || [...SEED_USERS];
   STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
@@ -2005,6 +2006,16 @@ function initApp() {
     navigate('inicio');
   } else {
     showLogin();
+  }
+  } catch(err) {
+    console.error('[BS] initApp crashed:', err);
+    // Force show login as last resort
+    try {
+      document.getElementById('splash').style.display = 'none';
+      document.getElementById('topbar').style.display = 'flex';
+      document.getElementById('bottomnav').style.display = 'flex';
+      if (typeof showLogin === 'function') showLogin();
+    } catch(_) {}
   }
 
   // Auto-connect HeyValue in background — non-blocking
@@ -5689,6 +5700,20 @@ function closeModal() {
 // ============================================================
 // INIT
 // ============================================================
+// Safety: hide splash after 3s no matter what (in case any sync blocks)
+setTimeout(() => {
+  const s = document.getElementById('splash');
+  if (s && s.style.display !== 'none') {
+    console.warn('[BS] Splash safety timeout — forcing hide');
+    s.style.display = 'none';
+    const t = document.getElementById('topbar');
+    const b = document.getElementById('bottomnav');
+    if (t) t.style.display = 'flex';
+    if (b) b.style.display = 'flex';
+    if (typeof navigate === 'function' && STATE.user) navigate('inicio');
+    else if (typeof showLogin === 'function') showLogin();
+  }
+}, 3000);
 document.addEventListener('DOMContentLoaded', initApp);
 
 </script>
