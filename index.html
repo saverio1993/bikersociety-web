@@ -1326,7 +1326,7 @@ const SEED_EVENTS = [
 ];
 
 const SEED_ROUTES = [
-  {id:1,name:'Cerro Azul - Corregimiento',description:'Ruta por las montañas de Cerro Azul',start_lat:8.9824,start_lng:-79.5199,start_name:'Calle 50, Panama',end_lat:9.0333,end_lng:-79.4833,end_name:'Cerro Azul',difficulty:'intermedia',stops:JSON.stringify([]),created_by:1},
+  {id:1,name:'Cerro Azul - Corregimiento',description:'Ruta por las montañas de Cerro Azul',start_lat:8.9824,start_lng:-79.5199,start_name:'Calle 50, Panama',end_lat:9.0333,end_lng:-79.4833,end_name:'Cerro Azul',difficulty:'intermedia',stops:JSON.stringify([]),created_by:1,created_at:'2026-05-28 22:00:00'},
 ];
 
 const SEED_POSTS = [
@@ -1555,6 +1555,74 @@ function getUserStats(userId) {
   };
   STATE.userStats[userId] = stats;
   return stats;
+}
+
+// ============================================================
+// WEEKLY WALL OF FAME
+// ============================================================
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, ...
+  const diff = day === 0 ? 6 : day - 1; // Monday = start of week
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - diff);
+  mon.setHours(0,0,0,0);
+  return mon;
+}
+
+function getWeeklyRankings() {
+  const weekStart = getWeekStart();
+  const weekStartStr = weekStart.toISOString().slice(0,10);
+
+  // Accumulators: userId -> { km, routes, photos }
+  const acc = {};
+
+  // Routes created this week
+  STATE.routes.forEach(r => {
+    if (!r.created_at) return;
+    const routeDate = r.created_at.slice(0,10); // 'YYYY-MM-DD'
+    if (routeDate < weekStartStr) return;
+
+    if (!acc[r.created_by]) acc[r.created_by] = { km:0, routes:0, photos:0 };
+    acc[r.created_by].routes++;
+
+    // Estimate km
+    if (r.start_lat && r.end_lat) {
+      const R = 6371;
+      const dLat = (r.end_lat - r.start_lat) * Math.PI / 180;
+      const dLng = (r.end_lng - r.start_lng) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(r.start_lat*Math.PI/180)*Math.cos(r.end_lat*Math.PI/180)*Math.sin(dLng/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      acc[r.created_by].km += Math.round(R * c);
+    }
+  });
+
+  // Posts with photos this week
+  STATE.posts.forEach(p => {
+    if (!p.created_at) return;
+    const postDate = p.created_at.slice(0,10);
+    if (postDate < weekStartStr) return;
+    if (!p.image_url) return;
+    if (!acc[p.user_id]) acc[p.user_id] = { km:0, routes:0, photos:0 };
+    acc[p.user_id].photos++;
+  });
+
+  // Build rankings
+  const kmRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), km: data.km }))
+    .sort((a,b) => b.km - a.km);
+  const routesRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), routes: data.routes }))
+    .sort((a,b) => b.routes - a.routes);
+  const photosRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), photos: data.photos }))
+    .sort((a,b) => b.photos - a.photos);
+
+  return {
+    km: kmRanking[0] || null,
+    routes: routesRanking[0] || null,
+    photos: photosRanking[0] || null
+  };
 }
 
 function evaluateUserBadges(userId) {
@@ -2440,6 +2508,55 @@ function renderInicio() {
         <div class="stat-lbl">Insignias</div>
       </div>
     </div>
+
+    <!-- Wall of Fame Semanal -->
+    ${(() => {
+      const w = getWeeklyRankings();
+      const uKm = w.km ? STATE.users.find(x => x.id === w.km.user_id) : null;
+      const uRt = w.routes ? STATE.users.find(x => x.id === w.routes.user_id) : null;
+      const uPh = w.photos ? STATE.users.find(x => x.id === w.photos.user_id) : null;
+      const hasAny = uKm || uRt || uPh;
+      if (!hasAny) return '';
+      const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      const today = new Date();
+      return `
+      <div class="vanish" style="animation-delay:0.15s;margin:16px 0">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text2)">MURO DE LA FAMA</span>
+          <span style="font-size:11px;color:var(--accent)">Semana del ${getWeekStart().getDate()} · ${days[today.getDay()]}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          ${uKm ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid var(--accent);cursor:pointer" onclick="viewRider(${uKm.id})">
+            <div style="font-size:24px;margin-bottom:4px">🏆</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DEL ASFALTO</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uKm.id)}">${initials(uKm.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uKm.username}</div>
+            <div style="font-size:16px;font-weight:900;color:var(--accent)">${w.km.km} km</div>
+          </div>
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">🛣️</div><div style="font-size:10px;color:var(--text2)">REY DEL ASFALTO</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+          ${uRt ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #ff8800;cursor:pointer" onclick="viewRider(${uRt.id})">
+            <div style="font-size:24px;margin-bottom:4px">🗺️</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DE RUTAS</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uRt.id)}">${initials(uRt.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uRt.username}</div>
+            <div style="font-size:16px;font-weight:900;color:#ff8800">${w.routes.routes} rutas</div>
+          </div>
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">🗺️</div><div style="font-size:10px;color:var(--text2)">REY DE RUTAS</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+          ${uPh ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #22c55e;cursor:pointer" onclick="viewRider(${uPh.id})">
+            <div style="font-size:24px;margin-bottom:4px">📸</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DE FOTOS</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uPh.id)}">${initials(uPh.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uPh.username}</div>
+            <div style="font-size:16px;font-weight:900;color:#22c55e">${w.photos.photos} fotos</div>
+          </div>
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">📸</div><div style="font-size:10px;color:var(--text2)">REY DE FOTOS</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+        </div>
+      </div>
+      `;
+    })()}
 
     <!-- Top Ranking -->
     <div class="vanish" style="animation-delay:0.2s">
@@ -3498,7 +3615,8 @@ function doCreateRoute() {
     end_name: endName,
     difficulty: diff,
     stops: JSON.stringify(stops),
-    created_by: STATE.user.id
+    created_by: STATE.user.id,
+    created_at: new Date().toISOString().slice(0,19).replace('T',' ')
   };
   STATE.routes.push(route);
   saveState();
