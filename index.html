@@ -1718,6 +1718,16 @@ function fileToDataUrl(file) {
   });
 }
 
+// Read a Blob/File and return data URL via Promise
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
 async function handleProfilePicChange(e) {
   const file = e.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
@@ -4271,11 +4281,10 @@ function clearPostMedia() {
 
   let mediaUrl = POST_DRAFT?.dataUrl || null;
 
-  // Upload to HeyValue if connected
+  // Upload to HeyValue + store as data URL for persistence
   if (HV.user && HV.pass && POST_DRAFT?.file) {
     const fileSize = POST_DRAFT.file.size;
     const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
-    const originalMB = POST_DRAFT.originalSize ? (POST_DRAFT.originalSize / 1024 / 1024).toFixed(1) : null;
     toast(`Subiendo ${sizeMB}MB a HeyValue...`);
 
     const ext = POST_DRAFT.fileName.split('.').pop() || 'mp4';
@@ -4284,7 +4293,6 @@ function clearPostMedia() {
     const hvPath = HV.hvPath || HV.user;
     const path = '/' + HV.gramFolder + folder + '/' + fileName;
     const fullPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
-    // Embed credentials so <video>/<img> can load directly (browser handles Basic Auth)
     const fullPathAuth = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
 
     try {
@@ -4296,6 +4304,15 @@ function clearPostMedia() {
       });
       if (r.ok || r.status === 201 || r.status === 204) {
         mediaUrl = fullPathAuth;
+        // Also read file as data URL for persistence across reloads (small/medium videos)
+        if (POST_DRAFT.type !== 'image') {
+          try {
+            const dataUrl = await blobToDataUrl(POST_DRAFT.file);
+            if (dataUrl) mediaUrl = dataUrl; // data URL wins for replay reliability
+          } catch(e) {
+            console.warn('Could not read file as data URL:', e);
+          }
+        }
         toast('Subido a HeyValue!');
       } else {
         toast('Error cloud — guardando local');
