@@ -1944,49 +1944,66 @@ async function handleProfilePicChange(e) {
   toast(`Procesando foto (${sizeMB}MB)...`);
 
   try {
-    // 1. Compress immediately
-    const compressed = await compressImage(file, 400, 0.8);
-    const dataUrl = compressed || await fileToDataUrl(file);
+    // 1. Compress heavily so it fits in localStorage even on small devices
+    let dataUrl = await compressImage(file, 256, 0.7);
+    if (!dataUrl) dataUrl = await fileToDataUrl(file);
 
-    // 2. Show avatar NOW — save to dedicated key (not inside STATE)
+    // If still > 800KB, compress more
+    if (dataUrl.length > 800 * 1024) {
+      dataUrl = await compressImage(file, 200, 0.6) || dataUrl;
+    }
+    if (dataUrl.length > 800 * 1024) {
+      dataUrl = await compressImage(file, 150, 0.5) || dataUrl;
+    }
+
+    // 2. Save to dedicated localStorage key (the source of truth)
     saveAvatar(dataUrl);
+    // 3. Update STATE so any current renders show it
     applyAvatarToUI(dataUrl);
-    toast('✅ Foto actualizada!');
+    toast('✅ Foto guardada!');
 
-    // 3. Upload to HeyValue in background — UI already updated
+    // 4. Persist the session so the avatar survives a refresh
+    try {
+      const session = ls('bs_session');
+      if (session && session.id === STATE.user.id) {
+        session.avatar = dataUrl;
+        session.profile_pic = dataUrl;
+        ls('bs_session', session);
+      }
+    } catch(e) { /* ignore */ }
+
+    // 5. Save user data (avatar) to localStorage so it loads on next visit
+    try {
+      const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+      if (idx >= 0) {
+        STATE.users[idx].avatar = dataUrl;
+        STATE.users[idx].profile_pic = dataUrl;
+        STATE.user.avatar = dataUrl;
+        STATE.user.profile_pic = dataUrl;
+        ls('bs_users', STATE.users);
+      }
+    } catch(e) { console.warn('[BS] Could not save users list:', e); }
+
+    // 6. Upload to HeyValue in background (best-effort, non-blocking)
     if (HV.user && HV.pass) {
       const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
       const hvUrl = HV.url + '/nc' + path;
-      const fullPath = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/nc' + path;
-
       fetch(hvUrl, {
         method: 'PUT',
         headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
         body: dataURLtoBlob(dataUrl)
       }).then(res => {
         if (res.ok || res.status === 201 || res.status === 204) {
-          // HeyValue success — switch to cloud URL
-          saveAvatar(fullPath);
-          applyAvatarToUI(fullPath);
-          // Also update STATE so it syncs to cloud
-          STATE.user.avatar = fullPath;
-          STATE.user.profile_pic = fullPath;
-          const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
-          if (idx >= 0) { STATE.users[idx].avatar = fullPath; STATE.users[idx].profile_pic = fullPath; }
-          saveLocal();
-          toast('☁️ Foto guardada en la nube');
+          console.log('[BS] Avatar uploaded to HeyValue');
         } else {
-          console.warn('HeyValue returned', res.status, '— keeping local avatar');
+          console.warn('[BS] HeyValue returned', res.status, '— keeping local avatar');
         }
       }).catch(err => {
-        console.warn('HeyValue upload failed, keeping local avatar:', err);
+        console.warn('[BS] HeyValue upload failed, local avatar kept:', err);
       });
     }
-
-    // 4. Also update session so refresh works
-    try { ls('bs_session', STATE.user); } catch(e) { /* ignore */ }
-
   } catch(err) {
+    console.error('[BS] Profile pic change failed:', err);
     toast('❌ Error al procesar foto: ' + err.message);
   }
 }
@@ -2000,9 +2017,23 @@ function applyAvatarToUI(avatarUrl) {
   if (idx >= 0) { STATE.users[idx].avatar = avatarUrl; STATE.users[idx].profile_pic = avatarUrl; }
 
   // Patch every avatar img on screen immediately (no re-render needed)
-  document.querySelectorAll('.post-avatar img, .rider-avatar img, [data-avatar-user]').forEach(img => {
-    img.src = avatarUrl;
+  // We try multiple selectors to cover all possible avatar containers
+  const updateSrc = (img) => {
+    const src = avatarUrl.startsWith('data:') ? avatarUrl : (avatarUrl + '?t=' + Date.now());
+    img.src = src;
     img.onerror = null; // clear old error handler
+  };
+  document.querySelectorAll('img').forEach(img => {
+    // Heuristic: small square images with no alt or with "avatar" context
+    const isAvatar = (
+      img.closest('[class*="avatar"]') ||
+      img.closest('[data-avatar-user]') ||
+      (img.style.borderRadius === '50%') ||
+      (img.width && img.width <= 80 && img.height && img.height <= 80) ||
+      img.parentElement?.style?.borderRadius === '50%' ||
+      (img.className && img.className.includes('avatar'))
+    );
+    if (isAvatar) updateSrc(img);
   });
 
   // If profile page is visible, re-render it
