@@ -2042,6 +2042,7 @@ async function syncFromCloud() {
 // ============================================================
 function initApp() {
   try {
+  STATE._cloudSynced = false; // block cloud uploads until initial sync completes
   // Load from localStorage first - USE SEED AS ABSOLUTE FALLBACK
   STATE.users = ls('bs_users') || [...SEED_USERS];
   STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
@@ -2098,9 +2099,10 @@ async function autoConnectHeyValue() {
     await hvRequest('MKCOL', '/BikerApp');
     await hvRequest('MKCOL', '/BikerApp/profiles');
     HV.connected = true;
-    // Sync data from cloud
+    // Sync data from cloud — cloud is the source of truth
     await syncFromCloud();
-    saveState();
+    STATE._cloudSynced = true; // allow cloud uploads now
+    saveLocal(); // save to localStorage only, don't re-upload
     // Re-render current page with cloud data
     if (STATE.currentPage) renderPage(STATE.currentPage);
   } catch(e) {
@@ -2109,6 +2111,12 @@ async function autoConnectHeyValue() {
 }
 
 function saveState() {
+  saveLocal();
+  if (HV.connected && STATE._cloudSynced !== false) syncToCloud();
+}
+
+// Save to localStorage only (no cloud sync)
+function saveLocal() {
   ls('bs_users', STATE.users);
   ls('bs_routes', STATE.routes);
   ls('bs_events', STATE.events);
@@ -2122,7 +2130,6 @@ function saveState() {
   ls('bs_notif', STATE.notifications);
   ls('bs_att', STATE.attendance);
   ls('bs_places', STATE.places);
-  if (HV.connected) syncToCloud();
 }
 
 // ============================================================
