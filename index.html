@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Biker Society</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BikerApp">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -344,6 +348,18 @@ a{color:inherit;text-decoration:none}
   animation:poiPulse 2s ease-in-out infinite;
   position:relative;
 }
+.poi-tooltip{
+  background:var(--surface)!important;
+  border:1px solid var(--border)!important;
+  border-radius:8px!important;
+  padding:6px 12px!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  color:var(--text)!important;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3)!important;
+  white-space:nowrap!important;
+}
+.poi-tooltip::before{border-top-color:var(--border)!important}
 .poi-pill::before{
   content:'';position:absolute;inset:-4px;
   border-radius:inherit;
@@ -369,9 +385,28 @@ a{color:inherit;text-decoration:none}
 
 /* ===== LIKES HEART ===== */
 .like-btn{
-  background:none;border:none;color:var(--text3);font-size:18px;
-  transition:0.2s;cursor:pointer;display:flex;align-items:center;gap:4px;
-  padding:4px 8px;border-radius:20px;
+  background:rgba(255,255,255,0.04);border:none;color:var(--text3);font-size:12px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:8px 6px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);
+  transition:all 0.2s;flex:1;letter-spacing:0.3px;text-transform:uppercase;
+}
+.like-btn:hover{background:rgba(255,68,68,0.12);border-color:rgba(255,68,68,0.35);color:#ff4466;
+  box-shadow:0 0 12px rgba(255,68,68,0.2),inset 0 0 8px rgba(255,68,68,0.06)}
+.like-btn.liked{
+  color:#ff4466;border-color:rgba(255,68,68,0.5);
+  box-shadow:0 0 16px rgba(255,68,68,0.25),inset 0 0 10px rgba(255,68,68,0.1);
+  animation:heartBeat 0.4s ease;
+}
+@keyframes heartBeat{
+  0%{transform:scale(1)}
+  25%{transform:scale(1.3)}
+  50%{transform:scale(1)}
+  75%{transform:scale(1.15)}
+  100%{transform:scale(1)}
+}
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.6;transform:scale(1.15)}
 }
 .like-btn:hover{color:var(--danger);background:rgba(255,59,59,0.1)}
 .like-btn.liked{
@@ -498,8 +533,23 @@ a{color:inherit;text-decoration:none}
 .post-name{font-weight:700;font-size:14px}
 .post-time{font-size:11px;color:var(--text2)}
 .post-content{padding:0 16px 12px;font-size:14px;line-height:1.5}
-.post-image{width:100%;max-height:400px;object-fit:cover;display:block}
-.post-actions{padding:8px 16px;display:flex;gap:16px;border-top:1px solid var(--border)}
+.post-image{width:100%;max-height:400px;object-fit:contain;display:block;background:#000}
+.post-actions{padding:6px 12px;display:flex;gap:4px;border-top:1px solid var(--border);align-items:center}
+.post-action-btn{
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
+  border-radius:10px;padding:8px 6px;font-size:11px;font-weight:700;
+  color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:5px;transition:all 0.2s;flex:1;letter-spacing:0.3px;text-transform:uppercase;
+}
+.post-action-btn:hover{color:#fff}
+.post-action-btn:active{transform:scale(0.96)}
+.post-action-btn.liked-neon{color:#ff4466;border-color:rgba(255,68,68,0.5);
+  box-shadow:0 0 14px rgba(255,68,68,0.22),inset 0 0 8px rgba(255,68,68,0.08)}
+/* Individual neon glows per action */
+.btn-like:hover{box-shadow:0 0 14px rgba(255,68,102,0.3);border-color:rgba(255,68,102,0.5);color:#ff4466}
+.btn-react:hover{box-shadow:0 0 14px rgba(255,200,0,0.3);border-color:rgba(255,200,0,0.5);color:#ffc800}
+.btn-comment:hover{box-shadow:0 0 14px rgba(0,212,255,0.3);border-color:rgba(0,212,255,0.5);color:#00d4ff}
+.btn-share:hover{box-shadow:0 0 14px rgba(100,130,255,0.3);border-color:rgba(100,130,255,0.5);color:#6482ff}
 
 /* ===== EVENT CARD ===== */
 .event-card{
@@ -644,11 +694,6 @@ a{color:inherit;text-decoration:none}
 @keyframes audioPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,68,68,0.4)}50%{transform:scale(1.05);box-shadow:0 0 0 10px rgba(255,68,68,0)}}
 @keyframes mediaFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes likeBurst{0%{transform:scale(1)}30%{transform:scale(1.08)}60%{transform:scale(0.96)}100%{transform:scale(1)}}
-@keyframes heartFloat{
-  0%{opacity:1;transform:scale(0.5) translateY(0)}
-  20%{opacity:1;transform:scale(1.2) translateY(-20px)}
-  100%{opacity:0;transform:scale(1) translateY(-160px) rotate(20deg)}
-}
 .like-burst{animation:likeBurst 0.5s ease-out}
 .badge-icon{font-size:32px;margin-bottom:8px}
 .badge-name{font-size:11px;font-weight:700;line-height:1.3}
@@ -1083,6 +1128,7 @@ a{color:inherit;text-decoration:none}
   0%{background-position:200% 0}
   100%{background-position:-200% 0}
 }
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 
 /* ===== GLOW TEXT ===== */
 .glow-text{
@@ -1110,6 +1156,32 @@ a{color:inherit;text-decoration:none}
 </style>
 </head>
 <body>
+<script>
+// SAFETY SCRIPT: hide splash immediately so it never gets stuck
+(function() {
+  var s = document.getElementById('splash');
+  if (s) s.style.display = 'none';
+  setTimeout(function() {
+    var s3 = document.getElementById('splash');
+    if (s3) s3.style.display = 'none';
+  }, 500);
+})();
+// Error overlay — toggle with localStorage 'bs_debug' = '1' in console
+if (localStorage.getItem('bs_debug') === '1') {
+  window.onerror = function(msg, src, line, col, err) {
+    try {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ef4444;color:#fff;padding:10px;font-size:12px;font-family:monospace;z-index:99999;max-height:60vh;overflow:auto;white-space:pre-wrap';
+      d.textContent = 'JS ERROR: ' + msg + ' @ line ' + line + ':' + col;
+      if (document.body) document.body.appendChild(d);
+    } catch(_) {}
+    return false;
+  };
+}
+</script>
+
+<!-- Motorcycle engine sound for login -->
+<audio id="moto-sound" src="sounds/moto-start.mp3" preload="auto"></audio>
 
 <!-- SPLASH -->
 <div class="splash" id="splash">
@@ -1147,19 +1219,19 @@ a{color:inherit;text-decoration:none}
 <!-- BOTTOM NAV -->
 <nav class="bottomnav" id="bottomnav" style="display:none">
   <button class="bnav-item active" onclick="navigate('inicio')" data-page="inicio">
-    <img src="icons/nav-inicio.png" alt="Inicio" style="width:28px;height:28px;object-fit:contain;">
+    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
     <span>Inicio</span>
   </button>
   <button class="bnav-item" onclick="navigate('rutas')" data-page="rutas">
-    <img src="icons/nav-rutas.png" alt="Rutas" style="width:28px;height:28px;object-fit:contain;">
+    <svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
     <span>Rutas</span>
   </button>
   <button class="bnav-item" onclick="navigate('bikergram')" data-page="bikergram">
-    <img src="icons/nav-gram.png" alt="Gram" style="width:28px;height:28px;object-fit:contain;">
+    <svg viewBox="0 0 24 24" width="28" height="28"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
     <span>Gram</span>
   </button>
   <button class="bnav-item" onclick="showMoreMenu()" data-page="more">
-    <img src="icons/nav-mas.png" alt="Más" style="width:28px;height:28px;object-fit:contain;">
+    <svg viewBox="0 0 24 24" width="28" height="28"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
     <span>Más</span>
   </button>
 </nav>
@@ -1167,6 +1239,15 @@ a{color:inherit;text-decoration:none}
 <!-- MODAL CONTAINER -->
 <div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal-content" id="modal-content"></div>
+</div>
+
+<!-- IMAGE LIGHTBOX -->
+<div id="lightbox" onclick="if(event.target===this||event.target.tagName==='IMG')closeLightbox()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.95);align-items:center;justify-content:center;flex-direction:column;gap:12px">
+  <button onclick="closeLightbox()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:22px;width:44px;height:44px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;z-index:1">✕</button>
+  <img id="lightbox-img" src="" style="max-width:95vw;max-height:82vh;object-fit:contain;border-radius:8px;cursor:pointer" title="Clic fuera o en la imagen para cerrar">
+  <div id="lightbox-actions" style="display:flex;gap:8px">
+    <button onclick="downloadLightboxImage()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:10px 24px;border-radius:24px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;backdrop-filter:blur(8px)">⬇️ Descargar</button>
+  </div>
 </div>
 
 <!-- FLOATING MORE PANEL -->
@@ -1191,7 +1272,7 @@ a{color:inherit;text-decoration:none}
 // STATE & CONFIG
 // ============================================================
 const HV = {
-  url: 'https://cloud.heyvalue.com',
+  url: 'https://bikersociety.duckdns.org',
   user: 'saveriomanrrique19@gmail.com',
   pass: 'Lozano1993@',
   hvPath: '8202944a-6bb4-49f3-9e06-a4a5849813f2',
@@ -1227,6 +1308,26 @@ const STATE = {
   places: [],
   userStats: {}   // { userId: { rides, events, routes_created, photos, chat_messages, total_km, days_active, streak, last_active } }
 };
+
+// ============================================================
+// PANAMA POIs DATABASE (loaded from data/panama_pois.json)
+// ============================================================
+let PANAMA_POIS = [];
+let _poisLoaded = false;
+
+async function loadPanamaPOIs() {
+  if (_poisLoaded) return;
+  try {
+    const res = await fetch('data/panama_pois.json');
+    if (res.ok) {
+      PANAMA_POIS = await res.json();
+      _poisLoaded = true;
+      console.log('[BS] Panama POIs loaded:', PANAMA_POIS.length, 'places');
+    }
+  } catch(e) {
+    console.warn('[BS] Could not load Panama POIs:', e.message);
+  }
+}
 
 // ============================================================
 // INITIAL DATA (from SQL dump)
@@ -1313,7 +1414,7 @@ const SEED_CHALLENGES = [
   {id:2,title:'Fotógrafo Biker',description:'Sube 5 fotos a la nube',category:'weekly',points:300,requirement_type:'uploads',requirement_count:5,icon:'📷'},
   {id:3,title:'Social Rider',description:'Comenta en 10 publicaciones',category:'weekly',points:300,requirement_type:'comments',requirement_count:10,icon:'💬'},
   {id:4,title:'Alma de Fuego',description:'Conecta 7 días seguidos',category:'weekly',points:400,requirement_type:'daily_streak',requirement_count:7,icon:'🔥'},
-  {id:5,title:'Trotamundos',description:'Crea rutas en 3 ciudades',category:'special',points:600,requirement_type:'cities',requirement_count:3,icon:'🌍'},
+  {id:5,title:'Influencer Biker',description:'Recibe 50 likes en tus publicaciones',category:'special',points:800,requirement_type:'likes_received',requirement_count:50,icon:'❤️'},
   {id:6,title:'Leyenda del Mes',description:'Top 3 del ranking mensual',category:'special',points:2000,requirement_type:'ranking',requirement_count:3,icon:'👑'},
 ];
 
@@ -1323,14 +1424,11 @@ const SEED_EVENTS = [
 ];
 
 const SEED_ROUTES = [
-  {id:1,name:'Cerro Azul - Corregimiento',description:'Ruta por las montañas de Cerro Azul',start_lat:8.9824,start_lng:-79.5199,start_name:'Calle 50, Panama',end_lat:9.0333,end_lng:-79.4833,end_name:'Cerro Azul',difficulty:'intermedia',stops:JSON.stringify([]),created_by:1},
+  {id:1,name:'Cerro Azul - Corregimiento',description:'Ruta por las montañas de Cerro Azul',start_lat:8.9824,start_lng:-79.5199,start_name:'Calle 50, Panama',end_lat:9.0333,end_lng:-79.4833,end_name:'Cerro Azul',difficulty:'intermedia',stops:JSON.stringify([]),created_by:1,created_at:'2026-05-28 22:00:00'},
+  {id:2,name:'Ruta de Prueba Casa de Jesús',description:'Prueba GPS desde casa hasta Terpel Calle 50',start_lat:9.102611,start_lng:-79.568051,start_name:'Casa de Jesús',end_lat:8.9784,end_lng:-79.5180,end_name:'Terpel Calle 50',difficulty:'facil',stops:JSON.stringify([]),created_by:1,created_at:'2026-06-05 10:15:00',date:'2026-06-05',time:'09:00',notify:1},
 ];
 
-const SEED_POSTS = [
-  {id:1,user_id:1,content:'¡Probando el nuevo feed social de BIKER SOCIETY! 🏍️🔥',image_url:'',created_at:'2026-05-29 19:57:00',likes:['14'],comments:[]},
-  {id:2,user_id:14,content:'¡Viva Biker Society! 🏍️',image_url:'',created_at:'2026-05-30 04:35:00',likes:['1'],comments:[]},
-  {id:3,user_id:14,content:'quien quiere cafe ☕',image_url:'',created_at:'2026-05-30 04:35:00',likes:['1'],comments:[{user_id:1,content:'MARicon',created_at:'2026-05-30 04:35:20'}]},
-];
+const SEED_POSTS = [];
 
 const SEED_CHANNELS = [
   {id:1,name:'General',description:'Charlas y presentaciones',icon:'💬',color:'#ff4444',type:'public'},
@@ -1397,14 +1495,25 @@ async function searchPlaces(query) {
   if (!query || query.length < 2) return { local: [], online: [] };
   const q = query.toLowerCase();
 
-  // 1. Search local DB first (instant)
+  // 1. Search local saved places first (instant)
   const local = STATE.places.filter(p =>
     p.name.toLowerCase().includes(q) ||
     (p.address && p.address.toLowerCase().includes(q)) ||
     p.category.toLowerCase().includes(q)
   ).slice(0, 5);
 
-  // 2. Nominatim API (online search)
+  // 2. Search Panama POIs database (local JSON, instant)
+  let panamaPOIs = [];
+  if (PANAMA_POIS.length) {
+    panamaPOIs = PANAMA_POIS.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.address && p.address.toLowerCase().includes(q)) ||
+      p.category.toLowerCase().includes(q) ||
+      (p.subcategory && p.subcategory.toLowerCase().includes(q))
+    ).slice(0, 8);
+  }
+
+  // 3. Nominatim API (online search)
   let online = [];
   try {
     const res = await fetch(
@@ -1424,7 +1533,7 @@ async function searchPlaces(query) {
       isOnline: true
     }));
   } catch(e) {}
-  return { local, online };
+  return { local, panamaPOIs, online };
 }
 
 // Render results into a dropdown and handle selection
@@ -1438,7 +1547,9 @@ function showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onS
   merged.forEach(p => {
     const div = document.createElement('div');
     div.style.cssText = 'padding:9px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
-    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}</div></div>`;
+    const sub = p.subcategory ? ` · ${p.subcategory}` : '';
+    const addr = p.address ? ` · ${p.address.slice(0, 40)}` : '';
+    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px">${escHtml(p.category)}${sub}${addr}${p.isPOI ? ' · DB' : ''}</div></div>`;
     div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
     div.addEventListener('mouseout', () => div.style.background = '');
     div.addEventListener('click', () => {
@@ -1554,6 +1665,65 @@ function getUserStats(userId) {
   return stats;
 }
 
+// ============================================================
+// WEEKLY WALL OF FAME
+// ============================================================
+function getWeekStart() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, ...
+  const diff = day === 0 ? 6 : day - 1; // Monday = start of week
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - diff);
+  mon.setHours(0,0,0,0);
+  return mon;
+}
+
+function getWeeklyRankings() {
+  const weekStart = getWeekStart();
+  const weekStartStr = weekStart.toISOString().slice(0,10);
+
+  // Accumulators: userId -> { km, likes, photos }
+  const acc = {};
+
+  // Posts likes received this week
+  STATE.posts.forEach(p => {
+    if (!p.created_at) return;
+    const postDate = p.created_at.slice(0,10);
+    if (postDate < weekStartStr) return;
+    const likeCount = (p.likes || []).length;
+    if (likeCount === 0) return;
+    if (!acc[p.user_id]) acc[p.user_id] = { km:0, likes:0, photos:0 };
+    acc[p.user_id].likes += likeCount;
+  });
+
+  // Posts with photos this week
+  STATE.posts.forEach(p => {
+    if (!p.created_at) return;
+    const postDate = p.created_at.slice(0,10);
+    if (postDate < weekStartStr) return;
+    if (!p.image_url) return;
+    if (!acc[p.user_id]) acc[p.user_id] = { km:0, likes:0, photos:0 };
+    acc[p.user_id].photos++;
+  });
+
+  // Build rankings
+  const kmRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), km: data.km }))
+    .sort((a,b) => b.km - a.km);
+  const likesRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), likes: data.likes }))
+    .sort((a,b) => b.likes - a.likes);
+  const photosRanking = Object.entries(acc)
+    .map(([uid, data]) => ({ user_id: parseInt(uid), photos: data.photos }))
+    .sort((a,b) => b.photos - a.photos);
+
+  return {
+    km: kmRanking[0] || null,
+    likes: likesRanking[0] || null,
+    photos: photosRanking[0] || null
+  };
+}
+
 function evaluateUserBadges(userId) {
   if (!userId) return;
   const stats = getUserStats(userId);
@@ -1620,7 +1790,9 @@ function renderPlaceDropdown(results, containerId, onSelect) {
   results.forEach(p => {
     const div = document.createElement('div');
     div.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);transition:background 0.15s';
-    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.category)}</div></div>`;
+    const sub = p.subcategory ? ` · ${p.subcategory}` : '';
+    const addr = p.address ? ` · ${p.address.slice(0, 35)}` : '';
+    div.innerHTML = `<span style="font-size:14px">${p.icon || '📍'}</span><div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.name)}</div><div style="color:var(--text3);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(p.category)}${sub}${addr}</div></div>`;
     div.addEventListener('mouseover', () => div.style.background = 'var(--surface3)');
     div.addEventListener('mouseout', () => div.style.background = '');
     div.addEventListener('click', () => { onSelect(p); container.style.display = 'none'; });
@@ -1642,15 +1814,13 @@ function setupPlaceSearch(inputId, containerId, onSelect) {
     const val = this.value.trim();
     if (val.length < 2) { hidePlaceDropdown(containerId); return; }
     _placeSearchTimeout = setTimeout(async () => {
-      await new Promise(resolve => searchPlaces(val, (local, online) => {
-        const all = [...local, ...online.filter(o => !local.find(l => Math.abs(l.lat - o.lat) < 0.001 && Math.abs(l.lng - o.lng) < 0.001))];
-        renderPlaceDropdown(all.slice(0, 8), containerId, p => {
-          input.value = p.name;
-          onSelect(p);
-        });
-        resolve();
-      }));
-    }, 300);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
+      const all = [...local, ...panamaPOIs, ...online.filter(o => !local.find(l => Math.abs(l.lat - o.lat) < 0.001 && Math.abs(l.lng - o.lng) < 0.001))];
+      renderPlaceDropdown(all.slice(0, 8), containerId, p => {
+        input.value = p.name;
+        onSelect(p);
+      });
+    }, 100);
   });
   input.addEventListener('blur', () => setTimeout(() => hidePlaceDropdown(containerId), 200));
   input.addEventListener('focus', () => { if (input.value.trim().length >= 2) input.dispatchEvent(new Event('input')); });
@@ -1660,12 +1830,23 @@ function setupPlaceSearchOnModal(container) {
   container.querySelectorAll('[data-place-search]').forEach(function(input) {
     const id = input.id;
     const containerId = id + '-dropdown';
-    // Create dropdown container
+    // Create dropdown on body so it's never clipped by modal overflow
     const dropdown = document.createElement('div');
     dropdown.id = containerId;
-    dropdown.style.cssText = 'position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none';
-    input.parentElement.style.position = 'relative';
-    input.parentElement.appendChild(dropdown);
+    dropdown.style.cssText = 'position:fixed;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none;width:300px';
+    document.body.appendChild(dropdown);
+
+    // Position dropdown below input on input/focus/scroll
+    function positionDropdown() {
+      const rect = input.getBoundingClientRect();
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top = rect.bottom + 2 + 'px';
+      dropdown.style.width = Math.max(rect.width, 250) + 'px';
+    }
+    input.addEventListener('focus', positionDropdown);
+    input.addEventListener('input', positionDropdown);
+    window.addEventListener('scroll', positionDropdown, true);
+    window.addEventListener('resize', positionDropdown);
 
     const stopPrefix = id.replace('ps-', '');
     setupPlaceSearch(id, containerId, function(place) {
@@ -1687,8 +1868,12 @@ function closeAllPlaceDropdowns() {
 
 
 function ls(key, val) {
-  if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
-  localStorage.setItem(key, JSON.stringify(val));
+  try {
+    if (val === undefined) return JSON.parse(localStorage.getItem(key) || 'null');
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch(e) {
+    console.warn('[BS] localStorage error for key:', key, e.message);
+  }
   return val;
 }
 
@@ -1708,17 +1893,19 @@ function avatarText(name) {
   return (name || '?').charAt(0).toUpperCase();
 }
 
-// Render user avatar HTML — uses uploaded image if present, otherwise initials
-function renderAvatar(user, size = 64) {
-  if (!user) user = {};
+// Render user avatar HTML — checks dedicated bs_avatar key first, then user object
+function renderAvatar(user, size, style) {
   const c1 = avatarColor(user.id);
   const c2 = avatarColor((user.id || 0) + 1);
-  const style = `width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.36)}px;font-weight:900;color:#fff;overflow:hidden;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.25)`;
-  const pic = user.avatar || user.profile_pic;
+  style = style || '';
+  // Priority: bs_avatar localStorage key > user.avatar > user.profile_pic
+  const savedAvatar = getAvatar();
+  const pic = savedAvatar || user.avatar || user.profile_pic;
   if (pic) {
-    return `<div style="${style}"><img src="${pic}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
+    const src = pic.startsWith('data:') ? pic : (pic + '?t=' + Date.now());
+    return `<div style="${style}"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
   }
-  return `<div style="${style}">${avatarText(user.username)}</div>`;
+  return `<div style="${style}"><div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${Math.round(size*0.38)}px">${avatarText(user.username)}</div></div>`;
 }
 
 // Read a File object and return data URL via Promise
@@ -1741,70 +1928,165 @@ function blobToDataUrl(blob) {
   });
 }
 
-async function handleProfilePicChange(e) {
+// Dedicated avatar storage — separate from STATE to avoid localStorage quota issues
+function saveAvatar(dataUrl) {
+  try { localStorage.setItem('bs_avatar', dataUrl); } catch(e) { /* quota full — ignore */ }
+}
+function getAvatar() {
+  try { return localStorage.getItem('bs_avatar') || null; } catch(e) { return null; }
+}
+
+// ── Profile picture: 2-step (preview → confirm save) ─────────────────────────
+// Stash the picked file in a module-level var; only persists when user taps "Guardar sí"
+var _pendingProfilePic = null; // { dataUrl, rawFile }
+
+async function previewProfilePic(e) {
   const file = e.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
   e.target.value = '';
-
   const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-  toast(`Subiendo foto (${sizeMB}MB)...`);
-
+  toast(`Procesando foto (${sizeMB}MB)...`);
   try {
-    // Compress to 400x400 for avatar
-    const compressed = await compressImage(file, 400, 0.8);
-    const dataUrl = compressed || await fileToDataUrl(file);
+    let dataUrl = await compressImage(file, 256, 0.7);
+    if (!dataUrl) dataUrl = await fileToDataUrl(file);
+    if (dataUrl.length > 800 * 1024) dataUrl = await compressImage(file, 200, 0.6) || dataUrl;
+    if (dataUrl.length > 800 * 1024) dataUrl = await compressImage(file, 150, 0.5) || dataUrl;
 
-    let avatarUrl = dataUrl;
+    _pendingProfilePic = { dataUrl, rawFile: file };
 
-    // Upload to HeyValue
-    if (HV.user && HV.pass) {
-      const hvPath = HV.hvPath || HV.user;
-      const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
-      const fullPath = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
-
-      // Also upload with auth header for upload
-      const uploadPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
-
-      // Ensure folder exists
-      try {
-        await fetch(uploadPath, {
-          method: 'PUT',
-          headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
-          body: dataURLtoBlob(dataUrl)
-        });
-        avatarUrl = fullPath;
-      } catch(hvErr) {
-        console.warn('HeyValue upload failed, using local URL:', hvErr);
-      }
+    // Show preview + reveal Save/Cancel buttons
+    const display = document.getElementById('profile-pic-display');
+    if (display) {
+      display.innerHTML = `<img src="${dataUrl}" style="width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;border:3px solid #ff4444">`;
     }
-
-    // Update user in STATE
-    STATE.user.avatar = avatarUrl;
-    STATE.user.profile_pic = avatarUrl;
-    const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
-    if (idx >= 0) {
-      STATE.users[idx].avatar = avatarUrl;
-      STATE.users[idx].profile_pic = avatarUrl;
-    }
-    saveState();
-    toast('Foto actualizada!');
-
-    // Refresh profile view
-    renderProfile();
-
-    // Refresh current page (avatars everywhere update)
-    const currentPage = document.querySelector('.page[style*="block"], #main-content .page[style*="flex"]') ||
-                       document.querySelector('[id^="page-"]:not([style*="none"])');
-    if (currentPage) {
-      const pageId = currentPage.id;
-      if (pageId === 'page-inicio') renderInicio();
-      else if (pageId === 'page-rutas') renderRutas();
-      else if (pageId === 'page-bikergram') renderBikerGram();
-      else if (pageId === 'page-profile') renderProfile();
-    }
-
+    const actions = document.getElementById('profile-pic-actions');
+    if (actions) actions.style.display = 'flex';
+    toast('Foto lista — toca Guardar sí para confirmar');
   } catch(err) {
-    toast('Error al subir foto: ' + err.message);
+    console.error('[BS] Preview failed:', err);
+    toast('❌ Error al procesar foto: ' + err.message);
+  }
+}
+
+async function confirmSaveProfilePic() {
+  if (!_pendingProfilePic) {
+    toast('No hay foto pendiente');
+    return;
+  }
+  const { dataUrl } = _pendingProfilePic;
+  toast('💾 Guardando foto...');
+  try {
+    // 1. Save to dedicated localStorage key (the source of truth)
+    saveAvatar(dataUrl);
+    // 2. Update STATE so any current renders show it
+    applyAvatarToUI(dataUrl);
+    // 3. Persist the session so the avatar survives a refresh
+    try {
+      const session = ls('bs_session');
+      if (session && session.id === STATE.user.id) {
+        session.avatar = dataUrl;
+        session.profile_pic = dataUrl;
+        ls('bs_session', session);
+      }
+    } catch(e) { /* ignore */ }
+    // 4. Save user data (avatar) to localStorage so it loads on next visit
+    try {
+      const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+      if (idx >= 0) {
+        STATE.users[idx].avatar = dataUrl;
+        STATE.users[idx].profile_pic = dataUrl;
+        STATE.user.avatar = dataUrl;
+        STATE.user.profile_pic = dataUrl;
+        ls('bs_users', STATE.users);
+      }
+    } catch(e) { console.warn('[BS] Could not save users list:', e); }
+    // 5. Upload to HeyValue in background (best-effort, non-blocking)
+    if (HV.user && HV.pass) {
+      const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
+      const hvUrl = HV.url + '/nc' + path;
+      fetch(hvUrl, {
+        method: 'PUT',
+        headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
+        body: dataURLtoBlob(dataUrl)
+      }).then(res => {
+        if (res.ok || res.status === 201 || res.status === 204) {
+          console.log('[BS] Avatar uploaded to HeyValue');
+        } else {
+          console.warn('[BS] HeyValue returned', res.status, '— keeping local avatar');
+        }
+      }).catch(err => {
+        console.warn('[BS] HeyValue upload failed, local avatar kept:', err);
+      });
+    }
+    _pendingProfilePic = null;
+    // Hide buttons, restore normal display
+    const actions = document.getElementById('profile-pic-actions');
+    if (actions) actions.style.display = 'none';
+    const display = document.getElementById('profile-pic-display');
+    if (display) {
+      const u = STATE.user;
+      display.innerHTML = renderAvatar(u, 96);
+    }
+    toast('✅ Foto guardada!');
+    // Re-render profile to make sure all references are fresh
+    if (typeof renderProfile === 'function') renderProfile();
+  } catch(err) {
+    console.error('[BS] Save failed:', err);
+    toast('❌ Error al guardar: ' + err.message);
+  }
+}
+
+function cancelProfilePic() {
+  _pendingProfilePic = null;
+  const actions = document.getElementById('profile-pic-actions');
+  if (actions) actions.style.display = 'none';
+  const display = document.getElementById('profile-pic-display');
+  if (display) {
+    display.innerHTML = renderAvatar(STATE.user, 96);
+  }
+  // Reset file input so picking the same file again triggers change
+  const input = document.getElementById('profile-pic-input');
+  if (input) input.value = '';
+  toast('Cancelado');
+}
+
+// Backwards compat: keep old name as a wrapper that just previews (no auto-save)
+async function handleProfilePicChange(e) {
+  return previewProfilePic(e);
+}
+
+// Apply avatar URL to all visible avatar elements without re-rendering the whole page
+function applyAvatarToUI(avatarUrl) {
+  // Update STATE so any future renderProfile() etc. pick it up
+  STATE.user.avatar = avatarUrl;
+  STATE.user.profile_pic = avatarUrl;
+  const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+  if (idx >= 0) { STATE.users[idx].avatar = avatarUrl; STATE.users[idx].profile_pic = avatarUrl; }
+
+  // Patch every avatar img on screen immediately (no re-render needed)
+  // We try multiple selectors to cover all possible avatar containers
+  const updateSrc = (img) => {
+    const src = avatarUrl.startsWith('data:') ? avatarUrl : (avatarUrl + '?t=' + Date.now());
+    img.src = src;
+    img.onerror = null; // clear old error handler
+  };
+  document.querySelectorAll('img').forEach(img => {
+    // Heuristic: small square images with no alt or with "avatar" context
+    const isAvatar = (
+      img.closest('[class*="avatar"]') ||
+      img.closest('[data-avatar-user]') ||
+      (img.style.borderRadius === '50%') ||
+      (img.width && img.width <= 80 && img.height && img.height <= 80) ||
+      img.parentElement?.style?.borderRadius === '50%' ||
+      (img.className && img.className.includes('avatar'))
+    );
+    if (isAvatar) updateSrc(img);
+  });
+
+  // If profile page is visible, re-render it
+  const profilePage = document.getElementById('page-profile');
+  if (profilePage && profilePage.style.display !== 'none') {
+    renderProfile();
   }
 }
 
@@ -1858,16 +2140,16 @@ function formatTime(ts) {
 }
 
 function levelOf(points) {
-  if (points >= 1000) return {name:'Maestro',min:1000,color:'#a855f7'};
-  if (points >= 500) return {name:'Experto',min:500,color:'#f59e0b'};
-  if (points >= 250) return {name:'Avanzado',min:250,color:'#3b82f6'};
-  if (points >= 100) return {name:'Intermedio',min:100,color:'#22c55e'};
+  if (points >= 100000) return {name:'Maestro',min:100000,color:'#a855f7'};
+  if (points >= 30000) return {name:'Leyenda',min:30000,color:'#f59e0b'};
+  if (points >= 10000) return {name:'Avanzado',min:10000,color:'#3b82f6'};
+  if (points >= 2000) return {name:'Intermedio',min:2000,color:'#22c55e'};
   return {name:'Novato',min:0,color:'#888'};
 }
 
 function nextLevel(points) {
   const lv = levelOf(points);
-  const next = [100,250,500,1000,Infinity].find(n => n > points) || Infinity;
+  const next = [2000,10000,30000,100000,Infinity].find(n => n > points) || Infinity;
   return next;
 }
 
@@ -1898,21 +2180,24 @@ function timeAgo(ts) {
 // ============================================================
 async function hvRequest(method, path, body) {
   if (!HV.user || !HV.pass) return null;
-  const davPath = HV.hvPath || HV.user; // fallback to email if no hvPath
   const opts = {
     method,
     headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) }
   };
   if (body && typeof body === 'string') {
     opts.headers['Content-Type'] = 'application/octet-stream';
-    opts.body = body;
   } else if (body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
   try {
-    const r = await fetch(HV.url + '/remote.php/dav/files/' + davPath + path, opts);
+    const r = await fetch(HV.url + '/nc' + path, opts);
     if (r.status === 207) return {ok:true, data: await r.json()};
+    if (r.status === 200) {
+      const t = await r.text();
+      try { return {ok:true, data: JSON.parse(t)}; } 
+      catch(_) { return {ok:true, data: t}; }
+    }
     if (r.status === 204 || r.status === 201) return {ok:true};
     const t = await r.text();
     return {ok:false, error: t.substring(0,200), status: r.status};
@@ -1944,28 +2229,40 @@ async function loadFromHV(key) {
 async function syncToCloud() {
   if (!HV.user) return;
   STATE.syncStatus = 'syncing';
-  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
-  for (const t of tables) {
-    await saveToHV(t, STATE[t] || []);
-  }
+  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance','comments','follows'];
+  await Promise.all(tables.map(t => saveToHV(t, STATE[t] || [])));
   await saveToHV('meta', {lastSync: new Date().toISOString(), version: 1});
   STATE.syncStatus = 'synced';
 }
 
 async function syncFromCloud() {
   if (!HV.user) return;
-  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
+  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance','comments','follows'];
+  const results = await Promise.all(tables.map(t => loadFromHV(t)));
   let loaded = false;
-  for (const t of tables) {
-    const data = await loadFromHV(t);
-    if (data && Array.isArray(data)) { STATE[t] = data; loaded = true; }
-  }
+  tables.forEach((t, i) => {
+    const data = results[i];
+    if (data && Array.isArray(data)) {
+      // Block deleted IDs from being restored (routes + posts)
+      const deletedRouteIds = STATE._deletedRouteIds || [];
+      const deletedPostIds = STATE._deletedIds || [];
+      const blockedIds = new Set([...deletedRouteIds, ...deletedPostIds]);
+      const filtered = data.filter(item => !blockedIds.has(item.id));
+      // Merge by ID: cloud wins for same IDs, keep local-only items
+      const cloudMap = new Map(filtered.map(item => [item.id, item]));
+      const localOnly = (STATE[t] || []).filter(item => !cloudMap.has(item.id));
+      STATE[t] = [...localOnly, ...filtered];
+      loaded = true;
+    }
+  });
   if (loaded) {
     STATE.users = STATE.users.length ? STATE.users : [...SEED_USERS];
     STATE.badges = STATE.badges.length ? STATE.badges : [...SEED_BADGES];
     STATE.challenges = STATE.challenges.length ? STATE.challenges : [...SEED_CHALLENGES];
     STATE.events = STATE.events.length ? STATE.events : [...SEED_EVENTS];
-    STATE.routes = STATE.routes.length ? STATE.routes : [...SEED_ROUTES];
+    // Never restore SEED_ROUTES if routes were deleted (preserve deleted state)
+    const hasDeletedRoutes = (STATE._deletedRouteIds || []).length > 0;
+    STATE.routes = (!hasDeletedRoutes && STATE.routes.length) ? STATE.routes : (hasDeletedRoutes ? [] : [...SEED_ROUTES]);
     STATE.posts = STATE.posts.length ? STATE.posts : [...SEED_POSTS];
     STATE.chatChannels = STATE.chatChannels.length ? STATE.chatChannels : [...SEED_CHANNELS];
     STATE.chatMessages = STATE.chatMessages.length ? STATE.chatMessages : [...SEED_MESSAGES];
@@ -1973,56 +2270,573 @@ async function syncFromCloud() {
     STATE.userBadges = STATE.userBadges || [];
     STATE.notifications = STATE.notifications || [];
     STATE.attendance = STATE.attendance || [];
+    STATE.comments = STATE.comments || [];
+    STATE.follows = STATE.follows || [];
   }
+}
+
+// ============================================================
+// PWA INSTALL
+// ============================================================
+var _installPromptEvent = null;
+var _appInstalled = false;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  // Prevent Chrome's mini-infobar
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  _installPromptEvent = e;
+  console.log('[BS] beforeinstallprompt captured');
+  // Show floating install banner if not dismissed this session
+  if (!sessionStorage.getItem('bs_install_dismissed') && !isAppInstalled()) {
+    showInstallBanner();
+  }
+  // Refresh any visible "Instalar app" menu item
+  try { showMoreMenu(); } catch(_) {}
+});
+
+window.addEventListener('appinstalled', function() {
+  _appInstalled = true;
+  _installPromptEvent = null;
+  console.log('[BS] App installed');
+  toast('✅ Biker Society instalada en tu pantalla');
+  hideInstallBanner();
+  try { showMoreMenu(); } catch(_) {}
+});
+
+function isAppInstalled() {
+  // Standalone display mode = installed PWA
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.matchMedia('(display-mode: fullscreen)').matches ||
+         window.navigator.standalone === true;
+}
+
+async function installApp() {
+  if (!_installPromptEvent) {
+    if (isAppInstalled()) {
+      toast('La app ya esta instalada');
+    } else {
+      toast('Tu navegador no soporta instalar la app. Usa el menu del navegador: Compartir > Agregar a pantalla de inicio');
+    }
+    return;
+  }
+  _installPromptEvent.prompt();
+  const result = await _installPromptEvent.userChoice;
+  console.log('[BS] install choice:', result.outcome);
+  _installPromptEvent = null;
+  hideInstallBanner();
+  if (result.outcome === 'accepted') {
+    toast('📲 Instalando Biker Society...');
+  } else {
+    toast('Instalacion cancelada');
+  }
+  try { showMoreMenu(); } catch(_) {}
+}
+
+function dismissInstallBanner() {
+  sessionStorage.setItem('bs_install_dismissed', '1');
+  hideInstallBanner();
+}
+
+function hideInstallBanner() {
+  const b = document.getElementById('install-banner');
+  if (b) b.remove();
+}
+
+function showInstallBanner() {
+  if (document.getElementById('install-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'install-banner';
+  b.style.cssText = 'position:fixed;bottom:80px;left:12px;right:12px;background:linear-gradient(135deg,#1a1a2e,#2a1a3e);border:1px solid rgba(0,212,255,0.4);border-radius:14px;padding:12px 14px;z-index:9990;box-shadow:0 8px 32px rgba(0,0,0,0.6);display:flex;align-items:center;gap:10px;animation:slideUp 0.3s ease';
+  b.innerHTML = `
+    <img src="icons/logo.png" style="width:42px;height:42px;border-radius:10px;flex-shrink:0">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;margin-bottom:2px">📲 Instalar Biker Society</div>
+      <div style="font-size:11px;color:var(--text2)">Acceso rapido desde tu pantalla</div>
+    </div>
+    <button onclick="installApp()" style="background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:12px;font-weight:700;padding:8px 14px;border-radius:10px;cursor:pointer;flex-shrink:0">Instalar</button>
+    <button onclick="dismissInstallBanner()" style="background:transparent;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0">&times;</button>
+  `;
+  document.body.appendChild(b);
 }
 
 // ============================================================
 // APP INIT
 // ============================================================
 function initApp() {
+  // ── Phase 1: Load state from localStorage — wrapped in try/catch to guarantee splash hides ──
   try {
-  // Load from localStorage first - USE SEED AS ABSOLUTE FALLBACK
-  STATE.users = ls('bs_users') || [...SEED_USERS];
-  STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
-  STATE.events = ls('bs_events') || [...SEED_EVENTS];
-  STATE.posts = ls('bs_posts') || [...SEED_POSTS];
-  STATE.badges = [...SEED_BADGES]; // Always use fresh badge definitions
-  STATE.challenges = ls('bs_challenges') || [...SEED_CHALLENGES];
-  STATE.userChallenges = ls('bs_uc') || [];
-  STATE.userBadges = ls('bs_ub') || [];
-  STATE.chatChannels = ls('bs_cc') || [...SEED_CHANNELS];
-  STATE.chatMessages = ls('bs_cm') || [...SEED_MESSAGES];
-  STATE.notifications = ls('bs_notif') || [];
-  STATE.attendance = ls('bs_att') || [];
-  STATE.user = ls('bs_session');
-  loadPlaces();
+    STATE._cloudSynced = false;
+    STATE.users = ls('bs_users') || [...SEED_USERS];
+    const session = ls('bs_session');
+    if (session) {
+      const idx = STATE.users.findIndex(u => u.id === session.id);
+      if (idx >= 0) STATE.user = STATE.users[idx];
+      else STATE.user = session;
+      try { const savedAvatar = getAvatar(); if (savedAvatar) { STATE.user.avatar = savedAvatar; STATE.user.profile_pic = savedAvatar; } } catch(e) {}
+    }
+    STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
+    STATE.events = ls('bs_events') || [...SEED_EVENTS];
+    STATE.posts = ls('bs_posts') || [...SEED_POSTS];
+    STATE.badges = [...SEED_BADGES];
+    STATE.challenges = ls('bs_challenges') || [...SEED_CHALLENGES];
+    STATE.userChallenges = ls('bs_uc') || [];
+    STATE.userBadges = ls('bs_ub') || [];
+    STATE.chatChannels = ls('bs_cc') || [...SEED_CHANNELS];
+    STATE.chatMessages = ls('bs_cm') || [...SEED_MESSAGES];
+    STATE.notifications = ls('bs_notif') || [];
+    STATE.attendance = ls('bs_att') || [];
+    STATE.comments = ls('bs_comments') || [];
+    STATE.follows = ls('bs_follows') || [];
+    STATE._deletedIds = ls('_deletedPosts') || [];
+    STATE._deletedRouteIds = ls('_deletedRoutes') || [];
+  } catch(err) {
+    console.error('[BS] State load failed, using seeds:', err);
+    STATE.users = [...SEED_USERS];
+    STATE.routes = [...SEED_ROUTES];
+    STATE.events = [...SEED_EVENTS];
+    STATE.posts = [...SEED_POSTS];
+    STATE.badges = [...SEED_BADGES];
+    STATE.challenges = [...SEED_CHALLENGES];
+    STATE.userChallenges = [];
+    STATE.userBadges = [];
+    STATE.chatChannels = [...SEED_CHANNELS];
+    STATE.chatMessages = [...SEED_MESSAGES];
+    STATE.notifications = [];
+    STATE.attendance = [];
+    STATE.comments = [];
+    STATE.follows = [];
+    STATE._deletedIds = [];
+    STATE._deletedRouteIds = [];
+  }
 
-  // ALWAYS show UI immediately - no waiting for HeyValue
-  document.getElementById('splash').style.display = 'none';
-  document.getElementById('topbar').style.display = 'flex';
-  document.getElementById('bottomnav').style.display = 'flex';
+  // ── Phase 2: Show UI immediately — this MUST run so splash always hides ──
+  const splashEl = document.getElementById('splash');
+  if (splashEl) splashEl.style.display = 'none';
 
   if (STATE.user) {
+    const topbarEl = document.getElementById('topbar');
+    const bottomnavEl = document.getElementById('bottomnav');
+    if (topbarEl) topbarEl.style.display = 'flex';
+    if (bottomnavEl) bottomnavEl.style.display = 'flex';
     navigate('inicio');
+    // Background ops — defer so UI renders first
+    setTimeout(() => {
+      initIndexedDB().catch(() => {});
+      loadPlaces();
+      loadPanamaPOIs();
+      if (HV.user && HV.pass) { syncPostsFromCloud(); autoConnectHeyValue(); }
+      autoActivateGPS();
+      evaluateAllBadges();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    }, 50);
   } else {
     showLogin();
+    setTimeout(() => {
+      initIndexedDB().catch(() => {});
+      loadPlaces();
+      loadPanamaPOIs();
+      if (HV.user && HV.pass) autoConnectHeyValue();
+      evaluateAllBadges();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    }, 50);
   }
-  } catch(err) {
-    console.error('[BS] initApp crashed:', err);
-    // Force show login as last resort
+}
+
+// Handle location updates from background SW sync
+function handleBackgroundLocation(lat, lng) {
+  if (!STATE.user || _activeRouteId === null) return;
+  STATE.userLocation = { lat, lng, updated_at: Date.now() };
+  checkAttendanceForActiveRoutes();
+}
+
+// Handle location updates from background SW sync
+function handleBackgroundLocation(lat, lng) {
+  if (!STATE.user || _activeRouteId === null) return;
+  STATE.userLocation = { lat, lng, updated_at: Date.now() };
+  checkAttendanceForActiveRoutes();
+}
+
+// Auto-confirm attendance for the currently active route only
+function checkAttendanceForActiveRoutes() {
+  if (!_activeRouteId || !STATE.userLocation) return;
+  const route = STATE.routes.find(r => r.id === _activeRouteId);
+  if (!route || !route.start_lat || !route.start_lng) return;
+
+  // Check geofence on start point (300m)
+  const distStart = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.start_lat), parseFloat(route.start_lng));
+  if (distStart <= 300) confirmAttendance(route.id, 'auto', false);
+
+  // Check geofence on destination
+  if (route.end_lat && route.end_lng) {
+    const distEnd = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.end_lat), parseFloat(route.end_lng));
+    if (distEnd <= 300) confirmAttendance(route.id, 'auto', true);
+  }
+}
+
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function confirmAttendance(routeId, method, isArrival) {
+  STATE.attendance = STATE.attendance || [];
+  const existing = STATE.attendance.find(a => a.route_id === routeId && a.user_id === STATE.user.id && !!a.is_arrival === !!isArrival);
+  if (existing) return; // already confirmed
+  STATE.attendance.push({
+    id: Date.now() % 100000,
+    user_id: STATE.user.id,
+    route_id: routeId,
+    confirmed_at: new Date().toISOString(),
+    method: method || 'manual',
+    is_arrival: isArrival || false,
+    lat: STATE.userLocation?.lat || null,
+    lng: STATE.userLocation?.lng || null
+  });
+  ls('bs_att', STATE.attendance);
+  saveToHV('attendance', STATE.attendance).catch(() => {});
+  if (method === 'auto') toast('✅ Asistencia confirmada automaticamente');
+}
+
+// Manual check-in: "Estoy aquí"
+function manualCheckin(routeId) {
+  if (!STATE.user) { toast('Inicia sesion primero'); return; }
+  if (!navigator.onLine) { toast('Sin conexion — intenta luego'); return; }
+  confirmAttendance(routeId, 'manual', false);
+  // Refresh just the attendance panel in the detail card
+  refreshAttendancePanel(routeId);
+  toast('✅ Asistencia confirmada');
+}
+
+// Refresh the attendance panel DOM element directly
+function refreshAttendancePanel(routeId) {
+  const panel = document.getElementById('attendance-panel-' + routeId);
+  const btnWrap = document.getElementById('manual-checkin-' + routeId);
+  if (!panel && !btnWrap) return;
+  const att = STATE.attendance || [];
+  const confirmed = att.filter(a => a.route_id === routeId);
+  const confirmedUsers = confirmed.map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
+  const totalMembers = 1;
+  const pendingCount = 0;
+  let html = '';
+  if (confirmedUsers.length === 0) {
+    html = `<div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">Nadie ha confirmado asistencia aun</div>`;
+  } else {
+    html = confirmedUsers.map(u => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${escHtml(u.username)}${u.id === STATE.user?.id ? ' (tu)' : ''}</div>
+          <div style="font-size:10px;color:var(--text3)">${confirmed.find(a=>a.user_id===u.id)?.note || 'Confirmado'}</div>
+        </div>
+        <span style="font-size:10px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅</span>
+      </div>`).join('');
+  }
+  if (panel) panel.innerHTML = html;
+  if (btnWrap) {
+    btnWrap.innerHTML = `<div style="margin-top:8px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;text-align:center;font-size:12px;color:#22c55e;font-weight:600">✅ Ya confirmaste tu asistencia</div>`;
+  }
+}
+
+// ── Live Location System ──────────────────────────────────────────────────────
+// GPS OFF by default. Activates when:
+//   a) AUTO: route date==today AND time <= now <= time+2h
+//   b) MANUAL: user taps "Activar GPS" on a route
+// Saves to HeyValue every 30s. Members polled every 15s when active.
+
+var _geoWatchId = null;
+var _saveInterval = null;
+var _pollInterval = null;
+var _checkInterval = null;
+var _activeRouteId = null;    // route being tracked right now
+var _activeWindowStart = null; // minutes-of-day when activation started
+var _lastLocationSave = 0;
+
+function startGPS(routeId) {
+  // If already tracking this route, do nothing
+  if (_geoWatchId !== null && _activeRouteId === routeId) return;
+
+  const route = STATE.routes.find(r => r.id === routeId);
+  if (!route) return;
+
+  stopGPS(); // clean up any existing tracking
+
+  _activeRouteId = routeId;
+  _activeWindowStart = new Date().getHours() * 60 + new Date().getMinutes();
+
+  toast('📍 GPS activado — ' + route.name);
+
+  if (!navigator.geolocation) { toast('GPS no disponible'); return; }
+
+  // Watch position
+  _geoWatchId = navigator.geolocation.watchPosition(
+    pos => {
+      STATE.userLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        updated_at: Date.now()
+      };
+      saveLocationToHV();
+      checkAttendanceForActiveRoutes();
+    },
+    err => { console.warn('[BS] GPS:', err.message); },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+  );
+
+  // Save every 30s, poll members every 15s
+  _saveInterval = setInterval(saveLocationToHV, 30000);
+  _pollInterval = setInterval(loadMembersLocation, 15000);
+
+  // Check every 30s if the 2h window expired
+  _checkInterval = setInterval(checkGPSWindow, 30000);
+
+  // Immediate first run
+  saveLocationToHV();
+  loadMembersLocation();
+}
+
+function stopGPS() {
+  if (_geoWatchId !== null) { navigator.geolocation.clearWatch(_geoWatchId); _geoWatchId = null; }
+  if (_saveInterval) { clearInterval(_saveInterval); _saveInterval = null; }
+  if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+  if (_checkInterval) { clearInterval(_checkInterval); _checkInterval = null; }
+  if (_activeRouteId !== null) {
+    toast('GPS desactivado — ' + (STATE.routes.find(r => r.id === _activeRouteId)?.name || 'ruta'));
+    _activeRouteId = null;
+    _activeWindowStart = null;
+  }
+  // Re-render rutas so the GPS panel reflects the change
+  try { renderRutas(); } catch(e) {}
+}
+
+// ── Live Map Modal ──────────────────────────────────────────────────────
+var _liveMapInterval = null;
+
+function showLiveMap(routeId) {
+  const route = STATE.routes.find(r => r.id === routeId);
+  if (!route) return;
+
+  // Force-load members now
+  loadMembersLocation();
+
+  const content = `
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <div style="font-size:20px">🗺️</div>
+      <div>
+        <div style="font-size:14px;font-weight:800">${escHtml(route.name)}</div>
+        <div style="font-size:11px;color:var(--text2)">Ubicacion en tiempo real</div>
+      </div>
+      <div id="live-gps-indicator" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <div style="width:8px;height:8px;border-radius:50%;background:#888"></div>
+        <span style="font-size:11px;color:var(--text2)">Sin GPS</span>
+      </div>
+    </div>
+    <div id="live-map" style="height:320px;border-radius:12px;overflow:hidden;border:1px solid var(--border);margin-bottom:12px"></div>
+    <div id="live-attendance-list" style="max-height:200px;overflow-y:auto">
+      <div style="text-align:center;padding:20px;color:var(--text2);font-size:12px">Cargando...</div>
+    </div>
+  `;
+
+  openModal('Mapa en Vivo', content);
+
+  setTimeout(() => initLiveMap(route), 100);
+}
+
+function initLiveMap(route) {
+  if (!window.L) return;
+
+  const mapEl = document.getElementById('live-map');
+  if (!mapEl) return;
+
+  // Center on route start
+  const centerLat = parseFloat(route.start_lat) || 8.9824;
+  const centerLng = parseFloat(route.start_lng) || -79.5199;
+
+  const map = L.map('live-map', { zoomControl: true }).setView([centerLat, centerLng], 14);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Route start marker
+  if (route.start_lat && route.start_lng) {
+    L.marker([route.start_lat, route.start_lng], {
+      icon: L.divIcon({ html: '🟢', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+    }).addTo(map).bindPopup('Salida: ' + (route.start_name || 'Punto de salida'));
+  }
+
+  // Route end marker
+  if (route.end_lat && route.end_lng) {
+    L.marker([route.end_lat, route.end_lng], {
+      icon: L.divIcon({ html: '🔴', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+    }).addTo(map).bindPopup('Destino: ' + (route.end_name || 'Destino'));
+  }
+
+  // Geofence circle (300m)
+  if (route.start_lat && route.start_lng) {
+    L.circle([route.start_lat, route.start_lng], {
+      radius: 300,
+      color: '#22c55e',
+      fillColor: '#22c55e',
+      fillOpacity: 0.08,
+      weight: 1.5
+    }).addTo(map);
+  }
+
+  // User's own marker
+  let userMarker = null;
+  function updateMyMarker() {
+    if (!STATE.userLocation) return;
+    const pos = [STATE.userLocation.lat, STATE.userLocation.lng];
+    if (!userMarker) {
+      userMarker = L.circleMarker(pos, {
+        radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 1, weight: 2
+      }).addTo(map).bindPopup('Tu ubicacion');
+    } else {
+      userMarker.setLatLng(pos);
+    }
+    // Update GPS indicator
+    const ind = document.getElementById('live-gps-indicator');
+    if (ind) ind.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e"></div><span style="font-size:11px;color:#22c55e">GPS activo</span>';
+  }
+
+  if (STATE.userLocation) updateMyMarker();
+
+  // Members markers
+  let memberMarkers = {};
+  function updateMembers() {
+    if (!STATE.membersLocation) return;
+    const list = document.getElementById('live-attendance-list');
+    let html = '<div style="padding:4px 0 8px;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Participantes</div>';
+
+    Object.entries(STATE.membersLocation).forEach(([uid, loc]) => {
+      const u = STATE.users.find(x => x.id === parseInt(uid));
+      if (!u) return;
+
+      // Update or create marker
+      if (!memberMarkers[uid]) {
+        memberMarkers[uid] = L.circleMarker([loc.lat, loc.lng], {
+          radius: 7, color: '#ff8800', fillColor: '#ff8800', fillOpacity: 0.85, weight: 2
+        }).addTo(map).bindPopup(u.username);
+      } else {
+        memberMarkers[uid].setLatLng([loc.lat, loc.lng]);
+      }
+
+      // Check if confirmed
+      const confirmed = (STATE.attendance || []).find(a => a.user_id === parseInt(uid) && a.route_id === route.id);
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="width:32px;height:32px;border-radius:50%;background:#ff8800;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${escHtml(u.username)}</div>
+          <div style="font-size:10px;color:var(--text3)">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+        </div>
+        ${confirmed ? '<span style="font-size:11px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅ Confirmado</span>' : ''}
+      </div>`;
+    });
+
+    // My own entry
+    const myConfirmed = (STATE.attendance || []).find(a => a.user_id === STATE.user?.id && a.route_id === route.id);
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+      <div style="width:32px;height:32px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${(STATE.user?.username||'?').charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${escHtml(STATE.user?.username || 'Tu')} (tu)</div>
+        <div style="font-size:10px;color:var(--text3)">${STATE.userLocation ? (STATE.userLocation.lat.toFixed(4)+', '+STATE.userLocation.lng.toFixed(4)) : 'Sin GPS'}</div>
+      </div>
+      ${myConfirmed ? '<span style="font-size:11px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅ Confirmado</span>' : ''}
+    </div>`;
+
+    if (list) list.innerHTML = html;
+  }
+
+  updateMembers();
+
+  // Refresh map + list every 15s while modal is open
+  _liveMapInterval = setInterval(() => {
+    if (!document.getElementById('live-map')) {
+      clearInterval(_liveMapInterval);
+      return;
+    }
+    loadMembersLocation().then(() => {
+      if (STATE.userLocation) updateMyMarker();
+      updateMembers();
+    });
+  }, 15000);
+}
+
+// Auto-check every 30s: is the 2h window still open?
+function checkGPSWindow() {
+  if (_activeRouteId === null) return;
+  const route = STATE.routes.find(r => r.id === _activeRouteId);
+  if (!route || !route.date || !route.time) { stopGPS(); return; }
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  if (route.date !== today) { stopGPS(); return; }
+
+  const curMin = now.getHours() * 60 + now.getMinutes();
+  const depMin = parseInt(route.time.slice(0,2))*60 + parseInt(route.time.slice(3,5));
+  const windowEnd = depMin + 120; // +2 hours
+
+  if (curMin > windowEnd) {
+    toast('⏰ Tiempo de ruta terminado — GPS apagado');
+    stopGPS();
+  }
+}
+
+// Check on page load if a route should auto-activate
+function autoActivateGPS() {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const curMin = now.getHours() * 60 + now.getMinutes();
+
+  const route = STATE.routes.find(r => {
+    if (!r.date || !r.time) return false;
+    if (r.date !== today) return false;
+    const depMin = parseInt(r.time.slice(0,2))*60 + parseInt(r.time.slice(3,5));
+    const windowEnd = depMin + 120;
+    return curMin >= depMin && curMin <= windowEnd;
+  });
+
+  if (route) startGPS(route.id);
+}
+
+async function saveLocationToHV() {
+  if (!HV.user || !HV.pass || !STATE.user || !STATE.userLocation) return;
+  const now = Date.now();
+  if (now - _lastLocationSave < 30000) return;
+  _lastLocationSave = now;
+  try {
+    await saveToHV('member_location_' + STATE.user.id, {
+      lat: STATE.userLocation.lat,
+      lng: STATE.userLocation.lng,
+      accuracy: STATE.userLocation.accuracy,
+      username: STATE.user.username,
+      route_id: _activeRouteId,
+      updated_at: now
+    });
+  } catch(e) {}
+}
+
+async function loadMembersLocation() {
+  if (!HV.user || !HV.pass) return;
+  STATE.membersLocation = STATE.membersLocation || {};
+  for (const u of STATE.users) {
+    if (u.id === STATE.user?.id) continue;
     try {
-      document.getElementById('splash').style.display = 'none';
-      document.getElementById('topbar').style.display = 'flex';
-      document.getElementById('bottomnav').style.display = 'flex';
-      if (typeof showLogin === 'function') showLogin();
-    } catch(_) {}
+      const data = await loadFromHV('member_location_' + u.id);
+      if (data && data.lat && data.lng) {
+        // Only show members tracking the same active route (or no route = manual mode)
+        if (_activeRouteId && data.route_id && data.route_id !== _activeRouteId) continue;
+        if (Date.now() - (data.updated_at || 0) < 120000) { // 2 min max age
+          STATE.membersLocation[u.id] = data;
+        }
+      }
+    } catch(e) {}
   }
-
-  // Auto-connect HeyValue in background — non-blocking
-  autoConnectHeyValue();
-
-  // Evaluate badges for all users on load
-  evaluateAllBadges();
 }
 
 async function autoConnectHeyValue() {
@@ -2037,15 +2851,75 @@ async function autoConnectHeyValue() {
     await hvRequest('MKCOL', '/BikerApp');
     await hvRequest('MKCOL', '/BikerApp/profiles');
     HV.connected = true;
-    // Sync data from cloud
+    STATE._cloudSynced = true; // allow cloud uploads ONLY after this flag is set
+    // Sync data from cloud — cloud is the source of truth
     await syncFromCloud();
-    saveState();
+    saveLocal(); // save to localStorage only, don't re-upload
+    // Re-render current page with cloud data
+    if (STATE.currentPage) renderPage(STATE.currentPage);
+    // Start background refresh every 5s
+    if (STATE._refreshTimer) clearInterval(STATE._refreshTimer);
+    STATE._refreshTimer = setInterval(async () => {
+      if (STATE.currentPage === 'bikergram') {
+        const prev = STATE.posts.length;
+        await syncPostsFromCloud();
+        if (STATE.posts.length !== prev) renderBikerGram(); // solo re-render si hay cambios reales
+      }
+    }, 3000); // cada 3s, no cada 2s
   } catch(e) {
     console.warn('HeyValue auto-connect failed:', e.message);
   }
 }
 
-function saveState() {
+// Only sync posts — fast, lightweight, used for BikerGram live refresh
+async function syncPostsFromCloud() {
+  if (!HV.user) return;
+  const data = await loadFromHV('posts');
+  if (data && Array.isArray(data)) {
+    const deletedIds = STATE._deletedIds || [];
+    // Filter out deleted posts from cloud data
+    const filteredCloud = data.filter(item => !deletedIds.includes(item.id));
+    const cloudMap = new Map(filteredCloud.map(item => [item.id, item]));
+    // Find posts that exist locally but NOT in cloud — those were deleted by others
+    const orphaned = (STATE.posts || []).filter(item => !cloudMap.has(item.id) && !deletedIds.includes(item.id));
+    // Clean up orphaned posts from IndexedDB
+    if (DB && orphaned.length > 0) {
+      for (const post of orphaned) {
+        await idbDelete('posts', post.id);
+      }
+    }
+    // Prefer local version if post not yet synced (has pending media upload)
+    const merged = [];
+    const seen = new Set();
+    // Add all cloud posts
+    for (const p of filteredCloud) { merged.push(p); seen.add(p.id); }
+    // Add local-only posts (new posts not yet synced or unsynced)
+    for (const p of (STATE.posts || [])) {
+      if (!seen.has(p.id)) merged.push(p);
+      else {
+        // If local has media_url but cloud doesn't, keep local
+        const cloudP = cloudMap.get(p.id);
+        if (cloudP && !cloudP.media_url && p.media_url) {
+          const idx = merged.findIndex(x => x.id === p.id);
+          if (idx >= 0) merged[idx] = p;
+        }
+      }
+    }
+    STATE.posts = merged.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+}
+
+async function saveState() {
+  saveLocal();
+  // Only sync to cloud if all posts with media are fully synced (media uploaded to HeyValue)
+  if (HV.connected && STATE._cloudSynced !== false) {
+    const allSynced = (STATE.posts || []).every(p => !p.media_url || p.media_url.startsWith('data:') || p.media_url.startsWith('blob:') || p.synced);
+    if (allSynced) await syncToCloud();
+  }
+}
+
+// Save to localStorage only (no cloud sync)
+function saveLocal() {
   ls('bs_users', STATE.users);
   ls('bs_routes', STATE.routes);
   ls('bs_events', STATE.events);
@@ -2059,13 +2933,14 @@ function saveState() {
   ls('bs_notif', STATE.notifications);
   ls('bs_att', STATE.attendance);
   ls('bs_places', STATE.places);
-  if (HV.connected) syncToCloud();
+  ls('bs_comments', STATE.comments || []);
+  ls('bs_follows', STATE.follows || []);
 }
 
 // ============================================================
 // NAVIGATION
 // ============================================================
-function navigate(page) {
+function navigate(page, pageId) {
   // Update bottom nav
   document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`.bnav-item[data-page="${page}"]`);
@@ -2075,10 +2950,16 @@ function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
   STATE.currentPage = page;
-  renderPage(page);
+  STATE.currentPageId = pageId;
+  renderPage(page, pageId);
+
+  // Refresh posts from cloud when entering BikerGram (no flicker — render happens once via timer)
+  if (page === 'bikergram' && HV.connected) {
+    syncPostsFromCloud();
+  }
 }
 
-function renderPage(page) {
+function renderPage(page, pageId) {
   const el = document.getElementById('page-' + page);
   if (!el) return;
   el.classList.add('active');
@@ -2087,9 +2968,9 @@ function renderPage(page) {
     case 'inicio': renderInicio(); break;
     case 'rutas': renderRutas(); break;
     case 'bikers': renderBikers(); break;
-    case 'rider-detail': renderRiderDetail(); break;
+    case 'rider-detail': renderRiderDetail(pageId); break;
     case 'bikergram': renderBikerGram(); break;
-    case 'eventos': RUTAS_TAB = 'eventos'; renderRutas(); break;
+    case 'eventos': RUTAS_TAB = 'rutas'; renderRutas(); break;
     case 'retos': renderRetos(); break;
     case 'insignias': renderInsignias(); break;
     case 'profile': renderProfile(); break;
@@ -2116,9 +2997,6 @@ function showLogin() {
       <input class="input" type="password" id="li-pass" placeholder="Contraseña" autocomplete="off">
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="doLogin()">Entrar</button>
       <button class="btn btn-secondary" style="width:100%" onclick="showRegister()">Crear cuenta</button>
-      <div style="text-align:center;margin-top:20px">
-        <button class="btn btn-ghost" style="font-size:12px" onclick="showHVSetup()">Configurar HeyValue Cloud</button>
-      </div>
     </div>
   `;
   document.getElementById('bottomnav').style.display = 'none';
@@ -2148,6 +3026,10 @@ function doLogin() {
   if (!user) { toast('Usuario o contraseña incorrectos'); return; }
   STATE.user = user;
   ls('bs_session', user);
+
+  // Motorcycle engine roar on login
+  try { document.getElementById('moto-sound').play().catch(() => {}); } catch(e) {}
+
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('topbar').style.display = 'flex';
   document.getElementById('bottomnav').style.display = 'flex';
@@ -2352,6 +3234,27 @@ function showMoreMenu() {
     </div>
     ` : ''}
 
+    <!-- App -->
+    <div class="fpanel-section-label">APP</div>
+    ${isAppInstalled() ? `
+    <div class="fpanel-item" style="cursor:default;opacity:0.7">
+      <div class="fpanel-item-icon" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3)">✅</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">App instalada</span>
+        <span class="fpanel-item-sub">Biker Society en tu pantalla</span>
+      </div>
+    </div>
+    ` : `
+    <div class="fpanel-item" onclick="installApp()">
+      <div class="fpanel-item-icon" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3)">📲</div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">${_installPromptEvent ? 'Instalar app' : 'Como instalar'}</span>
+        <span class="fpanel-item-sub">${_installPromptEvent ? 'Icono en tu pantalla de inicio' : 'Menu del navegador > Agregar a inicio'}</span>
+      </div>
+      <span class="fpanel-item-arrow">→</span>
+    </div>
+    `}
+
     <div class="fpanel-divider"></div>
 
     <!-- Cerrar sesion -->
@@ -2434,6 +3337,55 @@ function renderInicio() {
       </div>
     </div>
 
+    <!-- Wall of Fame Semanal -->
+    ${(() => {
+      const w = getWeeklyRankings();
+      const uKm = w.km ? STATE.users.find(x => x.id === w.km.user_id) : null;
+      const uLk = w.likes ? STATE.users.find(x => x.id === w.likes.user_id) : null;
+      const uPh = w.photos ? STATE.users.find(x => x.id === w.photos.user_id) : null;
+      const hasAny = uKm || uLk || uPh;
+      if (!hasAny) return '';
+      const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      const today = new Date();
+      return `
+      <div class="vanish" style="animation-delay:0.15s;margin:16px 0">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text2)">MURO DE LA FAMA</span>
+          <span style="font-size:11px;color:var(--accent)">Semana del ${getWeekStart().getDate()} · ${days[today.getDay()]}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          ${uKm ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid var(--accent);cursor:pointer" onclick="viewRider(${uKm.id})">
+            <div style="font-size:24px;margin-bottom:4px">🏆</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DEL ASFALTO</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uKm.id)}">${initials(uKm.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uKm.username}</div>
+            <div style="font-size:16px;font-weight:900;color:var(--accent)">${w.km.km} km</div>
+          </div>
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">🛣️</div><div style="font-size:10px;color:var(--text2)">REY DEL ASFALTO</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+          ${uLk ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #ff8800;cursor:pointer" onclick="viewRider(${uLk.id})">
+            <div style="font-size:24px;margin-bottom:4px">❤️</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DE LIKES</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uLk.id)}">${initials(uLk.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uLk.username}</div>
+            <div style="font-size:16px;font-weight:900;color:#ff8800">${w.likes.likes} likes</div>
+          </div>
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">❤️</div><div style="font-size:10px;color:var(--text2)">REY DE LIKES</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+          ${uPh ? `
+          <div class="card" style="text-align:center;padding:12px 8px;border-top:2px solid #22c55e;cursor:pointer" onclick="viewRider(${uPh.id})">
+            <div style="font-size:24px;margin-bottom:4px">📸</div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:4px">REY DE FOTOS</div>
+            <div class="rider-avatar" style="width:32px;height:32px;font-size:11px;margin:0 auto 4px;background:${avatarColor(uPh.id)}">${initials(uPh.username)}</div>
+            <div style="font-size:12px;font-weight:700">${uPh.username}</div>
+            <div style="font-size:16px;font-weight:900;color:#22c55e">${w.photos.photos} fotos</div>
+          </div>
+          ` : '<div class="card" style="text-align:center;padding:12px 8px;opacity:0.3"><div style="font-size:24px;margin-bottom:4px">📸</div><div style="font-size:10px;color:var(--text2)">REY DE FOTOS</div><div style="font-size:11px;margin-top:8px;color:var(--text2)">—</div></div>'}
+        </div>
+      </div>
+      `;
+    })()}
+
     <!-- Top Ranking -->
     <div class="vanish" style="animation-delay:0.2s">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
@@ -2461,38 +3413,17 @@ function renderInicio() {
         <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
       </div>
       ${STATE.routes.slice(0,3).map(r => `
-        <div class="card vanish" style="cursor:pointer" onclick="navigateToRoute(${r.id})">
-          <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="navigateToRoute(${r.id})">
+          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)">
+            🧭 Seguir
+          </button>
+          <div style="display:flex;justify-content:space-between;align-items:start;padding-right:90px">
             <div>
               <div class="card-title">${escHtml(r.name)}</div>
               <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
               <div style="margin-top:6px;display:flex;gap:6px">
                 <span class="badge">⚡ ${r.difficulty}</span>
               </div>
-            </div>
-            <div style="font-size:20px">🏍️</div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
-
-    <!-- Upcoming Events (AL FINAL) -->
-    ${upcoming.length ? `
-    <div class="vanish" style="animation-delay:0.3s;margin-top:16px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:var(--text2)">PROXIMOS EVENTOS</span>
-        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('eventos')">Ver todos →</span>
-      </div>
-      ${upcoming.map(ev => `
-        <div class="event-card" onclick="viewEvent(${ev.id})">
-          <div style="height:120px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.1));display:flex;align-items:center;justify-content:center;font-size:40px">🏍️</div>
-          <div class="event-body">
-            <div class="event-date">${ev.date} · ${ev.time}</div>
-            <div class="event-title">${ev.title}</div>
-            <div class="event-meta">
-              <span>📍 ${ev.location}</span>
-              <span>⚡ ${ev.difficulty}</span>
             </div>
           </div>
         </div>
@@ -2573,14 +3504,12 @@ function initHomeMap() {
 // ============================================================
 // RUTAS PAGE
 // ============================================================
-let RUTAS_TAB = 'rutas'; // 'rutas' | 'eventos'
+let RUTAS_TAB = 'rutas';
 
 function renderRutas() {
   const sel = STATE.selectedRoute;
   const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
   const allRoutes = STATE.routes;
-  const upcoming = STATE.events.filter(e => e.status === 'activo');
-  const past = STATE.events.filter(e => e.status !== 'activo');
   const isOwner = sel && sel.created_by === STATE.user?.id;
   const creator = sel ? STATE.users.find(u => u.id === sel.created_by) : null;
 
@@ -2608,14 +3537,13 @@ function renderRutas() {
           <div style="font-size:18px;font-weight:800">${sel ? escHtml(sel.name) : 'Explorar'}</div>
         </div>
         ${!sel ? `
-        <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>
+        ${STATE.user?.is_admin ? `<button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>` : ''}
         ` : ''}
       </div>
 
-      <!-- Unified tab bar -->
+      <!-- Rutas tab bar only -->
       <div style="display:flex;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px;${sel ? 'display:none' : ''}" id="rutas-tabs">
-        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:${RUTAS_TAB==='rutas'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RUTAS_TAB==='rutas'?'#fff':'var(--text3)'}">🗺️ Rutas (${allRoutes.length})</button>
-        <button onclick="setRutasTab('eventos')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:${RUTAS_TAB==='eventos'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RUTAS_TAB==='eventos'?'#fff':'var(--text3)'}">📅 Eventos (${upcoming.length})</button>
+        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff">🗺️ Rutas (${allRoutes.length})</button>
       </div>
     </div>
 
@@ -2639,14 +3567,82 @@ function renderRutas() {
         <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
         ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
       </div>
+      ${sel.date ? `
+      <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);border-radius:10px;margin-bottom:12px">
+        <span style="font-size:18px">📅</span>
+        <div>
+          <div style="font-size:12px;font-weight:700">${(() => { try { const d=new Date(sel.date+'T00:00');return d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}); } catch(e){return sel.date;} })()}</div>
+          ${sel.time ? `<div style="font-size:11px;color:var(--accent);font-weight:600">🕐 ${sel.time}</div>` : ''}
+        </div>
+        ${sel.notify ? '<span class="badge badge-gold" style="margin-left:auto">🔔 Recordatorio</span>' : ''}
+      </div>` : ''}
       ${isOwner ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
-      <button onclick="exportRouteGPX(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
-        📥 Exportar GPX (para GPS)
-      </button>
+      ${sel.date ? `
+      <div id="gps-panel-${sel.id}">
+        ${_activeRouteId === sel.id ? `
+        <div style="padding:10px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 1.5s infinite"></div>
+            <span style="font-size:13px;font-weight:700;color:#22c55e">GPS Activo</span>
+            <span style="font-size:11px;color:var(--text3);margin-left:auto">${STATE.userLocation ? (STATE.userLocation.lat.toFixed(4)+', '+STATE.userLocation.lng.toFixed(4)) : 'Obteniendo...'}</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="stopGPS()" style="flex:1;padding:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer">⏹️ Apagar GPS</button>
+            <button onclick="showLiveMap(${sel.id})" style="flex:1;padding:8px;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:8px;color:#ff4444;font-size:12px;font-weight:700;cursor:pointer">👥 Ver Mapa</button>
+          </div>
+        </div>
+        ` : `
+        <button onclick="startGPS(${sel.id})" style="width:100%;padding:10px;background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.35);border-radius:10px;color:#ff4444;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(255,68,68,0.2)'" onmouseout="this.style.background='rgba(255,68,68,0.1)'">
+          📍 Activar GPS en esta ruta
+        </button>`}
+      </div>
+
+      <!-- Attendance panel -->
+      <div style="margin-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📋 Asistencia</div>
+        <div id="attendance-panel-${sel.id}">${(() => {
+          const att = STATE.attendance || [];
+          const confirmed = att.filter(a => a.route_id === sel.id);
+          const confirmedUsers = confirmed.map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
+          const totalMembers = (sel.members || '').split(',').filter(Boolean).length || 1;
+          const pendingCount = Math.max(0, totalMembers - confirmedUsers.length);
+          if (confirmedUsers.length === 0) {
+            return `<div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">
+              Nadie ha confirmado asistencia aun
+            </div>`;
+          }
+          return confirmedUsers.map(u => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">${escHtml(u.username)}${u.id === STATE.user?.id ? ' (tu)' : ''}</div>
+                <div style="font-size:10px;color:var(--text3)">${confirmed.find(a=>a.user_id===u.id)?.note || 'Confirmado'}</div>
+              </div>
+              <span style="font-size:10px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅</span>
+            </div>`).join('') + `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px">
+              <span style="font-size:11px;color:var(--text2)">${pendingCount} pendiente${pendingCount!==1?'s':''}</span>
+            </div>`;
+        })()}</div>
+
+        <!-- Manual check-in: "Estoy aquí" -->
+        <div id="manual-checkin-${sel.id}">
+        ${(() => {
+          const att = STATE.attendance || [];
+          const myAtt = att.find(a => a.user_id === STATE.user?.id && a.route_id === sel.id);
+          if (myAtt) {
+            return `<div style="margin-top:8px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;text-align:center;font-size:12px;color:#22c55e;font-weight:600">✅ Ya confirmaste tu asistencia</div>`;
+          }
+          return `<button onclick="manualCheckin(${sel.id})" style="width:100%;margin-top:8px;padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;color:#22c55e;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">
+            📍 Estoy aquí — Confirmar asistencia
+          </button>`;
+        })()}
+        </div>
+      </div>` : ''}
     </div>
     ` : ''}
 
@@ -2664,51 +3660,16 @@ function renderRutas() {
           <button onclick="setRouteSubTab('mis')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='mis'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='mis'?'#ff4444':'var(--text2)'}">Mis rutas (${myRoutes.length})</button>
         </div>
 
-        <!-- Filters panel -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 12px;margin-bottom:12px">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Filtros</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            ${['todas','facil','media','dificil','epica'].map(d => `
-              <button onclick="setRouteDifficulty('${d}')" style="padding:5px 11px;border-radius:14px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:${routeFilter.difficulty===d?'linear-gradient(135deg,#ff4444,#ff8800)':'var(--surface2)'};color:${routeFilter.difficulty===d?'#fff':'var(--text2)'}">
-                ${d==='todas'?'Todas':d.charAt(0).toUpperCase()+d.slice(1)}
-              </button>
-            `).join('')}
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="font-size:11px;color:var(--text2);flex-shrink:0">Max km</div>
-            <input type="range" min="20" max="500" step="10" value="${routeFilter.maxKm}" oninput="setRouteMaxKm(this.value)" style="flex:1;accent-color:#ff4444">
-            <div style="font-size:11px;font-weight:700;color:var(--accent);min-width:50px;text-align:right">${routeFilter.maxKm}km</div>
-          </div>
-        </div>
-
         <div id="rutas-list">
           ${(() => {
             const sourceList = routeSubTab === 'todas' ? allRoutes : myRoutes;
-            const filtered = sourceList.filter(r => {
-              if (routeFilter.difficulty !== 'todas' && r.difficulty !== routeFilter.difficulty) return false;
-              const km = routeDistanceKm(r);
-              if (km > routeFilter.maxKm) return false;
-              return true;
-            });
             if (sourceList.length === 0) {
-              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
+              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>' : ''}</div>`;
             }
-            if (filtered.length === 0) {
-              return `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
-            }
-            return filtered.map(r => renderRouteCard(r)).join('');
+            return sourceList.map(r => renderRouteCard(r)).join('');
           })()}
         </div>
-      ` : `
-        <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:12px">
-          <button onclick="setEventSubTab('proximos')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${eventSubTab==='proximos'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${eventSubTab==='proximos'?'#ff4444':'var(--text2)'}">Proximos (${upcoming.length})</button>
-          <button onclick="setEventSubTab('pasados')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${eventSubTab==='pasados'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${eventSubTab==='pasados'?'#ff4444':'var(--text2)'}">Pasados (${past.length})</button>
-        </div>
-        <div id="eventos-list">
-          ${(eventSubTab === 'proximos' ? upcoming : past).length === 0 ? `<div class="empty-state"><div class="empty-icon">📅</div><div>Sin eventos</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createEvent()">Crear evento</button>' : ''}</div>` :
-            (eventSubTab === 'proximos' ? upcoming : past).map(ev => renderEventCard(ev)).join('')}
-        </div>
-      `}
+      ` : ''}
     </div>
   `;
 
@@ -2716,8 +3677,9 @@ function renderRutas() {
 }
 
 let routeSubTab = 'todas';
-let eventSubTab = 'proximos';
 let routeFilter = { difficulty: 'todas', maxKm: 500 };
+// Store selected POI data so it survives modal recreation
+let _routePOI = { start: null, end: null };
 
 // Haversine distance in km
 function routeDistanceKm(r) {
@@ -2730,10 +3692,16 @@ function routeDistanceKm(r) {
 }
 
 // Export route as GPX file
-function exportRouteGPX(routeId) {
+// ── Open route in Waze / Google Maps / Apple Maps ────────────────────────────
+// Always available — does NOT require GPS, geolocation, or any other condition.
+// Works with whatever coordinates the route already has. If route has no coords,
+// shows an interactive map so user can pick start/end.
+function openRouteInNav(routeId) {
   const r = STATE.routes.find(x => x.id === routeId);
-  if (!r) return;
-  const creator = STATE.users.find(u => u.id === r.created_by);
+  if (!r) {
+    toast('Ruta no encontrada');
+    return;
+  }
   let stops = [];
   try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
   const allPoints = [
@@ -2742,27 +3710,196 @@ function exportRouteGPX(routeId) {
     { name: r.end_name || 'Destino', lat: r.end_lat, lng: r.end_lng },
   ].filter(p => p.lat && p.lng);
 
-  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Biker Society" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata>
-    <name>${escHtml(r.name)}</name>
-    <desc>${escHtml(r.description || '')}</desc>
-    <author><name>${escHtml(creator?.username || 'Biker Society')}</name></author>
-    <time>${new Date().toISOString()}</time>
-  </metadata>
-  <rte>
-    <name>${escHtml(r.name)}</name>
-    ${allPoints.map(p => `<rtept lat="${p.lat}" lon="${p.lng}"><name>${escHtml(p.name)}</name></rtept>`).join('\n    ')}
-  </rte>
-</gpx>`;
-  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${r.name.replace(/[^a-z0-9]/gi, '-')}.gpx`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-  toast('GPX exportado');
+  // If route has no coordinates, show a map picker so user can set start/end
+  if (allPoints.length < 2) {
+    pickRoutePointsForNav(r, stops);
+    return;
+  }
+
+  const start = allPoints[0];
+  const end = allPoints[allPoints.length - 1];
+
+  // Detect platform
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  // ── Waze deep link ─────────────────────────────────────────────────────
+  const wazeUrl = `waze://?ll=${end.lat},${end.lng}&navigate=yes`;
+  const wazeWebUrl = `https://waze.com/ul?ll=${end.lat},${end.lng}&navigate=yes`;
+
+  // ── Google Maps deep link ─────────────────────────────────────────────
+  const gmapsUrl = `comgooglemaps://?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&directionsmode=motorcycle`;
+  const gmapsWebUrl = `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&travelmode=motorcycle`;
+
+  // ── Apple Maps (iOS only) ─────────────────────────────────────────────
+  const appleMapsUrl = `https://maps.apple.com/?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&dirflg=d`;
+
+  const body = `
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">${escHtml(r.name)}</div>
+      <div style="font-size:11px;color:var(--text3)">${escHtml(start.name)} → ${escHtml(end.name)}</div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <button onclick="navigateWith('${wazeUrl}', '${wazeWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#33ccff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🧭</div>
+        <div style="flex:1;text-align:left">
+          <div>Waze</div>
+          <div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'Abre waze.com'}</div>
+        </div>
+        <span style="font-size:18px">→</span>
+      </button>
+      <button onclick="navigateWith('${gmapsUrl}', '${gmapsWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.08);color:#22c55e;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🗺️</div>
+        <div style="flex:1;text-align:left">
+          <div>Google Maps</div>
+          <div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'maps.google.com'}</div>
+        </div>
+        <span style="font-size:18px">→</span>
+      </button>
+      ${isIOS ? `
+      <button onclick="window.open('${appleMapsUrl}','_blank');closeModal();" style="padding:14px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#a855f7;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🍎</div>
+        <div style="flex:1;text-align:left">
+          <div>Apple Maps</div>
+          <div style="font-size:11px;font-weight:400;opacity:0.8">Solo en iPhone/iPad</div>
+        </div>
+        <span style="font-size:18px">→</span>
+      </button>` : ''}
+    </div>
+    <div style="margin-top:14px;padding:10px;background:rgba(255,136,0,0.08);border:1px solid rgba(255,136,0,0.2);border-radius:10px;font-size:11px;color:var(--text2);text-align:center">
+      ${isIOS || isAndroid ? 'Si la app no abre, ya tenes Google Maps en el telefono — toca el boton' : 'Abre desde el celular para que use las apps instaladas'}
+    </div>
+  `;
+  openModal('🧭 Seguir ruta en...', body);
+}
+
+// Pick start/end points on a map for routes that don't have coordinates
+function pickRoutePointsForNav(r, existingStops) {
+  const body = `
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px">
+      Esta ruta no tiene coordenadas. Toca el mapa para elegir:
+    </div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;font-size:11px">
+      <span style="padding:4px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:6px;color:#22c55e">1. Toca: Salida</span>
+      <span style="padding:4px 8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#ef4444">2. Toca: Destino</span>
+    </div>
+    <div id="pick-nav-map" style="height:300px;border-radius:10px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px">
+      <button id="pick-start-name" onclick="setPickName('start')" style="flex:1;padding:8px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer">📍 Nombre salida</button>
+      <button id="pick-end-name" onclick="setPickName('end')" style="flex:1;padding:8px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer">🏁 Nombre destino</button>
+    </div>
+    <button id="pick-nav-go" disabled onclick="openPickedNav()" style="width:100%;margin-top:10px;padding:12px;background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;opacity:0.5">Selecciona los 2 puntos</button>
+  `;
+  openModal('📍 Elige puntos de la ruta', body);
+
+  setTimeout(() => {
+    if (!window.L) return;
+    const map = L.map('pick-nav-map').setView([8.9824, -79.5199], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OSM'
+    }).addTo(map);
+
+    let startMarker = null, endMarker = null;
+    let startName = 'Salida', endName = 'Destino';
+
+    map.on('click', e => {
+      const { lat, lng } = e.latlng;
+      if (!startMarker) {
+        startMarker = L.marker([lat, lng], {
+          icon: L.divIcon({ html: '🟢', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map).bindPopup('Salida').openPopup();
+        window._pickStart = { lat, lng };
+      } else if (!endMarker) {
+        endMarker = L.marker([lat, lng], {
+          icon: L.divIcon({ html: '🔴', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map).bindPopup('Destino').openPopup();
+        window._pickEnd = { lat, lng };
+        // Update button
+        const btn = document.getElementById('pick-nav-go');
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧭 Abrir en Waze/Maps'; }
+      } else {
+        // Reset
+        map.removeLayer(startMarker);
+        map.removeLayer(endMarker);
+        startMarker = L.marker([lat, lng], {
+          icon: L.divIcon({ html: '🟢', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map);
+        window._pickStart = { lat, lng };
+        endMarker = null;
+        window._pickEnd = null;
+        const btn = document.getElementById('pick-nav-go');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = 'Selecciona los 2 puntos'; }
+      }
+    });
+
+    window._pickStart = null;
+    window._pickEnd = null;
+    window._pickStartName = () => startName;
+    window._pickEndName = () => endName;
+  }, 100);
+}
+
+function setPickName(which) {
+  const name = prompt(which === 'start' ? 'Nombre del punto de salida:' : 'Nombre del destino:');
+  if (name) {
+    if (which === 'start') window._pickStartName = () => name;
+    else window._pickEndName = () => name;
+  }
+}
+
+function openPickedNav() {
+  if (!window._pickStart || !window._pickEnd) return;
+  const s = window._pickStart, e = window._pickEnd;
+  const sName = (typeof window._pickStartName === 'function' ? window._pickStartName() : 'Salida');
+  const eName = (typeof window._pickEndName === 'function' ? window._pickEndName() : 'Destino');
+  closeModal();
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  const wazeUrl = `waze://?ll=${e.lat},${e.lng}&navigate=yes`;
+  const wazeWebUrl = `https://waze.com/ul?ll=${e.lat},${e.lng}&navigate=yes`;
+  const gmapsUrl = `comgooglemaps://?saddr=${s.lat},${s.lng}&daddr=${e.lat},${e.lng}&directionsmode=motorcycle`;
+  const gmapsWebUrl = `https://www.google.com/maps/dir/?api=1&origin=${s.lat},${s.lng}&destination=${e.lat},${e.lng}&travelmode=motorcycle`;
+  const appleMapsUrl = `https://maps.apple.com/?saddr=${s.lat},${s.lng}&daddr=${e.lat},${e.lng}&dirflg=d`;
+
+  const body = `
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Ruta personalizada</div>
+      <div style="font-size:11px;color:var(--text3)">${escHtml(sName)} → ${escHtml(eName)}</div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <button onclick="navigateWith('${wazeUrl}', '${wazeWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#33ccff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🧭</div>
+        <div style="flex:1;text-align:left"><div>Waze</div><div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'Abre waze.com'}</div></div>
+        <span style="font-size:18px">→</span>
+      </button>
+      <button onclick="navigateWith('${gmapsUrl}', '${gmapsWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.08);color:#22c55e;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🗺️</div>
+        <div style="flex:1;text-align:left"><div>Google Maps</div><div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'maps.google.com'}</div></div>
+        <span style="font-size:18px">→</span>
+      </button>
+      ${isIOS ? `<button onclick="window.open('${appleMapsUrl}','_blank');closeModal();" style="padding:14px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px"><div style="width:42px;height:42px;border-radius:50%;background:#a855f7;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🍎</div><div style="flex:1;text-align:left"><div>Apple Maps</div></div><span style="font-size:18px">→</span></button>` : ''}
+    </div>
+  `;
+  openModal('🧭 Seguir ruta en...', body);
+}
+
+// Try native app deep link first, fall back to web URL after a short delay
+function navigateWith(nativeUrl, webUrl) {
+  const start = Date.now();
+  window.location.href = nativeUrl;
+  setTimeout(() => {
+    if (Date.now() - start < 2500) {
+      window.open(webUrl, '_blank');
+    }
+  }, 1500);
+  setTimeout(() => closeModal(), 500);
+}
+
+// Keep exportRouteGPX as a hidden fallback for power users
+function exportRouteGPX(routeId) {
+  openRouteInNav(routeId);
 }
 
 function setRutasTab(t) {
@@ -2974,21 +4111,22 @@ function renderRouteCard(r) {
   const difficultyColors = { facil: '#22c55e', media: '#f59e0b', dificil: '#ef4444', epica: '#9c27b0' };
   const diffColor = difficultyColors[r.difficulty] || '#888';
   return `
-    <div class="card vanish" style="cursor:pointer" onclick="selectRoute(${r.id})">
-      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+    <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="selectRoute(${r.id})">
+      <!-- Floating Waze/Maps button — always visible, opens native nav app -->
+      <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        🧭 Seguir
+      </button>
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;padding-right:90px">
         <div style="flex:1;min-width:0">
           <div class="card-title">${escHtml(r.name)}</div>
           <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
           <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             <span class="badge" style="background:${diffColor}22;color:${diffColor};border:1px solid ${diffColor}44">⚡ ${r.difficulty}</span>
             ${km > 0 ? `<span class="badge" style="background:rgba(0,212,255,0.1);color:#00d4ff;border:1px solid rgba(0,212,255,0.2)">📏 ${km}km</span>` : ''}
+            ${r.date ? `<span class="badge" style="background:rgba(255,68,68,0.1);color:#ff6666;border:1px solid rgba(255,68,68,0.2)">📅 ${(() => { try { const d=new Date(r.date+'T00:00');return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'}); } catch(e){return r.date;} })()}${r.time ? ' 🕐' : ''}</span>` : ''}
             <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
             ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">
-          <div style="font-size:20px">🏍️</div>
-          <button onclick="event.stopPropagation();exportRouteGPX(${r.id})" title="Exportar GPX" style="width:30px;height:30px;border-radius:8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">📥</button>
         </div>
       </div>
     </div>
@@ -2996,20 +4134,15 @@ function renderRouteCard(r) {
 }
 
 function setRouteDifficulty(d) {
-  routeFilter.difficulty = d;
+  // No-op (filter UI removed). Kept for backwards compatibility.
   renderRutas();
 }
 function setRouteMaxKm(v) {
-  routeFilter.maxKm = parseInt(v);
-  // Re-render only the list & filter label to keep map stable
+  // No-op (filter UI removed). Kept for backwards compatibility.
   const list = document.getElementById('rutas-list');
   if (list) {
     const sourceList = (routeSubTab === 'todas' ? STATE.routes : STATE.routes.filter(r => r.created_by === STATE.user?.id));
-    const filtered = sourceList.filter(r => {
-      if (routeFilter.difficulty !== 'todas' && r.difficulty !== routeFilter.difficulty) return false;
-      if (routeDistanceKm(r) > routeFilter.maxKm) return false;
-      return true;
-    });
+    if (sourceList.length > 0) list.innerHTML = sourceList.map(r => renderRouteCard(r)).join('');
     if (sourceList.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
     else if (filtered.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
     else list.innerHTML = filtered.map(r => renderRouteCard(r)).join('');
@@ -3081,11 +4214,25 @@ function editRoute(id) {
     <div id="ert-stops-container">${stopsHtml}</div>
     <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addEditStopField()">+ Agregar parada</button>
 
-    <select class="input" id="ert-diff" style="margin-bottom:16px">
+    <select class="input" id="ert-diff" style="margin-bottom:12px">
       <option value="facil" ${r.difficulty==='facil'?'selected':''}>Facil</option>
       <option value="intermedia" ${r.difficulty==='intermedia'?'selected':''}>Intermedia</option>
       <option value="alta" ${r.difficulty==='alta'?'selected':''}>Alta</option>
     </select>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <input class="input" type="date" id="ert-date" value="${r.date || ''}" style="font-size:13px">
+      <input class="input" type="time" id="ert-time" value="${r.time || ''}" style="font-size:13px">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;cursor:pointer">
+      <input type="checkbox" id="ert-notify" ${r.notify ? 'checked' : ''} style="width:18px;height:18px;accent-color:#ff4444;cursor:pointer">
+      <div>
+        <div style="font-size:13px;font-weight:600">🔔 Notificacion</div>
+        <div style="font-size:11px;color:var(--text3)">Recordatorio 1 hora antes de la salida</div>
+      </div>
+    </label>
+
     <button class="btn btn-primary" style="width:100%" onclick="doEditRoute(${r.id})">Guardar cambios</button>
   `);
 
@@ -3110,16 +4257,16 @@ function setupEditStopPlaceSearch(idx) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 6);
+      }).slice(0, 8);
       showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3163,16 +4310,16 @@ function setupEditstopPlaceSearch(stopId) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 6);
+      }).slice(0, 8);
       showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3187,6 +4334,9 @@ function doEditRoute(id) {
   const endLat = parseFloat(document.getElementById('ert-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('ert-end-lng').value) || 0;
   const diff = document.getElementById('ert-diff').value;
+  const date = document.getElementById('ert-date').value;
+  const time = document.getElementById('ert-time').value;
+  const notify = document.getElementById('ert-notify').checked;
 
   if (!name) { toast('El nombre es obligatorio'); return; }
   if (!startLat || !startLng) { toast('Busca y selecciona un punto de SALIDA'); return; }
@@ -3228,6 +4378,9 @@ function doEditRoute(id) {
     end_lng: endLng,
     end_name: endName,
     difficulty: diff,
+    date: date || null,
+    time: time || null,
+    notify: notify,
     stops: JSON.stringify(stops)
   };
 
@@ -3239,22 +4392,41 @@ function doEditRoute(id) {
 }
 
 function createRoute() {
+  if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear rutas'); return; }
+  // Preload POIs if not loaded yet
+  if (!window.panamaPOIs) loadPanamaPOIs();
+  // Pre-fill from saved POI state
+  const s = _routePOI.start || {};
+  const e = _routePOI.end || {};
+  const startDisplay = s.lat ? 'block' : 'none';
+  const startBtnDisplay = s.lat ? 'none' : 'flex';
+  const endDisplay = e.lat ? 'block' : 'none';
+  const endBtnDisplay = e.lat ? 'none' : 'flex';
   openModal('Nueva Ruta', `
-    <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:12px">
-    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:11px;color:var(--text3)">📍 Usa el mapa para buscar lugares</span>
+      <button onclick="closeModal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;line-height:1">✕</button>
+    </div>
+    <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:10px">
+    <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
 
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🚦</span> SALIDA
       <button onclick="useMyLocation('rt-start')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
     </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input class="input" id="rt-start-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
-      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    <div id="rt-start-selected" style="display:${startDisplay};padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
+      <span id="rt-start-selected-name" style="flex:1;color:var(--text);font-weight:600">${s.name || ''}</span>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-start')">✕</button>
     </div>
-    <div id="rt-start-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <button class="btn btn-ghost" id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${startBtnDisplay}" 
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+      onclick="startPOIPicker('start')">
+      📍 Buscar en el mapa
+    </button>
     <div class="coord-row" style="margin-bottom:16px">
-      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" value="${s.lat ? s.lat.toFixed(6) : ''}" readonly>
+      <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" value="${s.lng ? s.lng.toFixed(6) : ''}" readonly>
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('rt-start')" title="Limpiar">✕</button>
     </div>
 
@@ -3262,14 +4434,19 @@ function createRoute() {
       <span>🛑</span> DESTINO
       <button onclick="useMyLocation('rt-end')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
     </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input class="input" id="rt-end-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
-      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    <div id="rt-end-selected" style="display:${endDisplay};padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
+      <span id="rt-end-selected-name" style="flex:1;color:var(--text);font-weight:600">${e.name || ''}</span>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-end')">✕</button>
     </div>
-    <div id="rt-end-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <button class="btn btn-ghost" id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${endBtnDisplay}" 
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+      onclick="startPOIPicker('end')">
+      📍 Buscar en el mapa
+    </button>
     <div class="coord-row" style="margin-bottom:16px">
-      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" value="${e.lat ? e.lat.toFixed(6) : ''}" readonly>
+      <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" value="${e.lng ? e.lng.toFixed(6) : ''}" readonly>
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('rt-end')" title="Limpiar">✕</button>
     </div>
 
@@ -3279,30 +4456,48 @@ function createRoute() {
     <div id="rt-stops-container" style="margin-bottom:6px"></div>
     <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addStopField()">+ Agregar parada</button>
 
-    <select class="input" id="rt-diff" style="margin-bottom:16px">
+    <select class="input" id="rt-diff" style="margin-bottom:12px">
       <option value="facil">Facil</option>
       <option value="intermedia" selected>Intermedia</option>
       <option value="alta">Alta</option>
     </select>
+
+    <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      <span>📅</span> SALIDA
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <input class="input" type="date" id="rt-date" style="font-size:13px">
+      <input class="input" type="time" id="rt-time" style="font-size:13px" placeholder="Hora de salida">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;cursor:pointer">
+      <input type="checkbox" id="rt-notify" style="width:18px;height:18px;accent-color:#ff4444;cursor:pointer">
+      <div>
+        <div style="font-size:13px;font-weight:600">🔔 Notificacion</div>
+        <div style="font-size:11px;color:var(--text3)">Te recuerdo 1 hora antes de la salida</div>
+      </div>
+    </label>
+
     <button class="btn btn-primary" style="width:100%" onclick="doCreateRoute()">Crear ruta</button>
 
     <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:13px">⛽ Gasolineras</span><span style="font-size:13px">🛍️ Malls</span><span style="font-size:13px">📍 Lugares</span></div>
-      Escribe para buscar o usa <b>OpenStreetMap</b> en linea. Los lugares seleccionados se guardan en <b>EVA Lube</b>.
+      📍 <b>3,048 lugares de Panamá</b> disponibles en el mapa. Haz clic en <b>Buscar en el mapa</b> para ver gasolineras, talleres, restaurantes y más.
     </div>
   `);
 
-  // Setup autocomplete for all place search inputs in the modal
-  setTimeout(() => setupModalPlaceSearch('rt-start'), 100);
-  setTimeout(() => setupModalPlaceSearch('rt-end'), 100);
+  // POI Picker system — no more text search, map-based instead
 }
 
+// ─── POI MAP PICKER ────────────────────────────────────
+var _poiPickTarget = null;
+var _poiMarkers = null;
+
 function clearPlace(prefix) {
-  document.getElementById(prefix + '-lat').value = '';
-  document.getElementById(prefix + '-lng').value = '';
-  document.getElementById(prefix + '-name').value = '';
-  const dd = document.getElementById(prefix + '-name-dropdown');
-  if (dd) dd.style.display = 'none';
+  // Clear from state so form re-renders without this POI
+  if (prefix === 'rt-start') _routePOI.start = null;
+  else if (prefix === 'rt-end') _routePOI.end = null;
+  // Reopen modal to reflect cleared state
+  createRoute();
 }
 
 function useMyLocation(prefix) {
@@ -3316,7 +4511,6 @@ function useMyLocation(prefix) {
       const { latitude: lat, longitude: lng } = pos.coords;
       document.getElementById(prefix + '-lat').value = lat.toFixed(6);
       document.getElementById(prefix + '-lng').value = lng.toFixed(6);
-      // Reverse geocode with Nominatim
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
           headers: { 'Accept-Language': 'es' }
@@ -3324,17 +4518,204 @@ function useMyLocation(prefix) {
         const data = await res.json();
         let name = data.address?.road || data.address?.neighbourhood || data.address?.suburb || data.address?.city || data.address?.town || 'Mi ubicacion';
         document.getElementById(prefix + '-name').value = name;
-        toast('Ubicacion detectada: ' + name);
+        toast('Ubicacion: ' + name);
       } catch(e) {
-        document.getElementById(prefix + '-name').value = 'Mi ubicacion (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')';
+        document.getElementById(prefix + '-name').value = 'Mi ubicacion';
         toast('Ubicacion detectada');
       }
     },
-    err => {
-      toast('No se pudo obtener ubicacion: ' + (err.message || 'Permiso denegado'));
-    },
+    err => { toast('Sin acceso a ubicacion'); },
     { enableHighAccuracy: true, timeout: 10000 }
   );
+}
+
+function startPOIPicker(target) {
+  _poiPickTarget = target;
+  
+  // Close modal completely to free the map
+  closeModal();
+  
+  // Show floating picker bar with search
+  var bar = document.createElement('div');
+  bar.id = 'poi-picker-bar';
+  bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface, #1a1a2e);border:1px solid var(--accent);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(255,68,68,0.3);font-size:13px;color:var(--text);flex-wrap:wrap;max-width:95vw';
+  bar.innerHTML = '<span style="font-size:16px">📍</span> <b>' + (target === 'start' ? 'SALIDA' : 'DESTINO') + '</b>' +
+    '<input id="poi-map-search" type="text" placeholder="🔍 Buscar por nombre..." style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;outline:none" autocomplete="off" oninput="window._handlePOISearch(this.value)">' +
+    '<button onclick="cancelPOIPicker()" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap">✕ Cancelar</button>';
+  document.body.appendChild(bar);
+  
+  // Search filter — globally accessible via oninput attribute
+  var _searchTimeout = null;
+  window._handlePOISearch = function(q) {
+    clearTimeout(_searchTimeout);
+    q = (q || '').trim().toLowerCase();
+    _searchTimeout = setTimeout(function() {
+      var pois = window.panamaPOIs || [];
+      if (q.length >= 2) {
+        pois = pois.filter(function(p) {
+          return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.subcategory || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.category || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.address || '').toLowerCase().indexOf(q) !== -1;
+        });
+      }
+      renderPOIs(pois);
+    }, 100);
+  };
+  
+  // Load POIs onto map
+  loadPOIsToMap();
+  
+  // Color-code by category for circle markers
+  function catColor(cat) {
+    var m = {fuel:'#ff8800', restaurant:'#22c55e', fast_food:'#facc15', hotel:'#3b82f6', 
+             service:'#a855f7', police:'#3b82f6', hospital:'#ef4444', pharmacy:'#06b6d4',
+             supermarket:'#f97316', mall:'#ec4899'};
+    return m[cat] || '#94a3b8';
+  }
+  
+  // Show POIs
+  function loadPOIsToMap() {
+    if (!STATE.map) return;
+    if (_poiMarkers) { STATE.map.removeLayer(_poiMarkers); }
+    
+    var pois = window.panamaPOIs || [];
+    if (pois.length === 0) {
+      // Try loading
+      fetch('data/panama_pois.json')
+        .then(r => r.json())
+        .then(data => { window.panamaPOIs = data; renderPOIs(data); })
+        .catch(() => toast('No se pudo cargar la base de datos'));
+      return;
+    }
+    renderPOIs(pois);
+  }
+  
+  function renderPOIs(pois) {
+    // Remove old markers first to avoid stacking
+    if (_poiMarkers) { STATE.map.removeLayer(_poiMarkers); _poiMarkers = null; }
+    _poiMarkers = L.featureGroup();
+    
+    // Store POI data globally for popup onclick access
+    window._poiDataMap = {};
+    
+    pois.forEach(function(p, idx) {
+      var icon = p.icon || '📍';
+      var color = catColor(p.category);
+      var marker = L.circleMarker([p.lat, p.lng], {
+        radius: 6,
+        fillColor: color,
+        color: '#fff',
+        weight: 1.5,
+        fillOpacity: 0.85
+      });
+      
+      var poiId = 'poi-' + idx;
+      window._poiDataMap[poiId] = p;
+      
+      var targetLabel = _poiPickTarget === 'start' ? 'SALIDA' : 'DESTINO';
+      var altLabel = _poiPickTarget === 'start' ? 'DESTINO' : 'SALIDA';
+      
+      var popupHtml = '<div style="min-width:180px;font-size:12px">' +
+        '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + icon + ' ' + escHtml(p.name || 'Lugar') + '</div>' +
+        '<div style="color:var(--text2);margin-bottom:2px">' + escHtml(p.subcategory || p.category || '') + '</div>' +
+        (p.address ? '<div style="color:var(--text3);font-size:11px;margin-bottom:6px">' + escHtml(p.address) + '</div>' : '') +
+        '<div style="display:flex;gap:6px;margin-top:6px">' +
+          '<button data-poi-id="' + poiId + '" data-action="pick" style="flex:1;background:var(--accent);color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">✅ ' + targetLabel + '</button>' +
+          '<button data-poi-id="' + poiId + '" data-action="alt" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 8px;border-radius:6px;cursor:pointer;font-size:11px">' + altLabel + '</button>' +
+        '</div>' +
+      '</div>';
+      
+      marker.bindPopup(popupHtml, {maxWidth: 280});
+      marker.bindTooltip(icon + ' ' + (p.name || 'Lugar'), {direction:'top', offset:[0,-8], opacity:1, className: 'poi-tooltip'});
+      // Larger markers for easier tapping
+      marker.setRadius(8);
+      _poiMarkers.addLayer(marker);
+    });
+    
+    STATE.map.addLayer(_poiMarkers);
+    
+    // Delegate click events from popup buttons (remove old listener first)
+    STATE.map.off('popupopen');
+    STATE.map.on('popupopen', function(e) {
+      setTimeout(function() {
+        document.querySelectorAll('[data-poi-id][data-action]').forEach(function(btn) {
+          btn.onclick = function() {
+            var poiId = this.getAttribute('data-poi-id');
+            var action = this.getAttribute('data-action');
+            var p = window._poiDataMap[poiId];
+            if (!p) return;
+            if (action === 'pick') {
+              selectPOIFromMap(p.lat, p.lng, p.name);
+            } else {
+              selectPOIFromMapAlt(p.lat, p.lng, p.name);
+            }
+          };
+        });
+      }, 50);
+    });
+    
+    // Fit map to show all markers
+    try {
+      var bounds = _poiMarkers.getBounds();
+      STATE.map.fitBounds(bounds, {padding: [30,30], maxZoom: 16});
+    } catch(e) {}
+    
+    toast(pois.length + ' lugares en el mapa — haz clic en un marcador para seleccionar');
+  }
+}
+
+function selectPOIFromMap(lat, lng, name) {
+  fillPOIFields(_poiPickTarget, lat, lng, name);
+  // Reopen the route creation modal so user can continue
+  createRoute();
+}
+
+function selectPOIFromMapAlt(lat, lng, name) {
+  // Select for the OTHER target (SALIDA↔DESTINO)
+  var alt = _poiPickTarget === 'start' ? 'end' : 'start';
+  fillPOIFields(alt, lat, lng, name);
+  // Reopen the route creation modal so user can continue
+  createRoute();
+}
+
+function fillPOIFields(target, lat, lng, name) {
+  // Store in state so it survives modal recreation
+  _routePOI[target] = { lat: lat, lng: lng, name: name || 'Lugar seleccionado' };
+  // Save to local places
+  savePlace({name: name, lat: lat, lng: lng, isOnline: false});
+  // Close the POI picker
+  cancelPOIPicker();
+  toast('✅ ' + name + ' → ' + (target === 'start' ? 'SALIDA' : 'DESTINO'));
+  // Reopen modal with pre-filled values
+  createRoute();
+}
+
+function cancelPOIPicker() {
+  _poiPickTarget = null;
+  
+  // Remove floating bar
+  var bar = document.getElementById('poi-picker-bar');
+  if (bar) bar.remove();
+  
+  // Remove POI layer from map
+  if (_poiMarkers && STATE.map) {
+    STATE.map.removeLayer(_poiMarkers);
+    _poiMarkers = null;
+  }
+  
+  // Re-open modal
+  document.getElementById('modal').classList.add('open');
+  
+  // If this was the SALIDA picker and nothing was selected, re-show both map buttons
+  ['start', 'end'].forEach(function(t) {
+    var sel = document.getElementById('rt-' + t + '-selected');
+    if (sel && sel.style.display === 'none') {
+      var btn = document.getElementById('rt-' + t + '-map-btn');
+      if (btn) btn.style.display = '';
+    }
+  });
+>>>>>>> 32a6cd45ae5f448b46ab7ee7127d284f350b78aa
 }
 
 function setupModalPlaceSearch(prefix) {
@@ -3350,9 +4731,9 @@ function setupModalPlaceSearch(prefix) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
@@ -3362,7 +4743,7 @@ function setupModalPlaceSearch(prefix) {
         nameInput, latInput, lngInput,
         onSelect: p => toast(p.isOnline ? 'Guardado en EVA Lube 📍' : 'Lugar seleccionado')
       });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3471,16 +4852,16 @@ function setupStopPlaceSearch(stopId) {
     const val = this.value.trim();
     if (val.length < 2) { dropdown.style.display = 'none'; return; }
     timeout = setTimeout(async () => {
-      const { local, online } = await searchPlaces(val);
+      const { local, panamaPOIs, online } = await searchPlaces(val);
       const seen = new Set();
-      const merged = [...local, ...online].filter(p => {
+      const merged = [...local, ...panamaPOIs, ...online].filter(p => {
         const key = p.lat.toFixed(4) + ',' + p.lng.toFixed(4);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
-      }).slice(0, 6);
+      }).slice(0, 8);
       showPlaceResults(dropdown, merged, { nameInput, latInput, lngInput, onSelect: () => toast('Guardado en EVA Lube 📍') });
-    }, 300);
+    }, 100);
   });
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
@@ -3496,13 +4877,19 @@ function openGmapsStop(stopId) {
 function doCreateRoute() {
   const name = document.getElementById('rt-name').value.trim();
   const desc = document.getElementById('rt-desc').value.trim();
-  const startName = document.getElementById('rt-start-name').value.trim();
+  // POI picker now stores names in selected-name spans
+  const startNameEl = document.getElementById('rt-start-selected-name');
+  const endNameEl = document.getElementById('rt-end-selected-name');
+  const startName = startNameEl ? startNameEl.textContent.trim() : '';
+  const endName = endNameEl ? endNameEl.textContent.trim() : '';
   const startLat = parseFloat(document.getElementById('rt-start-lat').value) || 0;
   const startLng = parseFloat(document.getElementById('rt-start-lng').value) || 0;
-  const endName = document.getElementById('rt-end-name').value.trim();
   const endLat = parseFloat(document.getElementById('rt-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('rt-end-lng').value) || 0;
   const diff = document.getElementById('rt-diff').value;
+  const date = document.getElementById('rt-date').value;
+  const time = document.getElementById('rt-time').value;
+  const notify = document.getElementById('rt-notify').checked;
 
   // Collect stops
   const stops = [];
@@ -3529,8 +4916,12 @@ function doCreateRoute() {
     end_lng: endLng,
     end_name: endName,
     difficulty: diff,
+    date: date || null,
+    time: time || null,
+    notify: notify,
     stops: JSON.stringify(stops),
-    created_by: STATE.user.id
+    created_by: STATE.user.id,
+    created_at: new Date().toISOString().slice(0,19).replace('T',' ')
   };
   STATE.routes.push(route);
   saveState();
@@ -3540,11 +4931,26 @@ function doCreateRoute() {
   toast('Ruta creada!');
 }
 
-function deleteRoute(id) {
+async function deleteRoute(id) {
   if (!confirm('¿Eliminar esta ruta?')) return;
+  // Mark as deleted to block cloud sync from restoring it
+  STATE._deletedRouteIds = STATE._deletedRouteIds || [];
+  STATE._deletedRouteIds.push(id);
+  ls('_deletedRoutes', STATE._deletedRouteIds);
+  // Delete from IndexedDB if exists
+  if (DB) { try { await idbDelete('routes', id); } catch(e) {} }
+  // Remove from STATE
   STATE.routes = STATE.routes.filter(r => r.id !== id);
   STATE.selectedRoute = null;
-  saveState();
+  // Save local immediately
+  ls('bs_routes', STATE.routes);
+  // Push to cloud immediately so it doesn't come back
+  if (HV.connected) {
+    await saveToHV('routes', STATE.routes);
+    // After cloud synced, remove from deleted list
+    STATE._deletedRouteIds = STATE._deletedRouteIds.filter(i => i !== id);
+    ls('_deletedRoutes', STATE._deletedRouteIds);
+  }
   renderRutas();
   toast('Ruta eliminada');
 }
@@ -3602,61 +5008,71 @@ function viewRider(id) {
   navigate('rider-detail');
 }
 
-function renderRiderDetail() {
-  const r = STATE.selectedRider;
+function renderRiderDetail(userId) {
+  // If userId passed (from BikerGram), use it; else fall back to selectedRider
+  const targetId = userId || STATE.selectedRider?.id;
+  const r = STATE.users.find(u => u.id === targetId) || STATE.selectedRider;
   if (!r) { navigate('bikers'); return; }
+  recalculateUserStats(r.id);
   const rank = STATE.users.sort((a,b) => b.points - a.points).findIndex(u => u.id === r.id) + 1;
   const lv = levelOf(r.points);
   const progress = levelProgress(r.points);
   const myBadges = STATE.userBadges.filter(ub => ub.user_id === r.id);
   const earned = myBadges.map(ub => ub.badge_id);
+  const stats = getUserStats(r.id);
   const myEvents = STATE.attendance.filter(a => a.user_id === r.id).length;
-  const myRoutes = STATE.routes.filter(rt => rt.created_by === r.id).length;
+  const followers = getFollowerCount(r.id);
+  const following = getFollowingCount(r.id);
+  const posts = STATE.posts.filter(p => p.user_id === r.id);
 
   document.getElementById('page-rider-detail').innerHTML = `
     <div style="margin-bottom:16px">
       <button class="btn btn-ghost" style="padding:6px 0" onclick="navigate('bikers')">← Volver</button>
     </div>
-    <div style="text-align:center;margin-bottom:20px">
+    <div style="text-align:center;margin-bottom:16px">
       <div style="margin:0 auto 12px;display:flex;justify-content:center">
-        ${renderAvatar(r, 96)}
+        ${renderAvatar(r, 88)}
       </div>
       <div style="font-size:20px;font-weight:800">${r.username} ${r.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
-      <div style="color:var(--text2);font-size:13px;margin-top:4px">${r.bike_model || 'Sin moto'} · ${r.city || 'Panama'}</div>
-      ${r.is_injured ? `<div style="margin-top:8px"><span class="badge-red">⚠️ ${r.injury_note || 'LESIONADO'}</span></div>` : ''}
-      ${r.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px">${r.bio}</div>` : ''}
+      <div style="color:var(--text2);font-size:13px;margin-top:4px">${r.bike_model || 'Sin moto'}</div>
+      ${r.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px;max-width:280px;margin-left:auto;margin-right:auto">${r.bio}</div>` : ''}
     </div>
 
-    <div class="points-bar" style="margin-bottom:16px">
-      <div class="points-level">
-        <div class="points-label">Nivel ${lv.name}</div>
-        <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
-      </div>
-      <div class="points-value">${r.points} pts</div>
+    <div class="stat-row" style="margin-bottom:12px">
+      <div class="stat-box"><div class="stat-val">${posts.length}</div><div class="stat-lbl">Posts</div></div>
+      <div class="stat-box"><div class="stat-val">${followers}</div><div class="stat-lbl">Seguidores</div></div>
+      <div class="stat-box"><div class="stat-val">${following}</div><div class="stat-lbl">Siguiendo</div></div>
     </div>
 
-    <div class="stat-row vanish" style="animation-delay:0.05s">
-      <div class="stat-box"><div class="stat-val">#${rank}</div><div class="stat-lbl">Ranking</div></div>
-      <div class="stat-box"><div class="stat-val">${myEvents}</div><div class="stat-lbl">Eventos</div></div>
-      <div class="stat-box"><div class="stat-val">${myRoutes}</div><div class="stat-lbl">Rutas</div></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center">
+      ${renderFollowButton(r.id)}
+      ${(STATE.user?.id === r.id || STATE.user?.is_admin) ? `<button class="btn btn-secondary" onclick="editRider(${r.id})" style="padding:8px 16px;font-size:13px">Editar</button>` : ''}
     </div>
 
-    <div class="vanish" style="animation-delay:0.1s">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">INSIGNIAS GANADAS (${earned.length})</div>
-      <div class="badge-grid">
-        ${STATE.badges.map(b => {
-          const isEarned = earned.includes(b.id);
-          return `<div class="badge-item ${isEarned ? 'earned' : ''}" title="${b.description}">
-            <div class="badge-icon">${b.icon}</div>
-            <div class="badge-name">${b.name}</div>
-          </div>`;
-        }).join('')}
+    ${earned.length > 0 ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">INSIGNIAS</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${STATE.badges.filter(b => earned.includes(b.id)).map(b => `
+          <div style="text-align:center;cursor:pointer" onclick="showBadgeDetail(${b.id})" title="${b.name}">
+            ${getBadgeSvg(b, true)}
+          </div>
+        `).join('')}
       </div>
     </div>
-
-    ${STATE.user?.id === r.id || STATE.user?.is_admin ? `
-      <button class="btn btn-secondary" style="width:100%;margin-top:16px" onclick="editRider(${r.id})">Editar perfil</button>
     ` : ''}
+
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">PUBLICACIONES</div>
+      ${posts.length === 0 ? `<div style="text-align:center;color:var(--text3);font-size:13px;padding:16px">No hay publicaciones todavia</div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">
+        ${posts.map(p => `
+          <div style="aspect-ratio:1;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${p.media_url || p.image_url || ''}')">
+            ${(p.media_url || p.image_url) ? `<img src="${p.media_url || p.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:20px;color:var(--text3)">📝</div>`}
+          </div>
+        `).join('')}
+      </div>
+    </div>
   `;
 }
 
@@ -3706,10 +5122,6 @@ function editRider(id) {
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
           <input type="checkbox" id="ed-isadmin" ${r.is_admin ? 'checked' : ''} onchange>
           Es Admin
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-top:4px">
-          <input type="checkbox" id="ed-isinjured" ${r.is_injured ? 'checked' : ''} onchange>
-          Marcado como herido
         </label>
         <div style="margin-top:8px">
           <label style="font-size:12px;color:var(--text2)">Puntos (admin)</label>
@@ -3821,74 +5233,22 @@ function removeAdminAward(id) {
 // ============================================================
 // BIKERGRAM PAGE
 // ============================================================
- let GRAM_SORT = 'newest'; // newest | popular | commented
-
 function renderBikerGram() {
   const photos = STATE.posts.filter(p => p.media_type === 'image' || p.image_url).length;
   const videos = STATE.posts.filter(p => p.media_type === 'video').length;
   const audios = STATE.posts.filter(p => p.media_type === 'audio').length;
   const totalPosts = STATE.posts.length;
 
-  // Build stories: users with at least one media post in last 7 days
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const storyUsers = {};
-  STATE.posts.forEach(p => {
-    if ((p.media_type === 'image' || p.media_type === 'video') && new Date(p.created_at) > sevenDaysAgo) {
-      if (!storyUsers[p.user_id]) {
-        const u = STATE.users.find(x => x.id === p.user_id);
-        if (u) storyUsers[p.user_id] = { user: u, post: p };
-      }
-    }
-  });
-  const storyList = Object.values(storyUsers);
-
-  // Sort posts
-  let posts = [...STATE.posts];
-  if (GRAM_SORT === 'popular') posts.sort((a,b) => (b.likes?.length||0) - (a.likes?.length||0));
-  else if (GRAM_SORT === 'commented') posts.sort((a,b) => (b.comments?.length||0) - (a.comments?.length||0));
-  else posts.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  // Posts sorted by newest first (always)
+  let posts = [...STATE.posts].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
   document.getElementById('page-bikergram').innerHTML = `
-    <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div>
-        <div style="font-size:20px;font-weight:900;letter-spacing:-0.5px">
-          <span style="background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Biker</span><span style="color:#fff">Gram</span>
-        </div>
-        ${totalPosts > 0 ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">📷 ${photos} · 🎬 ${videos} · 🎵 ${audios}</div>` : ''}
+    <!-- Header — clean -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:20px;font-weight:900;letter-spacing:-0.5px">
+        <span style="background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Biker</span><span style="color:#fff">Gram</span>
       </div>
       <button onclick="createPost()" style="width:40px;height:40px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff4444,#ff8800);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(255,68,68,0.4);flex-shrink:0">+</button>
-    </div>
-
-    <!-- Stories bar -->
-    ${storyList.length > 0 || STATE.user ? `
-    <div style="margin-bottom:14px">
-      <div style="display:flex;gap:10px;overflow-x:auto;padding:4px 2px;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain">
-        ${STATE.user ? `
-        <!-- Add story button -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="createPost()">
-          <div style="width:62px;height:62px;border-radius:50%;background:rgba(255,68,68,0.15);border:2px dashed rgba(255,68,68,0.4);display:flex;align-items:center;justify-content:center;font-size:24px">+</div>
-          <div style="font-size:10px;color:var(--text3);text-align:center;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Tu story</div>
-        </div>` : ''}
-        ${storyList.map(s => `
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer" onclick="viewStoryUser(${s.user.id})">
-            <div style="width:64px;height:64px;border-radius:50%;padding:3px;background:${s.user.is_admin ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'linear-gradient(135deg,#ff4444,#ff8800)'};display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,68,68,0.3)">
-              <div style="width:100%;height:100%;border-radius:50%;border:3px solid #0a0a0a;overflow:hidden;background:var(--surface)">
-                ${s.post.media_type === 'image' || s.post.image_url ? `<img src="${s.post.media_url || s.post.image_url}" style="width:100%;height:100%;object-fit:cover">` : s.post.media_type === 'video' ? `<video src="${s.post.media_url}" muted style="width:100%;height:100%;object-fit:cover"></video>` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.2))">🎬</div>`}
-              </div>
-            </div>
-            <div style="font-size:10px;color:var(--text3);text-align:center;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.user.username}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    ` : ''}
-
-    <!-- Sort tabs -->
-    <div style="display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px">
-      <button onclick="setGramSort('newest')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='newest'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='newest'?'#fff':'var(--text3)'}">Recientes</button>
-      <button onclick="setGramSort('popular')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='popular'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='popular'?'#fff':'var(--text3)'}">🔥 Populares</button>
-      <button onclick="setGramSort('commented')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${GRAM_SORT==='commented'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${GRAM_SORT==='commented'?'#fff':'var(--text3)'}">💬 Comentados</button>
     </div>
 
     <!-- Feed -->
@@ -3900,13 +5260,11 @@ function renderBikerGram() {
           <div style="font-size:12px;color:var(--text2);margin-top:6px">El primer rider en publicar marca el camino</div>
           <button class="btn btn-primary" style="margin-top:14px;padding:10px 24px" onclick="createPost()">Crear publicacion</button>
         </div>
-      ` : posts.map(p => renderRacingPost(p)).join('')}
+      ` : posts.map(p => renderPostCardEnhanced(p)).join('')}
     </div>
   `;
   // Resolve HeyValue video/audio URLs after DOM renders
   resolveHvMedia();
-  // Bind double-tap-to-like on media
-  bindDoubleTapLike();
 }
 
 function resolveHvMedia() {
@@ -3927,17 +5285,6 @@ function resolveHvMedia() {
       }
     }).catch(() => {});
   });
-}
-
-function viewStoryUser(userId) {
-  // Filter feed to show posts from this user only
-  STATE.gramFilterUser = userId;
-  renderBikerGram();
-}
-
-function setGramSort(s) {
-  GRAM_SORT = s;
-  renderBikerGram();
 }
 
 // Render media block for a post (image / video / audio / none)
@@ -3962,9 +5309,17 @@ function renderPostMedia(p) {
       <audio src="${url}" controls preload="metadata" style="width:100%"></audio>
     </div>`;
   }
-  // image (default) — show full width, max height 540, object-fit contain
-  return `<div style="position:relative;background:#000;overflow:hidden">
-    <img src="${url}" loading="lazy" style="display:block;width:100%;max-height:540px;object-fit:contain;background:#000" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#888;font-size:12px\\'>Imagen no disponible</div>'">
+  // image (default) — hover overlay with "Abrir"
+  return `<div style="position:relative;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${url}')">
+    <img src="${url}" loading="lazy" data-lightbox="1" style="display:block;width:100%;max-height:75vh;object-fit:contain;background:#000"
+         onload="(function(img){var r=img.naturalHeight/img.naturalWidth;if(r>1.3){img.style.maxHeight='80vh';img.style.width='auto';img.style.maxWidth='100%';img.style.margin='0 auto';}else if(r<0.6){img.style.maxHeight='55vh';}})(this)">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:background 0.2s;pointer-events:none"
+         onmouseover="this.style.background='rgba(0,0,0,0.35)'"
+         onmouseout="this.style.background='rgba(0,0,0,0)'">
+      <span style="color:#fff;font-size:15px;font-weight:800;opacity:0;transition:opacity 0.2s;text-shadow:0 2px 8px rgba(0,0,0,0.8);pointer-events:none"
+            onmouseover="this.style.opacity='1'"
+            onmouseout="this.style.opacity='0'">🔍 Abrir</span>
+    </div>
     <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:700;backdrop-filter:blur(8px)">📷 FOTO</div>
   </div>`;
 }
@@ -4006,11 +5361,13 @@ function renderPost(p) {
       </div>
       ` : ''}
       <div class="post-actions">
-        <button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike(${p.id})">
+        <button class="like-btn ${isLiked ? 'liked' : ''}" data-like-btn="${p.id}" onclick="toggleLike(${p.id})">
           ${isLiked ? '❤️' : '🤍'} Me gusta
+          ${likes.length > 0 ? `<span style="opacity:0.7;font-weight:400">${likes.length}</span>` : ''}
         </button>
         <button class="like-btn" onclick="showComments(${p.id})">
           💬 Comentar
+          ${comments.length > 0 ? `<span style="opacity:0.7;font-weight:400">${comments.length}</span>` : ''}
         </button>
         <button class="like-btn" onclick="sharePost(${p.id})">
           📤 Compartir
@@ -4211,71 +5568,21 @@ function toggleLike(postId) {
   saveState();
   // Update like count without re-rendering the whole feed (preserves scroll & media state)
   const countEl = document.querySelector(`[data-count="${postId}"]`);
-  if (countEl) {
-    const l = p.likes.length;
-    countEl.textContent = l > 0 ? l + ' likes' : 'Me gusta';
-  }
-  // Toggle visual state of the button (color/bg)
+  // Update button visual state (neon glow)
   const btn = document.querySelector(`[data-like-btn="${postId}"]`);
   if (btn) {
     const isLiked = !wasLiked;
-    btn.style.background = isLiked ? 'linear-gradient(135deg,rgba(255,68,68,0.25),rgba(255,136,0,0.2))' : 'rgba(255,255,255,0.04)';
-    btn.style.color = isLiked ? '#ff4444' : 'var(--text2)';
-    const icon = btn.querySelector('.like-icon');
-    if (icon) icon.textContent = isLiked ? '❤️' : '🤍';
-  }
-}
-
-// Double-tap on media to like with floating heart animation
-function bindDoubleTapLike() {
-  if (window.__bikerGramDblBound) return;
-  window.__bikerGramDblBound = true;
-  let lastTap = 0;
-  let lastTarget = null;
-  document.addEventListener('click', (e) => {
-    // Find closest media element
-    const media = e.target.closest('img[src], video[src]');
-    if (!media) return;
-    // Find which post it belongs to
-    const card = media.closest('[data-post-id]');
-    if (!card) return;
-    const postId = parseInt(card.dataset.postId);
-    const now = Date.now();
-    if (lastTarget === card && now - lastTap < 350) {
-      // Double-tap detected
-      const p = STATE.posts.find(x => x.id === postId);
-      if (!p) return;
-      const wasLiked = (p.likes || []).includes(String(STATE.user?.id));
-      if (!wasLiked) {
-        toggleLike(postId);
-      }
-      // Floating heart animation
-      spawnFloatingHeart(media, wasLiked);
-      lastTap = 0;
-      lastTarget = null;
+    if (isLiked) {
+      btn.classList.add('liked');
+      btn.classList.add('liked-neon');
     } else {
-      lastTap = now;
-      lastTarget = card;
+      btn.classList.remove('liked');
+      btn.classList.remove('liked-neon');
     }
-  });
-}
-
-function spawnFloatingHeart(mediaEl, wasLiked) {
-  const rect = mediaEl.getBoundingClientRect();
-  const heart = document.createElement('div');
-  heart.textContent = wasLiked ? '💔' : '❤️';
-  heart.style.cssText = `
-    position:fixed;
-    left:${rect.left + rect.width/2 - 30}px;
-    top:${rect.top + rect.height/2 - 30}px;
-    font-size:64px;
-    z-index:9999;
-    pointer-events:none;
-    filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));
-    animation:heartFloat 1.2s ease-out forwards;
-  `;
-  document.body.appendChild(heart);
-  setTimeout(() => heart.remove(), 1200);
+    // Update the heart icon
+    const spans = btn.querySelectorAll('span');
+    if (spans[0]) spans[0].textContent = isLiked ? '❤️' : '🤍';
+  }
 }
 
 function showComments(postId) {
@@ -4318,11 +5625,11 @@ function createPost() {
     <!-- Content -->
     <textarea class="input" id="post-content" rows="3" placeholder="Que estas pensando, ${STATE.user.username}? 🏍️" style="resize:none;border-radius:14px;padding:14px;font-size:14px"></textarea>
 
-    <!-- Media upload button (single) -->
+    <!-- Media upload button — compact -->
     <div style="margin-top:12px">
-      <button onclick="document.getElementById('post-file-any').click()" style="width:100%;padding:18px;background:rgba(255,32,32,0.06);border:1px dashed rgba(255,32,32,0.3);border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.2s" onmouseover="this.style.borderColor='#ff2020';this.style.background='rgba(255,32,32,0.12)'" onmouseout="this.style.borderColor='rgba(255,32,32,0.3)';this.style.background='rgba(255,32,32,0.06)'">
-        <div style="font-size:26px">📎</div>
-        <div style="font-size:12px;font-weight:700;color:var(--text2)">Agregar foto, video o audio</div>
+      <button onclick="document.getElementById('post-file-any').click()" style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.2s;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='rgba(255,68,68,0.5)';this.style.background='rgba(255,68,68,0.08)';this.style.color='#fff'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.background='rgba(255,255,255,0.04)';this.style.color='var(--text2)'">
+        <span style="font-size:18px">📷</span>
+        <span style="font-weight:500">Adjuntar foto, video o audio</span>
       </button>
     </div>
 
@@ -4367,22 +5674,35 @@ function handlePostFile(e) {
 }
 
 async function processPostFile(file) {
-  if (file.size > 1024 * 1024 * 1024) { toast('Archivo muy grande (máx 1GB)'); return; }
-
   const isImage = file.type.startsWith('image/');
   const isVideo = file.type.startsWith('video/');
   const isAudio = file.type.startsWith('audio/');
   if (!isImage && !isVideo && !isAudio) { toast('Tipo de archivo no soportado'); return; }
+
+  // Images: max 50MB. Video/audio: no limit.
+  if (isImage && file.size > 50 * 1024 * 1024) { toast('Imagen muy grande (máx 50MB)'); return; }
 
   const type = isImage ? 'image' : (isVideo ? 'video' : 'audio');
   let dataUrl;
   let fileToUpload = file;
 
   if (isImage) {
-    dataUrl = await compressImage(file, 1280, 0.85);
+    dataUrl = await compressImage(file, 800, 0.8);
     if (!dataUrl) { toast('No se pudo procesar la imagen'); return; }
+  } else if (isVideo) {
+    // Compress video with FFmpeg (720p, small file)
+    const preview = document.getElementById('post-media-preview');
+    if (preview) preview.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px">Comprimiendo video... esto puede tardar un momento</div>';
+    const compressed = await compressVideo(file, null);
+    if (compressed) {
+      dataUrl = URL.createObjectURL(compressed);
+      fileToUpload = compressed;
+      toast('Video comprimido!');
+    } else {
+      dataUrl = URL.createObjectURL(file);
+    }
   } else {
-    // Video & audio: use blob URL (no base64 bloat — safe for huge files)
+    // Audio: use blob URL
     dataUrl = URL.createObjectURL(file);
   }
 
@@ -4444,15 +5764,15 @@ async function compressVideo(file, onProgress) {
     const inputData = await fetchFile(file);
     await ff.writeFile(inputName, inputData);
 
-    // Compress: 720p, CRF 28 (good quality), fast preset
+    // Compress: 720p, CRF 23 (high quality), fast preset — targets ~1MB/min
     await ff.exec([
       '-i', inputName,
       '-vf', 'scale=-2:720',
       '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-crf', '28',
+      '-preset', 'fast',
+      '-crf', '23',
       '-c:a', 'aac',
-      '-b:a', '96k',
+      '-b:a', '64k',
       '-movflags', '+faststart',
       outputName
     ]);
@@ -4492,7 +5812,7 @@ function renderPostPreview() {
   if (POST_DRAFT.type === 'image') {
     preview.innerHTML = `
       <div style="position:relative;border-radius:12px;overflow:hidden;background:#000">
-        <img src="${POST_DRAFT.dataUrl}" style="display:block;width:100%;max-height:480px;object-fit:contain;background:#000" onload="this.dataset.aspect=this.naturalHeight/this.naturalWidth">
+        <img src="${POST_DRAFT.dataUrl}" style="display:block;width:100%;max-height:70vh;object-fit:contain;background:#000" onload="(function(img){var r=img.naturalHeight/img.naturalWidth;if(r>1.3){img.style.maxHeight='75vh';img.style.width='auto';img.style.maxWidth='100%';img.style.margin='0 auto'}})(this)">
         <button type="button" onclick="clearPostMedia()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;backdrop-filter:blur(8px)">✕</button>
         <div style="position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;padding:4px 10px;border-radius:20px;font-size:11px;backdrop-filter:blur(8px)">${typeEmoji} ${typeLabel} · ${sizeKB}KB</div>
       </div>
@@ -4550,64 +5870,54 @@ function clearPostMedia() {
   if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
-  let mediaUrl = POST_DRAFT?.dataUrl || null;
+  // Close modal immediately
+  closeModal();
 
-  // Upload to HeyValue + store as data URL for persistence
-  if (HV.user && HV.pass && POST_DRAFT?.file) {
-    const fileSize = POST_DRAFT.file.size;
-    const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
-    toast(`Subiendo ${sizeMB}MB a HeyValue...`);
-
-    const ext = POST_DRAFT.fileName.split('.').pop() || 'mp4';
-    const fileName = `gram_${Date.now()}_${Math.random().toString(36).substring(2,8)}.${ext}`;
-    const folder = POST_DRAFT.type === 'image' ? '/photos' : (POST_DRAFT.type === 'video' ? '/videos' : '/audio');
-    const hvPath = HV.hvPath || HV.user;
-    const path = '/' + HV.gramFolder + folder + '/' + fileName;
-    const fullPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
-    // Embed credentials in URL for auth — resolveHvMedia() will use these
-    const fullPathAuth = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
-
-    try {
-      const buffer = await POST_DRAFT.file.arrayBuffer();
-      const r = await fetch(fullPath, {
-        method: 'PUT',
-        headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': POST_DRAFT.mimeType },
-        body: buffer
-      });
-      if (r.ok || r.status === 201 || r.status === 204) {
-        mediaUrl = fullPathAuth;
-        toast('Subido a HeyValue!');
-      } else {
-        toast('Error cloud — guardando local');
-      }
-    } catch(e) {
-      toast('Error subiendo: ' + e.message);
+  // Prepare media data for instant display
+  let mediaData = null;
+  if (POST_DRAFT?.dataUrl) {
+    mediaData = {
+      type: POST_DRAFT.type,
+      url: POST_DRAFT.dataUrl,
+      blob: null,
+      fileName: POST_DRAFT.fileName,
+      mimeType: POST_DRAFT.mimeType
+    };
+    // Get blob for background upload
+    if (POST_DRAFT.dataUrl.startsWith('data:')) {
+      mediaData.blob = dataURLtoBlob(POST_DRAFT.dataUrl);
+    } else {
+      mediaData.blob = await fetch(POST_DRAFT.dataUrl).then(r => r.blob()).catch(() => null);
     }
   }
 
-  const post = {
-    id: Date.now() % 100000,
-    user_id: STATE.user.id,
-    content,
-    media_type: POST_DRAFT?.type || null,
-    media_url: mediaUrl,
-    image_url: POST_DRAFT?.type === 'image' ? mediaUrl : null,
-    created_at: new Date().toISOString(),
-    likes: [],
-    comments: []
-  };
-  STATE.posts.unshift(post);
-  saveState();
-  POST_DRAFT = null;
-  closeModal();
-  navigate('bikergram');
+  // Create post INSTANTLY - shows immediately
+  createPostInstant(content, mediaData);
+
+  // Upload media in background (already handled by createPostInstant)
+  toast('Publicado!');
 }
 
-function deletePost(id) {
+async function deletePost(id) {
   if (!confirm('Eliminar esta publicacion?')) return;
+  // Mark as deleted to block background sync from restoring it
+  STATE._deletedIds = STATE._deletedIds || [];
+  STATE._deletedIds.push(id);
+  ls('_deletedPosts', STATE._deletedIds); // persist so reload doesn't forget
+  // Delete from IndexedDB immediately
+  if (DB) await idbDelete('posts', id);
+  // Remove from STATE
   STATE.posts = STATE.posts.filter(p => p.id !== id);
-  saveState();
   renderBikerGram();
+  // Save local first
+  saveLocal();
+  // Push to cloud immediately so it doesn't come back
+  if (HV.connected) {
+    await saveToHV('posts', STATE.posts);
+    // After cloud synced, remove from deleted list
+    STATE._deletedIds = (STATE._deletedIds || []).filter(i => i !== id);
+    ls('_deletedPosts', STATE._deletedIds);
+  }
   toast('Eliminado');
 }
 
@@ -4757,7 +6067,7 @@ function confirmEvent(id) {
   STATE.attendance.push({id:Date.now(), user_id:STATE.user.id, event_id:id, confirmed_at:new Date().toISOString(), notes:'', status:'confirmed', featured:false});
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Asistencia confirmada!');
 }
 
@@ -4765,7 +6075,7 @@ function cancelEvent(id) {
   STATE.attendance = STATE.attendance.filter(a => !(a.event_id === id && a.user_id === STATE.user.id));
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Asistencia cancelada');
 }
 
@@ -4823,7 +6133,7 @@ function deleteEvent(id) {
   STATE.attendance = STATE.attendance.filter(a => a.event_id !== id);
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Evento eliminado');
 }
 
@@ -5217,6 +6527,7 @@ setInterval(() => {
 }, 3000);
 
 function createEvent() {
+  if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear eventos'); return; }
   openModal('Crear Evento', `
     <input class="input" id="ev-title" placeholder="Titulo del evento">
     <input class="input" id="ev-desc" placeholder="Descripcion (opcional)">
@@ -5243,7 +6554,7 @@ function doCreateEvent() {
   STATE.events.push({id:Date.now()%100000, title, description:desc, date, time, location, difficulty:diff, status:'activo', max_riders:0, latitude:0, longitude:0, created_by:STATE.user.id});
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Evento creado!');
 }
 
@@ -5453,10 +6764,17 @@ function renderProfile() {
 
   document.getElementById('page-profile').innerHTML = `
     <div style="text-align:center;margin-bottom:24px">
-      <div style="margin:0 auto 12px;display:flex;justify-content:center;position:relative;width:96px">
-        ${renderAvatar(u, 96)}
-        <button onclick="document.getElementById('profile-pic-input').click()" style="position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff2020,#ff6600);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3)">📷</button>
-        <input type="file" id="profile-pic-input" accept="image/*" style="display:none" onchange="handleProfilePicChange(event)">
+      <div style="margin:0 auto 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="position:relative;width:96px;height:96px">
+          <div id="profile-pic-display">${renderAvatar(u, 96)}</div>
+          <button onclick="document.getElementById('profile-pic-input').click()" style="position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff2020,#ff6600);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3)">📷</button>
+        </div>
+        <input type="file" id="profile-pic-input" accept="image/*" style="display:none" onchange="previewProfilePic(event)">
+        <!-- Save / Cancel buttons — only shown after picking a file -->
+        <div id="profile-pic-actions" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap">
+          <button onclick="confirmSaveProfilePic()" style="padding:8px 18px;border-radius:20px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(34,197,94,0.4)">✅ Guardar sí</button>
+          <button onclick="cancelProfilePic()" style="padding:8px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer">✕ Cancelar</button>
+        </div>
       </div>
       <div style="font-size:20px;font-weight:800">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
       <div style="color:var(--text2);font-size:13px">${u.email}</div>
@@ -5736,24 +7054,512 @@ function closeModal() {
   document.getElementById('modal').classList.remove('open');
 }
 
+let LIGHTBOX_URL = '';
+function openLightbox(url) {
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightbox-img');
+  LIGHTBOX_URL = url;
+  img.src = url;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  lb.style.display = 'none';
+  document.getElementById('lightbox-img').src = '';
+  LIGHTBOX_URL = '';
+  document.body.style.overflow = '';
+}
+
+function downloadLightboxImage() {
+  if (!LIGHTBOX_URL) return;
+  const a = document.createElement('a');
+  a.href = LIGHTBOX_URL;
+  a.download = 'bikergram_' + Date.now() + '.jpg';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 // ============================================================
 // INIT
 // ============================================================
-// Safety: hide splash after 3s no matter what (in case any sync blocks)
+// Safety: hide splash after 5s no matter what (catch any crash in initApp)
 setTimeout(() => {
   const s = document.getElementById('splash');
   if (s && s.style.display !== 'none') {
-    console.warn('[BS] Splash safety timeout — forcing hide');
+    console.warn('[BS] Splash safety timeout — initApp may have crashed, forcing UI');
     s.style.display = 'none';
     const t = document.getElementById('topbar');
     const b = document.getElementById('bottomnav');
-    if (t) t.style.display = 'flex';
-    if (b) b.style.display = 'flex';
-    if (typeof navigate === 'function' && STATE.user) navigate('inicio');
-    else if (typeof showLogin === 'function') showLogin();
+    if (t) t.style.display = 'none';
+    if (b) b.style.display = 'none';
+    if (typeof showLogin === 'function') showLogin();
   }
-}, 3000);
-document.addEventListener('DOMContentLoaded', initApp);
+}, 5000);
+document.addEventListener('DOMContentLoaded', () => {
+  // ONE-TIME CLEANUP: clear all BikerGram posts
+  if (!localStorage.getItem('_postsCleaned')) {
+    localStorage.setItem('bs_posts', '[]');
+    localStorage.setItem('_postsCleaned', '1');
+  }
+  initApp();
+});
 
+// ===== INDEXED DB LAYER =====
+let DB = null;
+const DB_NAME = 'BikerGramDB';
+const DB_VERSION = 1;
+const STORES = ['posts', 'comments', 'follows', 'sync_queue'];
+
+function initIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { DB = req.result; resolve(DB); };
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('posts')) {
+        const ps = db.createObjectStore('posts', {keyPath: 'id'});
+        ps.createIndex('user_id', 'user_id', {unique: false});
+        ps.createIndex('created_at', 'created_at', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('comments')) {
+        const cm = db.createObjectStore('comments', {keyPath: 'id', autoIncrement: true});
+        cm.createIndex('post_id', 'post_id', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('follows')) {
+        const fl = db.createObjectStore('follows', {keyPath: 'id'});
+        fl.createIndex('follower_id', 'follower_id', {unique: false});
+        fl.createIndex('following_id', 'following_id', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('sync_queue')) {
+        const sq = db.createObjectStore('sync_queue', {keyPath: 'id', autoIncrement: true});
+        sq.createIndex('status', 'status', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('routes')) {
+        const rr = db.createObjectStore('routes', {keyPath: 'id'});
+        rr.createIndex('created_by', 'created_by', {unique: false});
+      }
+    };
+  });
+}
+
+function idbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve(null); return; }
+    const tx = DB.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbPut(store, data, key) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve(null); return; }
+    const tx = DB.transaction(store, 'readwrite');
+    if (key !== undefined) data.id = key;
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve([]); return; }
+    const tx = DB.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbDelete(store, key) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve(null); return; }
+    const tx = DB.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ===== SYNC QUEUE =====
+function syncQueuePush(action, storeName, data) {
+  return idbPut('sync_queue', {
+    action,
+    store_name: storeName,
+    data,
+    created_at: new Date().toISOString(),
+    status: 'pending'
+  });
+}
+
+async function syncQueueProcess() {
+  if (!DB || !HV.connected) return;
+  const items = await idbGetAll('sync_queue');
+  const pending = items.filter(i => i.status === 'pending');
+  for (const item of pending) {
+    try {
+      const tableMap = {posts: 'posts', comments: 'comments', follows: 'follows'};
+      const table = tableMap[item.store_name];
+      if (!table) { await idbDelete('sync_queue', item.id); continue; }
+      await saveToHV(table, STATE[item.store_name] || []);
+      item.status = 'done';
+      await idbPut('sync_queue', item, item.id);
+    } catch(e) { /* keep pending */ }
+  }
+}
+
+// ===== REACTIONS SYSTEM =====
+const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '😡'];
+
+function getReactions(postId) {
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return {};
+  const reactions = p.reactions || {};
+  return reactions;
+}
+
+function renderReactions(postId) {
+  const reactions = getReactions(postId);
+  const total = Object.values(reactions).reduce((a, b) => a + b, 0);
+  if (total === 0) return '';
+  const badges = Object.entries(reactions)
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([emoji, count]) => `<span style="background:rgba(255,255,255,0.1);padding:2px 7px;border-radius:10px;font-size:12px;margin-right:4px">${emoji} ${count}</span>`)
+    .join('');
+  return `<div style="padding:6px 14px;font-size:12px;color:var(--text2)">${badges}</div>`;
+}
+
+function addReaction(postId, emoji) {
+  if (!STATE.user) return;
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return;
+  if (!p.reactions) p.reactions = {};
+  // Toggle: if same emoji, remove; else set
+  const userId = String(STATE.user.id);
+  if (p._reactionUser === userId && p._reactionEmoji === emoji) {
+    p.reactions[emoji] = Math.max(0, (p.reactions[emoji] || 1) - 1);
+    p._reactionUser = null;
+    p._reactionEmoji = null;
+  } else {
+    // Remove old reaction count
+    if (p._reactionEmoji && p.reactions[p._reactionEmoji]) {
+      p.reactions[p._reactionEmoji] = Math.max(0, p.reactions[p._reactionEmoji] - 1);
+    }
+    p.reactions[emoji] = (p.reactions[emoji] || 0) + 1;
+    p._reactionUser = userId;
+    p._reactionEmoji = emoji;
+  }
+  saveState();
+  syncQueuePush('update', 'posts', p);
+  renderBikerGram();
+}
+
+function showReactionPicker(postId, btn) {
+  // Remove existing picker
+  const existing = document.querySelector('.reaction-picker');
+  if (existing) { existing.remove(); return; }
+  const picker = document.createElement('div');
+  picker.className = 'reaction-picker';
+  picker.style.cssText = 'position:absolute;bottom:40px;left:0;background:var(--surface);border:1px solid rgba(255,200,0,0.35);border-radius:16px;padding:8px 10px;display:flex;gap:4px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.5),0 0 16px rgba(255,200,0,0.12)';
+  REACTION_EMOJIS.forEach(emoji => {
+    const b = document.createElement('button');
+    b.textContent = emoji;
+    b.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;padding:2px;transition:transform 0.1s;border-radius:50%';
+    b.onmouseover = () => b.style.transform = 'scale(1.35)';
+    b.onmouseout = () => b.style.transform = 'scale(1)';
+    b.onclick = () => { addReaction(postId, emoji); picker.remove(); };
+    picker.appendChild(b);
+  });
+  btn.style.position = 'relative';
+  btn.parentElement.appendChild(picker);
+  // Close on outside click
+  setTimeout(() => {
+    const close = (e) => { if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', close); } };
+    document.addEventListener('click', close);
+  }, 50);
+}
+
+// ===== COMMENTS SYSTEM =====
+function renderComments(postId) {
+  const comments = STATE.comments ? STATE.comments.filter(c => c.post_id === postId) : [];
+  if (comments.length === 0) return '';
+  return comments.map(c => {
+    const author = STATE.users.find(u => u.id === c.user_id) || {username: '?', avatar: ''};
+    return `<div style="display:flex;gap:8px;padding:6px 14px">
+      <div style="width:28px;height:28px;flex-shrink:0">${renderAvatar(author, 28)}</div>
+      <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:12px;padding:6px 10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2)">${author.username}</div>
+        <div style="font-size:13px">${c.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addComment(postId, text) {
+  if (!STATE.user || !text.trim()) return;
+  const comment = {
+    id: Date.now() % 100000,
+    post_id: postId,
+    user_id: STATE.user.id,
+    text: text.trim(),
+    created_at: new Date().toISOString()
+  };
+  STATE.comments = STATE.comments || [];
+  STATE.comments.push(comment);
+  saveState();
+  syncQueuePush('create', 'comments', comment);
+  // Update comment count on post
+  const p = STATE.posts.find(x => x.id === postId);
+  if (p) { p.comments_count = (p.comments_count || 0) + 1; saveState(); }
+  renderBikerGram();
+}
+
+// ===== SHARE SYSTEM =====
+function sharePost(postId) {
+  const url = 'https://bikersociety.duckdns.org?post=' + postId;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => toast('Enlace copiado!'));
+  } else {
+    prompt('Copia este enlace:', url);
+  }
+}
+
+// ===== FOLLOW SYSTEM =====
+function isFollowing(userId) {
+  if (!STATE.user) return false;
+  const f = STATE.follows || [];
+  return f.some(x => x.follower_id === STATE.user.id && x.following_id === userId);
+}
+
+function toggleFollow(userId) {
+  if (!STATE.user) return;
+  STATE.follows = STATE.follows || [];
+  const idx = STATE.follows.findIndex(x => x.follower_id === STATE.user.id && x.following_id === userId);
+  if (idx >= 0) {
+    STATE.follows.splice(idx, 1);
+    toast('Dejaste de seguir');
+  } else {
+    STATE.follows.push({follower_id: STATE.user.id, following_id: userId, created_at: new Date().toISOString()});
+    toast('Ahora sigues a este rider');
+  }
+  saveState();
+  syncQueuePush('update', 'follows', STATE.follows);
+  renderPage(STATE.currentPage);
+}
+
+function getFollowerCount(userId) {
+  return (STATE.follows || []).filter(x => x.following_id === userId).length;
+}
+
+function getFollowingCount(userId) {
+  return (STATE.follows || []).filter(x => x.follower_id === userId).length;
+}
+
+// ===== INSTANT POST CREATION =====
+async function createPostInstant(content, mediaData) {
+  if (!STATE.user) return;
+  const post = {
+    id: Date.now() % 100000,
+    user_id: STATE.user.id,
+    username: STATE.user.username,
+    user_avatar: STATE.user.avatar || '',
+    user_bike: STATE.user.bike_model || '',
+    content,
+    media_type: mediaData?.type || null,
+    media_url: mediaData?.url || null,
+    image_url: mediaData?.type === 'image' ? mediaData.url : null,
+    created_at: new Date().toISOString(),
+    likes: [],
+    reactions: {},
+    comments_count: 0,
+    synced: false
+  };
+  // Save to IndexedDB immediately
+  if (DB) await idbPut('posts', post, post.id);
+  // Show in UI instantly
+  STATE.posts.unshift(post);
+  renderBikerGram();
+  // Save to localStorage ONLY (don't sync to cloud yet)
+  saveLocal();
+  // Upload media in background
+  if (mediaData?.blob && HV.user && HV.pass) {
+    uploadMediaAsync(post.id, mediaData);
+  }
+}
+
+async function uploadMediaAsync(postId, mediaData) {
+  const typeFolder = mediaData.type === 'video' ? 'videos' : mediaData.type === 'audio' ? 'audio' : 'photos';
+  const ext = mediaData.fileName ? mediaData.fileName.split('.').pop() : (mediaData.type === 'image' ? 'jpg' : 'mp4');
+  const filename = Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
+  const uploadUrl = HV.url + '/nc' + path;
+  try {
+    const blob = mediaData.blob;
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('Authorization', 'Basic ' + btoa(HV.user + ':' + HV.pass));
+      xhr.setRequestHeader('Content-Type', mediaData.mimeType || 'application/octet-stream');
+      xhr.onload = () => {
+        if (xhr.status === 201 || xhr.status === 204 || xhr.status === 200) resolve();
+        else reject(new Error('HTTP ' + xhr.status));
+      };
+      xhr.onerror = () => reject(new Error('Error'));
+      xhr.timeout = 300000;
+      xhr.send(blob);
+    });
+    // Update post with real URL
+    const p = STATE.posts.find(x => x.id === postId);
+    if (p) {
+      p.media_url = uploadUrl;
+      p.image_url = mediaData.type === 'image' ? uploadUrl : null;
+      p.synced = true;
+      if (DB) await idbPut('posts', p, p.id);
+      saveState();
+      syncQueuePush('update', 'posts', p);
+      renderBikerGram();
+    }
+  } catch(e) {
+    console.warn('Media upload failed:', e);
+  }
+}
+
+// ===== ENHANCED POST CARD =====
+function renderPostCardEnhanced(p) {
+  const author = STATE.users.find(u => u.id === p.user_id) || {username: '?', bike_model: '', avatar: '', is_admin: false};
+  const likes = p.likes || [];
+  const reactions = p.reactions || {};
+  const totalRx = Object.values(reactions).reduce((a, b) => a + b, 0);
+  const comments = STATE.comments ? STATE.comments.filter(c => c.post_id === p.id) : [];
+  const isLiked = STATE.user && likes.includes(String(STATE.user.id));
+  const isMyPost = STATE.user && STATE.user.id === p.user_id;
+  const mediaType = p.media_type || (p.image_url ? 'image' : null);
+  const typeEmoji = mediaType === 'image' ? '📷' : (mediaType === 'video' ? '🎬' : (mediaType === 'audio' ? '🎵' : ''));
+  const reactionBadges = Object.entries(reactions).filter(([,c]) => c > 0).sort((a,b) => b[1]-a[1]).slice(0,3).map(([e,c]) => `${e}${c}`).join(' ');
+
+  return `
+    <div class="post-card vanish" style="margin-bottom:14px" data-post-id="${p.id}">
+      <div class="post-header">
+        <div style="width:38px;height:38px;flex-shrink:0;cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${renderAvatar(author, 38)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="post-name" style="cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${author.username}</span>
+            ${author.is_admin ? '<span style="font-size:9px;padding:1px 5px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:10px;font-weight:800">ADMIN</span>' : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
+            <span>${timeAgo(p.created_at)}</span>
+            ${mediaType ? `<span>· ${typeEmoji}</span>` : ''}
+          </div>
+        </div>
+        ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
+      </div>
+
+      ${p.content ? `<div class="post-content">${p.content}</div>` : ''}
+
+      ${(p.media_url || p.image_url) ? renderPostMedia(p) : ''}
+
+      ${(totalRx > 0 || likes.length > 0) ? `
+        <div style="padding:5px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.02)">
+          ${likes.length > 0 ? `<span style="font-size:12px;color:#ff4466;font-weight:700">❤️ ${likes.length}</span>` : ''}
+          ${totalRx > 0 ? `<span style="font-size:12px;color:var(--text2)">${reactionBadges}</span>` : ''}
+        </div>
+      ` : ''}
+
+      <div class="post-actions">
+        <button class="post-action-btn btn-like ${isLiked ? 'liked-neon' : ''}" data-like-btn="${p.id}" onclick="toggleLike(${p.id})">
+          <span>${isLiked ? '❤️' : '🤍'}</span>
+          <span>Me gusta</span>
+          ${likes.length > 0 ? `<span style="font-weight:400;opacity:0.8">${likes.length}</span>` : ''}
+        </button>
+        <button class="post-action-btn btn-react" style="position:relative" onclick="showReactionPicker(${p.id}, this)">
+          <span>😀</span>
+          <span>Reaccionar</span>
+          ${totalRx > 0 ? `<span style="font-weight:400;opacity:0.8">${totalRx}</span>` : ''}
+        </button>
+        <button class="post-action-btn btn-comment" onclick="toggleComments(${p.id})">
+          <span>💬</span>
+          <span>Comentar</span>
+          ${comments.length > 0 ? `<span style="font-weight:400;opacity:0.8">${comments.length}</span>` : ''}
+        </button>
+        <button class="post-action-btn btn-share" onclick="sharePost(${p.id})">
+          <span>📤</span>
+          <span>Compartir</span>
+        </button>
+      </div>
+
+      <div id="comments-section-${p.id}" style="display:none">
+        ${renderComments(p.id)}
+        ${STATE.user ? `
+          <div style="display:flex;gap:8px;padding:8px 14px;align-items:center">
+            <div style="width:28px;height:28px;flex-shrink:0">${renderAvatar(STATE.user, 28)}</div>
+            <input id="comment-input-${p.id}" placeholder="Escribe un comentario..." style="flex:1;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;color:#fff;outline:none" onkeydown="if(event.key==='Enter'){addComment(${p.id},this.value);this.value=''}">
+            <button onclick="addComment(${p.id},document.getElementById('comment-input-${p.id}').value);document.getElementById('comment-input-${p.id}').value=''" style="background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:13px;font-weight:700;padding:6px 14px;border-radius:20px;cursor:pointer">Enviar</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function toggleComments(postId) {
+  const el = document.getElementById('comments-section-' + postId);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// Enhanced follow button for profile
+function renderFollowButton(userId) {
+  if (!STATE.user || STATE.user.id === userId) return '';
+  const following = isFollowing(userId);
+  return `<button onclick="toggleFollow(${userId})" style="padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;${following ? 'background:rgba(255,255,255,0.1);border:1px solid var(--border);color:#fff' : 'background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff'}">
+    ${following ? 'Siguiendo' : 'Seguir'}
+  </button>`;
+}
+
+// ===== ENHANCED PROFILE PAGE =====
+function renderEnhancedProfile(userId) {
+  const user = STATE.users.find(u => u.id === userId);
+  if (!user) return '<div style="padding:20px;text-align:center;color:var(--text2)">Usuario no encontrado</div>';
+  const posts = STATE.posts.filter(p => p.user_id === userId);
+  const followers = getFollowerCount(userId);
+  const following = getFollowingCount(userId);
+
+  return `
+    <div style="padding:0 0 20px">
+      <div style="text-align:center;padding:20px">
+        <div style="width:80px;height:80px;margin:0 auto 12px">${renderAvatar(user, 80)}</div>
+        <div style="font-size:20px;font-weight:900">${user.username}</div>
+        ${user.bike_model ? `<div style="font-size:12px;color:var(--text2);margin-top:4px">${user.bike_model}</div>` : ''}
+        ${user.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px;max-width:300px;margin-left:auto;margin-right:auto">${user.bio}</div>` : ''}
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:16px;font-size:13px">
+          <div><strong>${posts.length}</strong> <span style="color:var(--text2)">posts</span></div>
+          <div><strong>${followers}</strong> <span style="color:var(--text2)">seguidores</span></div>
+          <div><strong>${following}</strong> <span style="color:var(--text2)">siguiendo</span></div>
+        </div>
+        <div style="margin-top:14px">${renderFollowButton(userId)}</div>
+      </div>
+      ${posts.length > 0 ? `
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="padding:0 14px 10px;font-size:12px;font-weight:700;color:var(--text2)">PUBLICACIONES</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">
+            ${posts.map(p => `
+              <div style="aspect-ratio:1;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${p.media_url || p.image_url || ''}')">
+                ${(p.media_url || p.image_url) ? `<img src="${p.media_url || p.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px">📝</div>`}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">No hay publicaciones todavia</div>'}
+    </div>
+  `;
+}
 </script>
 </html>
