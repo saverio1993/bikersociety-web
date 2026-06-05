@@ -1920,16 +1920,16 @@ function formatTime(ts) {
 }
 
 function levelOf(points) {
-  if (points >= 1000) return {name:'Maestro',min:1000,color:'#a855f7'};
-  if (points >= 500) return {name:'Experto',min:500,color:'#f59e0b'};
-  if (points >= 250) return {name:'Avanzado',min:250,color:'#3b82f6'};
-  if (points >= 100) return {name:'Intermedio',min:100,color:'#22c55e'};
+  if (points >= 4000) return {name:'Maestro',min:4000,color:'#a855f7'};
+  if (points >= 1500) return {name:'Leyenda',min:1500,color:'#f59e0b'};
+  if (points >= 600) return {name:'Avanzado',min:600,color:'#3b82f6'};
+  if (points >= 200) return {name:'Intermedio',min:200,color:'#22c55e'};
   return {name:'Novato',min:0,color:'#888'};
 }
 
 function nextLevel(points) {
   const lv = levelOf(points);
-  const next = [100,250,500,1000,Infinity].find(n => n > points) || Infinity;
+  const next = [200,600,1500,4000,Infinity].find(n => n > points) || Infinity;
   return next;
 }
 
