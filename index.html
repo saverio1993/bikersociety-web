@@ -1153,6 +1153,17 @@ a{color:inherit;text-decoration:none}
   .badge-grid{grid-template-columns:repeat(2,1fr)}
 }
 
+
+/* FAB — boton flotante de acciones de ruta */
+.rutas-fab{position:fixed;bottom:90px;right:16px;z-index:900;display:none;flex-direction:column;align-items:flex-end;gap:10px}
+.rutas-fab.show{display:flex}
+.rutas-fab-main{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(255,68,68,0.35);transition:transform 0.2s,box-shadow 0.2s;display:flex;align-items:center;justify-content:center}
+.rutas-fab-main:active{transform:scale(0.92)}
+.rutas-fab-menu{display:none;flex-direction:column;gap:8px;align-items:flex-end}
+.rutas-fab-menu.open{display:flex}
+.rutas-fab-item{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,0.35);white-space:nowrap;transition:background 0.15s}
+.rutas-fab-item:active{background:var(--surface3)}
+.rutas-fab-badge{font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:monospace}
 </style>
 </head>
 <body>
@@ -2505,7 +2516,7 @@ function manualCheckin(routeId) {
   // Si la ruta no tiene coordenadas de destino, confirmar sin GPS
   if (!route.end_lat || !route.end_lng) {
     confirmAttendance(routeId, 'manual', false);
-    refreshAttendancePanel(routeId);
+    renderRutas();
     toast('✅ Asistencia confirmada');
     return;
   }
@@ -2514,12 +2525,12 @@ function manualCheckin(routeId) {
   if (!navigator.geolocation) {
     toast('⚠️ Tu dispositivo no soporta GPS — confirmando sin verificar ubicacion');
     confirmAttendance(routeId, 'manual', false);
-    refreshAttendancePanel(routeId);
+    renderRutas();
     return;
   }
 
   // Mostrar estado de carga
-  const btn = document.querySelector('#manual-checkin-' + routeId + ' button');
+  const btn = document.getElementById('fab-confirm-btn');
   if (btn) { btn.textContent = '📍 Verificando ubicacion...'; btn.disabled = true; }
 
   navigator.geolocation.getCurrentPosition(
@@ -2534,7 +2545,7 @@ function manualCheckin(routeId) {
 
       if (dist <= 300) {
         confirmAttendance(routeId, 'manual', false);
-        refreshAttendancePanel(routeId);
+        renderRutas();
         toast('✅ Asistencia confirmada — estas en el punto de encuentro');
       } else if (dist <= 1000) {
         toast('⚠️ Estas a ' + Math.round(dist) + ' metros del destino. Acercate mas para confirmar.');
@@ -2559,7 +2570,7 @@ function manualCheckin(routeId) {
 }
 
 // Refresh the attendance panel DOM element directly
-function refreshAttendancePanel(routeId) {
+function renderRutas() {
   const panel = document.getElementById('attendance-panel-' + routeId);
   const btnWrap = document.getElementById('manual-checkin-' + routeId);
   if (!panel && !btnWrap) return;
@@ -2602,6 +2613,41 @@ var _activeRouteId = null;    // route being tracked right now
 var _activeWindowStart = null; // minutes-of-day when activation started
 var _lastLocationSave = 0;
 
+
+// FAB menu toggle
+function toggleFabMenu() {
+  const menu = document.getElementById('rutas-fab-menu');
+  if (!menu) return;
+  menu.classList.toggle('open');
+}
+
+// FAB click-outside handler
+document.addEventListener('click', function(e) {
+  const fab = document.getElementById('rutas-fab');
+  if (!fab) return;
+  const menu = document.getElementById('rutas-fab-menu');
+  if (menu && menu.classList.contains('open') && !fab.contains(e.target)) {
+    menu.classList.remove('open');
+  }
+});
+
+// Update FAB button color based on GPS state
+function updateFabState() {
+  const btn = document.getElementById('rutas-fab-btn');
+  const fab = document.getElementById('rutas-fab');
+  const gpsBadge = document.getElementById('fab-gps-coords');
+  if (!btn) return;
+  if (_activeRouteId !== null) {
+    btn.style.background = 'linear-gradient(135deg,#22c55e,#16a34a)';
+    btn.style.boxShadow = '0 4px 20px rgba(34,197,94,0.4)';
+    btn.textContent = '🟢';
+  } else {
+    btn.style.background = 'linear-gradient(135deg,#ff4444,#ff8800)';
+    btn.style.boxShadow = '0 4px 20px rgba(255,68,68,0.35)';
+    btn.textContent = '📍';
+  }
+}
+
 function startGPS(routeId) {
   // If already tracking this route, do nothing
   if (_geoWatchId !== null && _activeRouteId === routeId) return;
@@ -2612,6 +2658,8 @@ function startGPS(routeId) {
   stopGPS(); // clean up any existing tracking
 
   _activeRouteId = routeId;
+  updateFabState();
+  renderRutas();
   _activeWindowStart = new Date().getHours() * 60 + new Date().getMinutes();
 
   toast('📍 GPS activado — ' + route.name);
@@ -3628,68 +3676,6 @@ function renderRutas() {
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
-      ${(sel.date || (sel.end_lat && sel.end_lng)) ? `
-      <div id="gps-panel-${sel.id}">
-        ${_activeRouteId === sel.id ? `
-        <div style="padding:10px 12px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;margin-bottom:8px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 1.5s infinite"></div>
-            <span style="font-size:13px;font-weight:700;color:#22c55e">GPS Activo</span>
-            <span style="font-size:11px;color:var(--text3);margin-left:auto">${STATE.userLocation ? (STATE.userLocation.lat.toFixed(4)+', '+STATE.userLocation.lng.toFixed(4)) : 'Obteniendo...'}</span>
-          </div>
-          <div style="display:flex;gap:6px">
-            <button onclick="stopGPS()" style="flex:1;padding:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer">⏹️ Apagar GPS</button>
-            <button onclick="showLiveMap(${sel.id})" style="flex:1;padding:8px;background:rgba(255,68,68,0.15);border:1px solid rgba(255,68,68,0.4);border-radius:8px;color:#ff4444;font-size:12px;font-weight:700;cursor:pointer">👥 Ver Mapa</button>
-          </div>
-        </div>
-        ` : `
-        <button onclick="startGPS(${sel.id})" style="width:100%;padding:10px;background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.35);border-radius:10px;color:#ff4444;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(255,68,68,0.2)'" onmouseout="this.style.background='rgba(255,68,68,0.1)'">
-          📍 Activar GPS en esta ruta
-        </button>`}
-      </div>
-
-      <!-- Attendance panel -->
-      <div style="margin-top:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📋 Asistencia</div>
-        <div id="attendance-panel-${sel.id}">${(() => {
-          const att = STATE.attendance || [];
-          const confirmed = att.filter(a => a.route_id === sel.id);
-          const confirmedUsers = confirmed.map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
-          const totalMembers = (sel.members || '').split(',').filter(Boolean).length || 1;
-          const pendingCount = Math.max(0, totalMembers - confirmedUsers.length);
-          if (confirmedUsers.length === 0) {
-            return `<div style="text-align:center;padding:16px;color:var(--text2);font-size:12px">
-              Nadie ha confirmado asistencia aun
-            </div>`;
-          }
-          return confirmedUsers.map(u => `
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${(u.username||'?').charAt(0).toUpperCase()}</div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600">${escHtml(u.username)}${u.id === STATE.user?.id ? ' (tu)' : ''}</div>
-                <div style="font-size:10px;color:var(--text3)">${confirmed.find(a=>a.user_id===u.id)?.note || 'Confirmado'}</div>
-              </div>
-              <span style="font-size:10px;padding:2px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#22c55e;font-weight:700">✅</span>
-            </div>`).join('') + `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px">
-              <span style="font-size:11px;color:var(--text2)">${pendingCount} pendiente${pendingCount!==1?'s':''}</span>
-            </div>`;
-        })()}</div>
-
-        <!-- Manual check-in: "Estoy aquí" -->
-        <div id="manual-checkin-${sel.id}">
-        ${(() => {
-          const att = STATE.attendance || [];
-          const myAtt = att.find(a => a.user_id === STATE.user?.id && a.route_id === sel.id);
-          if (myAtt) {
-            return `<div style="margin-top:8px;padding:8px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;text-align:center;font-size:12px;color:#22c55e;font-weight:600">✅ Ya confirmaste tu asistencia</div>`;
-          }
-          return `<button onclick="manualCheckin(${sel.id})" style="width:100%;margin-top:8px;padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:10px;color:#22c55e;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">
-            📍 Estoy aquí — Confirmar asistencia
-          </button>`;
-        })()}
-        </div>
-      </div>` : ''}
     </div>
     ` : ''}
 
@@ -3699,7 +3685,35 @@ function renderRutas() {
       ${!sel ? '<div class="map-label">📍 Panama · Toca una ruta en el mapa o lista para ver detalle</div>' : ''}
     </div>
 
-    <!-- Tab content -->
+    
+    <!-- FAB — botón flotante para acciones de ruta -->
+    ${sel ? `
+    <div class="rutas-fab show" id="rutas-fab">
+      <div class="rutas-fab-menu" id="rutas-fab-menu">
+        ${_activeRouteId === sel.id ? `
+        <div class="rutas-fab-badge rutas-fab-gps-active" id="fab-gps-coords" style="display:flex;align-items:center;gap:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite"></span>
+          GPS Activo · ${STATE.userLocation ? (STATE.userLocation.lat.toFixed(4)+', '+STATE.userLocation.lng.toFixed(4)) : 'Obteniendo...'}
+        </div>
+        <button class="rutas-fab-item" onclick="stopGPS();toggleFabMenu()" style="color:#ef4444">⏹️ Apagar GPS</button>
+        <button class="rutas-fab-item" onclick="showLiveMap(${sel.id});toggleFabMenu()" style="color:#ffaa00">👥 Ver Mapa</button>
+        ` : `
+        <button class="rutas-fab-item" onclick="startGPS(${sel.id});toggleFabMenu()" style="color:#ff4444">📍 Activar GPS</button>
+        `}
+        ${(() => {
+          const att = STATE.attendance || [];
+          const myAtt = att.find(a => a.user_id === STATE.user?.id && a.route_id === sel.id);
+          if (myAtt) {
+            return `<div class="rutas-fab-item" style="color:#22c55e;cursor:default">✅ Ya confirmaste</div>`;
+          }
+          return `<button class="rutas-fab-item" id="fab-confirm-btn" onclick="manualCheckin(${sel.id});toggleFabMenu()" style="color:#22c55e">✅ Estoy aquí — Confirmar</button>`;
+        })()}
+      </div>
+      <button class="rutas-fab-main" id="rutas-fab-btn" onclick="toggleFabMenu()" title="Acciones de ruta">📍</button>
+    </div>
+    ` : ''}
+
+<!-- Tab content -->
     <div id="rutas-tab-content" style="${sel ? 'display:none' : ''}">
       ${RUTAS_TAB === 'rutas' ? `
         <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:10px">
