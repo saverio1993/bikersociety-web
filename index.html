@@ -2018,7 +2018,13 @@ async function syncFromCloud() {
   let loaded = false;
   tables.forEach((t, i) => {
     const data = results[i];
-    if (data && Array.isArray(data)) { STATE[t] = data; loaded = true; }
+    if (data && Array.isArray(data)) {
+      // Merge by ID: cloud wins for same IDs, keep local-only items
+      const cloudMap = new Map(data.map(item => [item.id, item]));
+      const localOnly = (STATE[t] || []).filter(item => !cloudMap.has(item.id));
+      STATE[t] = [...localOnly, ...data];
+      loaded = true;
+    }
   });
   if (loaded) {
     STATE.users = STATE.users.length ? STATE.users : [...SEED_USERS];
