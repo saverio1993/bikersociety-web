@@ -37931,5 +37931,55 @@
     "phone": "",
     "icon": "🛒",
     "isPOI": true
+  },
+  {
+    "id": "poi_google_0x8faca9dac3cfc1fd",
+    "name": "☕ Mavi Coffee",
+    "category": "Cafeteria",
+    "subcategory": "coffee_shop",
+    "lat": 8.99093,
+    "lng": -79.5249907,
+    "address": "Av. Samuel Lewis, Panama City",
+    "phone": "+507 282-4569",
+    "icon": "☕",
+    "isPOI": true
+  },
+  {
+    "id": "poi_google_billares_nelson",
+    "name": "🎱 Billares Nelson",
+    "category": "Entretenimiento",
+    "subcategory": "billiards",
+    "lat": 8.9905851,
+    "lng": -79.5204028,
+    "address": "Av. Samuel Lewis, Panama City",
+    "phone": "",
+    "icon": "🎱",
+    "isPOI": true
+  },
+  {
+    "name": "🍽️ China Hour",
+    "category": "Restaurante",
+    "subcategory": "chinese",
+    "lat": 8.9908473,
+    "lng": -79.519823,
+    "address": "Via Brasil, Panama City",
+    "phone": "",
+    "icon": "🍽️",
+    "id": "poi_new_0_8.9908473_-79.519823",
+    "isPOI": true,
+    "hours": ""
+  },
+  {
+    "name": "☕ Mentiritas Blancas",
+    "category": "Cafeteria",
+    "subcategory": "coffee_shop",
+    "lat": 8.9901502,
+    "lng": -79.5250139,
+    "address": "Avenida 2 B Norte Local 2B, Panama City",
+    "phone": "",
+    "icon": "☕",
+    "id": "poi_new_1_8.9901502_-79.5250139",
+    "isPOI": true,
+    "hours": ""
   }
 ]
