@@ -3696,11 +3696,15 @@ function routeDistanceKm(r) {
 
 // Export route as GPX file
 // ── Open route in Waze / Google Maps / Apple Maps ────────────────────────────
-// Universal scheme (Android + iOS) — waze:// and comgooglemaps:// open native app if installed
-// Falls back to https URL that opens in browser if app not installed
+// Always available — does NOT require GPS, geolocation, or any other condition.
+// Works with whatever coordinates the route already has. If route has no coords,
+// shows an interactive map so user can pick start/end.
 function openRouteInNav(routeId) {
   const r = STATE.routes.find(x => x.id === routeId);
-  if (!r) return;
+  if (!r) {
+    toast('Ruta no encontrada');
+    return;
+  }
   let stops = [];
   try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
   const allPoints = [
@@ -3709,8 +3713,9 @@ function openRouteInNav(routeId) {
     { name: r.end_name || 'Destino', lat: r.end_lat, lng: r.end_lng },
   ].filter(p => p.lat && p.lng);
 
+  // If route has no coordinates, show a map picker so user can set start/end
   if (allPoints.length < 2) {
-    toast('Esta ruta no tiene puntos de salida y destino');
+    pickRoutePointsForNav(r, stops);
     return;
   }
 
@@ -3722,23 +3727,16 @@ function openRouteInNav(routeId) {
   const isAndroid = /Android/.test(navigator.userAgent);
 
   // ── Waze deep link ─────────────────────────────────────────────────────
-  // waze://?ll=lat,lng&navigate=yes — single point navigation
-  // For multi-point: waze doesn't support waypoints, so we send to destination
   const wazeUrl = `waze://?ll=${end.lat},${end.lng}&navigate=yes`;
   const wazeWebUrl = `https://waze.com/ul?ll=${end.lat},${end.lng}&navigate=yes`;
 
   // ── Google Maps deep link ─────────────────────────────────────────────
-  // comgooglemaps://?saddr=lat,lng&daddr=lat,lng&directionsmode=motorcycle
-  // Fallback: https://www.google.com/maps/dir/?api=1&...
-  const mapsMode = 'motorcycle';
-  const gmapsUrl = `comgooglemaps://?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&directionsmode=${mapsMode}`;
+  const gmapsUrl = `comgooglemaps://?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&directionsmode=motorcycle`;
   const gmapsWebUrl = `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&travelmode=motorcycle`;
 
   // ── Apple Maps (iOS only) ─────────────────────────────────────────────
   const appleMapsUrl = `https://maps.apple.com/?saddr=${start.lat},${start.lng}&daddr=${end.lat},${end.lng}&dirflg=d`;
 
-  // Build modal with 3 options
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
   const body = `
     <div style="text-align:center;margin-bottom:14px">
       <div style="font-size:13px;color:var(--text2);margin-bottom:4px">${escHtml(r.name)}</div>
@@ -3778,19 +3776,127 @@ function openRouteInNav(routeId) {
   openModal('🧭 Seguir ruta en...', body);
 }
 
+// Pick start/end points on a map for routes that don't have coordinates
+function pickRoutePointsForNav(r, existingStops) {
+  const body = `
+    <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px">
+      Esta ruta no tiene coordenadas. Toca el mapa para elegir:
+    </div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;font-size:11px">
+      <span style="padding:4px 8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:6px;color:#22c55e">1. Toca: Salida</span>
+      <span style="padding:4px 8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:6px;color:#ef4444">2. Toca: Destino</span>
+    </div>
+    <div id="pick-nav-map" style="height:300px;border-radius:10px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px">
+      <button id="pick-start-name" onclick="setPickName('start')" style="flex:1;padding:8px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer">📍 Nombre salida</button>
+      <button id="pick-end-name" onclick="setPickName('end')" style="flex:1;padding:8px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer">🏁 Nombre destino</button>
+    </div>
+    <button id="pick-nav-go" disabled onclick="openPickedNav()" style="width:100%;margin-top:10px;padding:12px;background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;opacity:0.5">Selecciona los 2 puntos</button>
+  `;
+  openModal('📍 Elige puntos de la ruta', body);
+
+  setTimeout(() => {
+    if (!window.L) return;
+    const map = L.map('pick-nav-map').setView([8.9824, -79.5199], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OSM'
+    }).addTo(map);
+
+    let startMarker = null, endMarker = null;
+    let startName = 'Salida', endName = 'Destino';
+
+    map.on('click', e => {
+      const { lat, lng } = e.latlng;
+      if (!startMarker) {
+        startMarker = L.marker([lat, lng], {
+          icon: L.divIcon({ html: '🟢', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map).bindPopup('Salida').openPopup();
+        window._pickStart = { lat, lng };
+      } else if (!endMarker) {
+        endMarker = L.marker([lat, lng], {
+          icon: L.divIcon({ html: '🔴', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map).bindPopup('Destino').openPopup();
+        window._pickEnd = { lat, lng };
+        // Update button
+        const btn = document.getElementById('pick-nav-go');
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🧭 Abrir en Waze/Maps'; }
+      } else {
+        // Reset
+        map.removeLayer(startMarker);
+        map.removeLayer(endMarker);
+        startMarker = L.marker([lat, lng], {
+          icon: L.divIcon({ html: '🟢', className: '', iconSize: [30, 30], iconAnchor: [15, 15] })
+        }).addTo(map);
+        window._pickStart = { lat, lng };
+        endMarker = null;
+        window._pickEnd = null;
+        const btn = document.getElementById('pick-nav-go');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.textContent = 'Selecciona los 2 puntos'; }
+      }
+    });
+
+    window._pickStart = null;
+    window._pickEnd = null;
+    window._pickStartName = () => startName;
+    window._pickEndName = () => endName;
+  }, 100);
+}
+
+function setPickName(which) {
+  const name = prompt(which === 'start' ? 'Nombre del punto de salida:' : 'Nombre del destino:');
+  if (name) {
+    if (which === 'start') window._pickStartName = () => name;
+    else window._pickEndName = () => name;
+  }
+}
+
+function openPickedNav() {
+  if (!window._pickStart || !window._pickEnd) return;
+  const s = window._pickStart, e = window._pickEnd;
+  const sName = (typeof window._pickStartName === 'function' ? window._pickStartName() : 'Salida');
+  const eName = (typeof window._pickEndName === 'function' ? window._pickEndName() : 'Destino');
+  closeModal();
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  const wazeUrl = `waze://?ll=${e.lat},${e.lng}&navigate=yes`;
+  const wazeWebUrl = `https://waze.com/ul?ll=${e.lat},${e.lng}&navigate=yes`;
+  const gmapsUrl = `comgooglemaps://?saddr=${s.lat},${s.lng}&daddr=${e.lat},${e.lng}&directionsmode=motorcycle`;
+  const gmapsWebUrl = `https://www.google.com/maps/dir/?api=1&origin=${s.lat},${s.lng}&destination=${e.lat},${e.lng}&travelmode=motorcycle`;
+  const appleMapsUrl = `https://maps.apple.com/?saddr=${s.lat},${s.lng}&daddr=${e.lat},${e.lng}&dirflg=d`;
+
+  const body = `
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Ruta personalizada</div>
+      <div style="font-size:11px;color:var(--text3)">${escHtml(sName)} → ${escHtml(eName)}</div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <button onclick="navigateWith('${wazeUrl}', '${wazeWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(0,212,255,0.3);background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#33ccff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🧭</div>
+        <div style="flex:1;text-align:left"><div>Waze</div><div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'Abre waze.com'}</div></div>
+        <span style="font-size:18px">→</span>
+      </button>
+      <button onclick="navigateWith('${gmapsUrl}', '${gmapsWebUrl}')" style="padding:14px;border-radius:12px;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.08);color:#22c55e;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🗺️</div>
+        <div style="flex:1;text-align:left"><div>Google Maps</div><div style="font-size:11px;font-weight:400;opacity:0.8">${isIOS || isAndroid ? 'Abre la app instalada' : 'maps.google.com'}</div></div>
+        <span style="font-size:18px">→</span>
+      </button>
+      ${isIOS ? `<button onclick="window.open('${appleMapsUrl}','_blank');closeModal();" style="padding:14px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;gap:12px"><div style="width:42px;height:42px;border-radius:50%;background:#a855f7;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🍎</div><div style="flex:1;text-align:left"><div>Apple Maps</div></div><span style="font-size:18px">→</span></button>` : ''}
+    </div>
+  `;
+  openModal('🧭 Seguir ruta en...', body);
+}
+
 // Try native app deep link first, fall back to web URL after a short delay
 function navigateWith(nativeUrl, webUrl) {
   const start = Date.now();
-  // Try native app
   window.location.href = nativeUrl;
-  // If still on page after 1.5s, the app didn't open — go to web URL
   setTimeout(() => {
     if (Date.now() - start < 2500) {
-      // Page is still here (focus not lost), so native didn't work
       window.open(webUrl, '_blank');
     }
   }, 1500);
-  // Try to close modal
   setTimeout(() => closeModal(), 500);
 }
 
@@ -4988,10 +5094,6 @@ function editRider(id) {
         <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
           <input type="checkbox" id="ed-isadmin" ${r.is_admin ? 'checked' : ''} onchange>
           Es Admin
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-top:4px">
-          <input type="checkbox" id="ed-isinjured" ${r.is_injured ? 'checked' : ''} onchange>
-          Marcado como herido
         </label>
         <div style="margin-top:8px">
           <label style="font-size:12px;color:var(--text2)">Puntos (admin)</label>
