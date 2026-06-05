@@ -2053,7 +2053,7 @@ async function loadFromHV(key) {
 async function syncToCloud() {
   if (!HV.user) return;
   STATE.syncStatus = 'syncing';
-  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
+  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance','comments','follows'];
   await Promise.all(tables.map(t => saveToHV(t, STATE[t] || [])));
   await saveToHV('meta', {lastSync: new Date().toISOString(), version: 1});
   STATE.syncStatus = 'synced';
@@ -2061,7 +2061,7 @@ async function syncToCloud() {
 
 async function syncFromCloud() {
   if (!HV.user) return;
-  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance'];
+  const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance','comments','follows'];
   const results = await Promise.all(tables.map(t => loadFromHV(t)));
   let loaded = false;
   tables.forEach((t, i) => {
@@ -2087,6 +2087,8 @@ async function syncFromCloud() {
     STATE.userBadges = STATE.userBadges || [];
     STATE.notifications = STATE.notifications || [];
     STATE.attendance = STATE.attendance || [];
+    STATE.comments = STATE.comments || [];
+    STATE.follows = STATE.follows || [];
   }
 }
 
@@ -2109,7 +2111,11 @@ function initApp() {
   STATE.chatMessages = ls('bs_cm') || [...SEED_MESSAGES];
   STATE.notifications = ls('bs_notif') || [];
   STATE.attendance = ls('bs_att') || [];
+  STATE.comments = ls('bs_comments') || [];
+  STATE.follows = ls('bs_follows') || [];
   STATE.user = ls('bs_session');
+  // Init IndexedDB in background
+  initIndexedDB().catch(() => {});
   loadPlaces();
   loadPanamaPOIs();  // Load 2,693 Panama POIs in background
 
@@ -2211,12 +2217,14 @@ function saveLocal() {
   ls('bs_notif', STATE.notifications);
   ls('bs_att', STATE.attendance);
   ls('bs_places', STATE.places);
+  ls('bs_comments', STATE.comments || []);
+  ls('bs_follows', STATE.follows || []);
 }
 
 // ============================================================
 // NAVIGATION
 // ============================================================
-function navigate(page) {
+function navigate(page, pageId) {
   // Update bottom nav
   document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`.bnav-item[data-page="${page}"]`);
@@ -2226,7 +2234,8 @@ function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
   STATE.currentPage = page;
-  renderPage(page);
+  STATE.currentPageId = pageId;
+  renderPage(page, pageId);
 
   // Refresh posts from cloud when entering BikerGram (no flicker — render happens once via timer)
   if (page === 'bikergram' && HV.connected) {
@@ -2234,7 +2243,7 @@ function navigate(page) {
   }
 }
 
-function renderPage(page) {
+function renderPage(page, pageId) {
   const el = document.getElementById('page-' + page);
   if (!el) return;
   el.classList.add('active');
@@ -2243,7 +2252,7 @@ function renderPage(page) {
     case 'inicio': renderInicio(); break;
     case 'rutas': renderRutas(); break;
     case 'bikers': renderBikers(); break;
-    case 'rider-detail': renderRiderDetail(); break;
+    case 'rider-detail': renderRiderDetail(pageId); break;
     case 'bikergram': renderBikerGram(); break;
     case 'eventos': RUTAS_TAB = 'eventos'; renderRutas(); break;
     case 'retos': renderRetos(); break;
@@ -3771,8 +3780,10 @@ function viewRider(id) {
   navigate('rider-detail');
 }
 
-function renderRiderDetail() {
-  const r = STATE.selectedRider;
+function renderRiderDetail(userId) {
+  // If userId passed (from BikerGram), use it; else fall back to selectedRider
+  const targetId = userId || STATE.selectedRider?.id;
+  const r = STATE.users.find(u => u.id === targetId) || STATE.selectedRider;
   if (!r) { navigate('bikers'); return; }
   recalculateUserStats(r.id);
   const rank = STATE.users.sort((a,b) => b.points - a.points).findIndex(u => u.id === r.id) + 1;
@@ -3782,58 +3793,58 @@ function renderRiderDetail() {
   const earned = myBadges.map(ub => ub.badge_id);
   const stats = getUserStats(r.id);
   const myEvents = STATE.attendance.filter(a => a.user_id === r.id).length;
-  const myRoutes = STATE.routes.filter(rt => rt.created_by === r.id).length;
+  const followers = getFollowerCount(r.id);
+  const following = getFollowingCount(r.id);
+  const posts = STATE.posts.filter(p => p.user_id === r.id);
 
   document.getElementById('page-rider-detail').innerHTML = `
     <div style="margin-bottom:16px">
       <button class="btn btn-ghost" style="padding:6px 0" onclick="navigate('bikers')">← Volver</button>
     </div>
-    <div style="text-align:center;margin-bottom:20px">
+    <div style="text-align:center;margin-bottom:16px">
       <div style="margin:0 auto 12px;display:flex;justify-content:center">
-        ${renderAvatar(r, 96)}
+        ${renderAvatar(r, 88)}
       </div>
       <div style="font-size:20px;font-weight:800">${r.username} ${r.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
-      <div style="color:var(--text2);font-size:13px;margin-top:4px">${r.bike_model || 'Sin moto'} · ${r.city || 'Panama'}</div>
-      ${r.is_injured ? `<div style="margin-top:8px"><span class="badge-red">⚠️ ${r.injury_note || 'LESIONADO'}</span></div>` : ''}
-      ${r.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px">${r.bio}</div>` : ''}
+      <div style="color:var(--text2);font-size:13px;margin-top:4px">${r.bike_model || 'Sin moto'}</div>
+      ${r.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px;max-width:280px;margin-left:auto;margin-right:auto">${r.bio}</div>` : ''}
     </div>
 
-    <div class="points-bar" style="margin-bottom:16px">
-      <div class="points-level">
-        <div class="points-label">Nivel ${lv.name}</div>
-        <div class="points-track"><div class="points-fill" style="width:${progress}%"></div></div>
-      </div>
-      <div class="points-value">${r.points} pts</div>
+    <div class="stat-row" style="margin-bottom:12px">
+      <div class="stat-box"><div class="stat-val">${posts.length}</div><div class="stat-lbl">Posts</div></div>
+      <div class="stat-box"><div class="stat-val">${followers}</div><div class="stat-lbl">Seguidores</div></div>
+      <div class="stat-box"><div class="stat-val">${following}</div><div class="stat-lbl">Siguiendo</div></div>
     </div>
 
-    <div class="stat-row vanish" style="animation-delay:0.05s">
-      <div class="stat-box"><div class="stat-val">#${rank}</div><div class="stat-lbl">Ranking</div></div>
-      <div class="stat-box"><div class="stat-val">${myEvents}</div><div class="stat-lbl">Eventos</div></div>
-      <div class="stat-box"><div class="stat-val">${stats.total_km||0}</div><div class="stat-lbl">Km</div></div>
-      <div class="stat-box"><div class="stat-val">${stats.photos||0}</div><div class="stat-lbl">Fotos</div></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;justify-content:center">
+      ${renderFollowButton(r.id)}
+      ${(STATE.user?.id === r.id || STATE.user?.is_admin) ? `<button class="btn btn-secondary" onclick="editRider(${r.id})" style="padding:8px 16px;font-size:13px">Editar</button>` : ''}
     </div>
 
     ${earned.length > 0 ? `
-    <div class="vanish" style="animation-delay:0.1s">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">INSIGNIAS GANADAS (${earned.length})</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">INSIGNIAS</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${STATE.badges.filter(b => earned.includes(b.id)).map(b => `
-          <div style="text-align:center;cursor:pointer" onclick="showBadgeDetail(${b.id})" title="${b.description}">
-            <div style="margin-bottom:4px;display:flex;justify-content:center">${getBadgeSvg(b, true)}</div>
-            <div style="font-size:10px;font-weight:600;line-height:1.2">${b.name}</div>
+          <div style="text-align:center;cursor:pointer" onclick="showBadgeDetail(${b.id})" title="${b.name}">
+            ${getBadgeSvg(b, true)}
           </div>
         `).join('')}
       </div>
     </div>
-    ` : `
-    <div class="vanish" style="animation-delay:0.1s;text-align:center;padding:20px;color:var(--text3);font-size:13px">
-      🎖️ Este biker aún no ha ganado insignias
-    </div>
-    `}
-
-    ${STATE.user?.id === r.id || STATE.user?.is_admin ? `
-      <button class="btn btn-secondary" style="width:100%;margin-top:16px" onclick="editRider(${r.id})">Editar perfil</button>
     ` : ''}
+
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--text2)">PUBLICACIONES</div>
+      ${posts.length === 0 ? `<div style="text-align:center;color:var(--text3);font-size:13px;padding:16px">No hay publicaciones todavia</div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">
+        ${posts.map(p => `
+          <div style="aspect-ratio:1;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${p.media_url || p.image_url || ''}')">
+            ${(p.media_url || p.image_url) ? `<img src="${p.media_url || p.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:20px;color:var(--text3)">📝</div>`}
+          </div>
+        `).join('')}
+      </div>
+    </div>
   `;
 }
 
@@ -4025,7 +4036,7 @@ function renderBikerGram() {
           <div style="font-size:12px;color:var(--text2);margin-top:6px">El primer rider en publicar marca el camino</div>
           <button class="btn btn-primary" style="margin-top:14px;padding:10px 24px" onclick="createPost()">Crear publicacion</button>
         </div>
-      ` : posts.map(p => renderRacingPost(p)).join('')}
+      ` : posts.map(p => renderPostCardEnhanced(p)).join('')}
     </div>
   `;
   // Resolve HeyValue video/audio URLs after DOM renders
@@ -4624,90 +4635,32 @@ function clearPostMedia() {
   if (!content && (!POST_DRAFT || !POST_DRAFT.dataUrl)) { toast('Escribe algo o sube una foto/video/audio'); return; }
   if (!STATE.user) { toast('Inicia sesion primero'); return; }
 
-  // Replace publish button with uploading indicator
-  const pubBtn = document.querySelector('#modal-content .btn-primary');
-  if (pubBtn) {
-    pubBtn.outerHTML = `<div id="upload-status" style="margin-top:14px;text-align:center">
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;color:var(--text2)">
-        <span style="animation:pulse 1s infinite">⬆️</span> Subiendo...
-      </div>
-      <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:6px;overflow:hidden">
-        <div id="upload-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:2px;transition:width 0.3s"></div>
-      </div>
-    </div>`;
-  }
-
-  let mediaUrl = null;
-
-  // Upload to HeyValue (Nextcloud) via WebDAV with mini progress
-  if (HV.user && HV.pass && POST_DRAFT?.file) {
-    const fileSize = POST_DRAFT.file.size;
-    const typeFolder = POST_DRAFT.type === 'video' ? 'videos' : POST_DRAFT.type === 'audio' ? 'audio' : 'photos';
-    const ext = POST_DRAFT.file.name.split('.').pop() || 'jpg';
-    const filename = Date.now() + '_' + Math.random().toString(36).substring(2,8) + '.' + ext;
-    const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
-    const uploadUrl = HV.url + '/nc' + path;
-
-    try {
-      const buffer = POST_DRAFT.dataUrl.startsWith('data:') 
-        ? dataURLtoBlob(POST_DRAFT.dataUrl) 
-        : await fetch(POST_DRAFT.dataUrl).then(r => r.blob());
-
-      mediaUrl = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Authorization', 'Basic ' + btoa(HV.user + ':' + HV.pass));
-        xhr.setRequestHeader('Content-Type', POST_DRAFT.mimeType || 'application/octet-stream');
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            const bar = document.getElementById('upload-bar');
-            if (bar) bar.style.width = pct + '%';
-          }
-        };
-
-        xhr.onload = () => {
-          if (xhr.status === 201 || xhr.status === 204 || xhr.status === 200) {
-            resolve(uploadUrl);
-          } else {
-            reject(new Error('HTTP ' + xhr.status));
-          }
-        };
-
-        xhr.onerror = () => reject(new Error('Error de conexión'));
-        xhr.ontimeout = () => reject(new Error('Timeout de subida'));
-        xhr.timeout = 300000;
-        xhr.send(buffer);
-      });
-
-    } catch(e) {
-      const st = document.getElementById('upload-status');
-      if (st) st.innerHTML = '<div style="color:#ff4444;font-weight:700;font-size:13px">⚠️ Error de subida</div>';
-      return;
-    }
-  } else if (POST_DRAFT?.dataUrl && !HV.user) {
-    mediaUrl = POST_DRAFT.dataUrl;
-  }
-
-  if (!mediaUrl) { toast('No se pudo preparar el archivo'); return; }
-
-  const post = {
-    id: Date.now() % 100000,
-    user_id: STATE.user.id,
-    content,
-    media_type: POST_DRAFT?.type || null,
-    media_url: mediaUrl,
-    image_url: POST_DRAFT?.type === 'image' ? mediaUrl : null,
-    created_at: new Date().toISOString(),
-    likes: [],
-    comments: []
-  };
-  STATE.posts.unshift(post);
-  await saveState();
-  POST_DRAFT = null;
+  // Close modal immediately
   closeModal();
-  navigate('bikergram');
+
+  // Prepare media data for instant display
+  let mediaData = null;
+  if (POST_DRAFT?.dataUrl) {
+    mediaData = {
+      type: POST_DRAFT.type,
+      url: POST_DRAFT.dataUrl,
+      blob: null,
+      fileName: POST_DRAFT.fileName,
+      mimeType: POST_DRAFT.mimeType
+    };
+    // Get blob for background upload
+    if (POST_DRAFT.dataUrl.startsWith('data:')) {
+      mediaData.blob = dataURLtoBlob(POST_DRAFT.dataUrl);
+    } else {
+      mediaData.blob = await fetch(POST_DRAFT.dataUrl).then(r => r.blob()).catch(() => null);
+    }
+  }
+
+  // Create post INSTANTLY - shows immediately
+  createPostInstant(content, mediaData);
+
+  // Upload media in background (already handled by createPostInstant)
+  toast('Publicado!');
 }
 
 function deletePost(id) {
@@ -5899,5 +5852,447 @@ document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
 
+// ===== INDEXED DB LAYER =====
+let DB = null;
+const DB_NAME = 'BikerGramDB';
+const DB_VERSION = 1;
+const STORES = ['posts', 'comments', 'follows', 'sync_queue'];
+
+function initIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => { DB = req.result; resolve(DB); };
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('posts')) {
+        const ps = db.createObjectStore('posts', {keyPath: 'id'});
+        ps.createIndex('user_id', 'user_id', {unique: false});
+        ps.createIndex('created_at', 'created_at', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('comments')) {
+        const cm = db.createObjectStore('comments', {keyPath: 'id', autoIncrement: true});
+        cm.createIndex('post_id', 'post_id', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('follows')) {
+        const fl = db.createObjectStore('follows', {keyPath: 'id'});
+        fl.createIndex('follower_id', 'follower_id', {unique: false});
+        fl.createIndex('following_id', 'following_id', {unique: false});
+      }
+      if (!db.objectStoreNames.contains('sync_queue')) {
+        const sq = db.createObjectStore('sync_queue', {keyPath: 'id', autoIncrement: true});
+        sq.createIndex('status', 'status', {unique: false});
+      }
+    };
+  });
+}
+
+function idbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve(null); return; }
+    const tx = DB.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbPut(store, data, key) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve(null); return; }
+    const tx = DB.transaction(store, 'readwrite');
+    if (key !== undefined) data.id = key;
+    const req = tx.objectStore(store).put(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbGetAll(store) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve([]); return; }
+    const tx = DB.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbDelete(store, key) {
+  return new Promise((resolve, reject) => {
+    if (!DB) { resolve(null); return; }
+    const tx = DB.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(key);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ===== SYNC QUEUE =====
+function syncQueuePush(action, storeName, data) {
+  return idbPut('sync_queue', {
+    action,
+    store_name: storeName,
+    data,
+    created_at: new Date().toISOString(),
+    status: 'pending'
+  });
+}
+
+async function syncQueueProcess() {
+  if (!DB || !HV.connected) return;
+  const items = await idbGetAll('sync_queue');
+  const pending = items.filter(i => i.status === 'pending');
+  for (const item of pending) {
+    try {
+      const tableMap = {posts: 'posts', comments: 'comments', follows: 'follows'};
+      const table = tableMap[item.store_name];
+      if (!table) { await idbDelete('sync_queue', item.id); continue; }
+      await saveToHV(table, STATE[item.store_name] || []);
+      item.status = 'done';
+      await idbPut('sync_queue', item, item.id);
+    } catch(e) { /* keep pending */ }
+  }
+}
+
+// ===== REACTIONS SYSTEM =====
+const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '😡'];
+
+function getReactions(postId) {
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return {};
+  const reactions = p.reactions || {};
+  return reactions;
+}
+
+function renderReactions(postId) {
+  const reactions = getReactions(postId);
+  const total = Object.values(reactions).reduce((a, b) => a + b, 0);
+  if (total === 0) return '';
+  const badges = Object.entries(reactions)
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([emoji, count]) => `<span style="background:rgba(255,255,255,0.1);padding:2px 7px;border-radius:10px;font-size:12px;margin-right:4px">${emoji} ${count}</span>`)
+    .join('');
+  return `<div style="padding:6px 14px;font-size:12px;color:var(--text2)">${badges}</div>`;
+}
+
+function addReaction(postId, emoji) {
+  if (!STATE.user) return;
+  const p = STATE.posts.find(x => x.id === postId);
+  if (!p) return;
+  if (!p.reactions) p.reactions = {};
+  // Toggle: if same emoji, remove; else set
+  const userId = String(STATE.user.id);
+  if (p._reactionUser === userId && p._reactionEmoji === emoji) {
+    p.reactions[emoji] = Math.max(0, (p.reactions[emoji] || 1) - 1);
+    p._reactionUser = null;
+    p._reactionEmoji = null;
+  } else {
+    // Remove old reaction count
+    if (p._reactionEmoji && p.reactions[p._reactionEmoji]) {
+      p.reactions[p._reactionEmoji] = Math.max(0, p.reactions[p._reactionEmoji] - 1);
+    }
+    p.reactions[emoji] = (p.reactions[emoji] || 0) + 1;
+    p._reactionUser = userId;
+    p._reactionEmoji = emoji;
+  }
+  saveState();
+  syncQueuePush('update', 'posts', p);
+  renderBikerGram();
+}
+
+function showReactionPicker(postId, btn) {
+  // Remove existing picker
+  const existing = document.querySelector('.reaction-picker');
+  if (existing) { existing.remove(); return; }
+  const picker = document.createElement('div');
+  picker.className = 'reaction-picker';
+  picker.style.cssText = 'position:absolute;bottom:40px;left:0;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 10px;display:flex;gap:4px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.4)';
+  REACTION_EMOJIS.forEach(emoji => {
+    const b = document.createElement('button');
+    b.textContent = emoji;
+    b.style.cssText = 'background:none;border:none;font-size:20px;cursor:pointer;padding:2px;transition:transform 0.1s;border-radius:50%';
+    b.onmouseover = () => b.style.transform = 'scale(1.3)';
+    b.onmouseout = () => b.style.transform = 'scale(1)';
+    b.onclick = () => { addReaction(postId, emoji); picker.remove(); };
+    picker.appendChild(b);
+  });
+  btn.style.position = 'relative';
+  btn.parentElement.appendChild(picker);
+  // Close on outside click
+  setTimeout(() => {
+    const close = (e) => { if (!picker.contains(e.target)) { picker.remove(); document.removeEventListener('click', close); } };
+    document.addEventListener('click', close);
+  }, 50);
+}
+
+// ===== COMMENTS SYSTEM =====
+function renderComments(postId) {
+  const comments = STATE.comments ? STATE.comments.filter(c => c.post_id === postId) : [];
+  if (comments.length === 0) return '';
+  return comments.map(c => {
+    const author = STATE.users.find(u => u.id === c.user_id) || {username: '?', avatar: ''};
+    return `<div style="display:flex;gap:8px;padding:6px 14px">
+      <div style="width:28px;height:28px;flex-shrink:0">${renderAvatar(author, 28)}</div>
+      <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:12px;padding:6px 10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text2)">${author.username}</div>
+        <div style="font-size:13px">${c.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addComment(postId, text) {
+  if (!STATE.user || !text.trim()) return;
+  const comment = {
+    id: Date.now() % 100000,
+    post_id: postId,
+    user_id: STATE.user.id,
+    text: text.trim(),
+    created_at: new Date().toISOString()
+  };
+  STATE.comments = STATE.comments || [];
+  STATE.comments.push(comment);
+  saveState();
+  syncQueuePush('create', 'comments', comment);
+  // Update comment count on post
+  const p = STATE.posts.find(x => x.id === postId);
+  if (p) { p.comments_count = (p.comments_count || 0) + 1; saveState(); }
+  renderBikerGram();
+}
+
+// ===== SHARE SYSTEM =====
+function sharePost(postId) {
+  const url = 'https://bikersociety.duckdns.org?post=' + postId;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => toast('Enlace copiado!'));
+  } else {
+    prompt('Copia este enlace:', url);
+  }
+}
+
+// ===== FOLLOW SYSTEM =====
+function isFollowing(userId) {
+  if (!STATE.user) return false;
+  const f = STATE.follows || [];
+  return f.some(x => x.follower_id === STATE.user.id && x.following_id === userId);
+}
+
+function toggleFollow(userId) {
+  if (!STATE.user) return;
+  STATE.follows = STATE.follows || [];
+  const idx = STATE.follows.findIndex(x => x.follower_id === STATE.user.id && x.following_id === userId);
+  if (idx >= 0) {
+    STATE.follows.splice(idx, 1);
+    toast('Dejaste de seguir');
+  } else {
+    STATE.follows.push({follower_id: STATE.user.id, following_id: userId, created_at: new Date().toISOString()});
+    toast('Ahora sigues a este rider');
+  }
+  saveState();
+  syncQueuePush('update', 'follows', STATE.follows);
+  renderPage(STATE.currentPage);
+}
+
+function getFollowerCount(userId) {
+  return (STATE.follows || []).filter(x => x.following_id === userId).length;
+}
+
+function getFollowingCount(userId) {
+  return (STATE.follows || []).filter(x => x.follower_id === userId).length;
+}
+
+// ===== INSTANT POST CREATION =====
+async function createPostInstant(content, mediaData) {
+  if (!STATE.user) return;
+  const post = {
+    id: Date.now() % 100000,
+    user_id: STATE.user.id,
+    username: STATE.user.username,
+    user_avatar: STATE.user.avatar || '',
+    user_bike: STATE.user.bike_model || '',
+    content,
+    media_type: mediaData?.type || null,
+    media_url: mediaData?.url || null,
+    image_url: mediaData?.type === 'image' ? mediaData.url : null,
+    created_at: new Date().toISOString(),
+    likes: [],
+    reactions: {},
+    comments_count: 0,
+    synced: false
+  };
+  // Save to IndexedDB immediately
+  if (DB) await idbPut('posts', post, post.id);
+  // Show in UI instantly
+  STATE.posts.unshift(post);
+  renderBikerGram();
+  // Upload media in background
+  if (mediaData?.blob && HV.user && HV.pass) {
+    uploadMediaAsync(post.id, mediaData);
+  }
+  // Save to localStorage
+  saveState();
+}
+
+async function uploadMediaAsync(postId, mediaData) {
+  const typeFolder = mediaData.type === 'video' ? 'videos' : mediaData.type === 'audio' ? 'audio' : 'photos';
+  const ext = mediaData.fileName ? mediaData.fileName.split('.').pop() : (mediaData.type === 'image' ? 'jpg' : 'mp4');
+  const filename = Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
+  const uploadUrl = HV.url + '/nc' + path;
+  try {
+    const blob = mediaData.blob;
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('Authorization', 'Basic ' + btoa(HV.user + ':' + HV.pass));
+      xhr.setRequestHeader('Content-Type', mediaData.mimeType || 'application/octet-stream');
+      xhr.onload = () => {
+        if (xhr.status === 201 || xhr.status === 204 || xhr.status === 200) resolve();
+        else reject(new Error('HTTP ' + xhr.status));
+      };
+      xhr.onerror = () => reject(new Error('Error'));
+      xhr.timeout = 300000;
+      xhr.send(blob);
+    });
+    // Update post with real URL
+    const p = STATE.posts.find(x => x.id === postId);
+    if (p) {
+      p.media_url = uploadUrl;
+      p.image_url = mediaData.type === 'image' ? uploadUrl : null;
+      p.synced = true;
+      if (DB) await idbPut('posts', p, p.id);
+      saveState();
+      syncQueuePush('update', 'posts', p);
+      renderBikerGram();
+    }
+  } catch(e) {
+    console.warn('Media upload failed:', e);
+  }
+}
+
+// ===== ENHANCED POST CARD =====
+function renderPostCardEnhanced(p) {
+  const author = STATE.users.find(u => u.id === p.user_id) || {username: '?', bike_model: '', avatar: '', is_admin: false};
+  const likes = p.likes || [];
+  const reactions = p.reactions || {};
+  const totalRx = Object.values(reactions).reduce((a, b) => a + b, 0);
+  const comments = STATE.comments ? STATE.comments.filter(c => c.post_id === p.id) : [];
+  const isLiked = STATE.user && likes.includes(String(STATE.user.id));
+  const isMyPost = STATE.user && STATE.user.id === p.user_id;
+  const mediaType = p.media_type || (p.image_url ? 'image' : null);
+  const typeEmoji = mediaType === 'image' ? '📷' : (mediaType === 'video' ? '🎬' : (mediaType === 'audio' ? '🎵' : ''));
+  const reactionBadges = Object.entries(reactions).filter(([,c]) => c > 0).sort((a,b) => b[1]-a[1]).slice(0,3).map(([e,c]) => `${e}${c}`).join(' ');
+
+  return `
+    <div class="post-card vanish" style="margin-bottom:14px" data-post-id="${p.id}">
+      <div class="post-header">
+        <div style="width:38px;height:38px;flex-shrink:0;cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${renderAvatar(author, 38)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="post-name" style="cursor:pointer" onclick="closeFpanel();navigate('rider-detail',${author.id})">${author.username}</span>
+            ${author.is_admin ? '<span style="font-size:9px;padding:1px 5px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;border-radius:10px;font-weight:800">ADMIN</span>' : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
+            <span>${timeAgo(p.created_at)}</span>
+            ${mediaType ? `<span>· ${typeEmoji}</span>` : ''}
+          </div>
+        </div>
+        ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
+      </div>
+
+      ${p.content ? `<div class="post-content">${p.content}</div>` : ''}
+
+      ${(p.media_url || p.image_url) ? renderPostMedia(p) : ''}
+
+      ${(totalRx > 0 || likes.length > 0) ? `
+        <div style="padding:4px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">
+          ${totalRx > 0 ? `<span style="font-size:12px;color:var(--text2)">${reactionBadges}</span>` : ''}
+          ${likes.length > 0 ? `<span style="font-size:12px;color:var(--text2);margin-left:auto">❤️ ${likes.length}</span>` : ''}
+        </div>
+      ` : ''}
+
+      <div class="post-actions">
+        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px" onclick="toggleLike(${p.id})">
+          ${isLiked ? '❤️' : '🤍'} ${likes.length || ''}
+        </button>
+        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px;position:relative" onclick="showReactionPicker(${p.id}, this)">
+          😀 Reaktion
+        </button>
+        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px" onclick="toggleComments(${p.id})">
+          💬 ${p.comments_count || comments.length || ''}
+        </button>
+        <button class="btn btn-ghost" style="flex:1;font-size:13px;padding:6px" onclick="sharePost(${p.id})">
+          ↗️ Compartir
+        </button>
+      </div>
+
+      <div id="comments-section-${p.id}" style="display:none">
+        ${renderComments(p.id)}
+        ${STATE.user ? `
+          <div style="display:flex;gap:8px;padding:8px 14px;align-items:center">
+            <div style="width:28px;height:28px;flex-shrink:0">${renderAvatar(STATE.user, 28)}</div>
+            <input id="comment-input-${p.id}" placeholder="Escribe un comentario..." style="flex:1;background:rgba(255,255,255,0.08);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;color:#fff;outline:none" onkeydown="if(event.key==='Enter'){addComment(${p.id},this.value);this.value=''}">
+            <button onclick="addComment(${p.id},document.getElementById('comment-input-${p.id}').value);document.getElementById('comment-input-${p.id}').value=''" style="background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;font-size:13px;font-weight:700;padding:6px 14px;border-radius:20px;cursor:pointer">Enviar</button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function toggleComments(postId) {
+  const el = document.getElementById('comments-section-' + postId);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// Enhanced follow button for profile
+function renderFollowButton(userId) {
+  if (!STATE.user || STATE.user.id === userId) return '';
+  const following = isFollowing(userId);
+  return `<button onclick="toggleFollow(${userId})" style="padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;${following ? 'background:rgba(255,255,255,0.1);border:1px solid var(--border);color:#fff' : 'background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff'}">
+    ${following ? 'Siguiendo' : 'Seguir'}
+  </button>`;
+}
+
+// ===== ENHANCED PROFILE PAGE =====
+function renderEnhancedProfile(userId) {
+  const user = STATE.users.find(u => u.id === userId);
+  if (!user) return '<div style="padding:20px;text-align:center;color:var(--text2)">Usuario no encontrado</div>';
+  const posts = STATE.posts.filter(p => p.user_id === userId);
+  const followers = getFollowerCount(userId);
+  const following = getFollowingCount(userId);
+
+  return `
+    <div style="padding:0 0 20px">
+      <div style="text-align:center;padding:20px">
+        <div style="width:80px;height:80px;margin:0 auto 12px">${renderAvatar(user, 80)}</div>
+        <div style="font-size:20px;font-weight:900">${user.username}</div>
+        ${user.bike_model ? `<div style="font-size:12px;color:var(--text2);margin-top:4px">${user.bike_model}</div>` : ''}
+        ${user.bio ? `<div style="font-size:13px;color:var(--text2);margin-top:8px;max-width:300px;margin-left:auto;margin-right:auto">${user.bio}</div>` : ''}
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:16px;font-size:13px">
+          <div><strong>${posts.length}</strong> <span style="color:var(--text2)">posts</span></div>
+          <div><strong>${followers}</strong> <span style="color:var(--text2)">seguidores</span></div>
+          <div><strong>${following}</strong> <span style="color:var(--text2)">siguiendo</span></div>
+        </div>
+        <div style="margin-top:14px">${renderFollowButton(userId)}</div>
+      </div>
+      ${posts.length > 0 ? `
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <div style="padding:0 14px 10px;font-size:12px;font-weight:700;color:var(--text2)">PUBLICACIONES</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">
+            ${posts.map(p => `
+              <div style="aspect-ratio:1;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${p.media_url || p.image_url || ''}')">
+                ${(p.media_url || p.image_url) ? `<img src="${p.media_url || p.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px">📝</div>`}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '<div style="text-align:center;color:var(--text2);padding:20px;font-size:13px">No hay publicaciones todavia</div>'}
+    </div>
+  `;
+}
 </script>
 </html>
