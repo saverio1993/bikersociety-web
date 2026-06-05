@@ -2116,7 +2116,7 @@ function initApp() {
   STATE.attendance = ls('bs_att') || [];
   STATE.comments = ls('bs_comments') || [];
   STATE.follows = ls('bs_follows') || [];
-  STATE.user = ls('bs_session');
+  STATE._deletedIds = ls('_deletedPosts') || [];
   // Init IndexedDB in background
   initIndexedDB().catch(() => {});
   loadPlaces();
@@ -2195,7 +2195,15 @@ async function syncPostsFromCloud() {
     // Filter out deleted posts from cloud data
     const filteredCloud = data.filter(item => !deletedIds.includes(item.id));
     const cloudMap = new Map(filteredCloud.map(item => [item.id, item]));
-    const localOnly = (STATE.posts || []).filter(item => !cloudMap.has(item.id) && !deletedIds.includes(item.id));
+    // Find posts that exist locally but NOT in cloud — those were deleted by others
+    const orphaned = (STATE.posts || []).filter(item => !cloudMap.has(item.id) && !deletedIds.includes(item.id));
+    // Clean up orphaned posts from IndexedDB
+    if (DB && orphaned.length > 0) {
+      for (const post of orphaned) {
+        await idbDelete('posts', post.id);
+      }
+    }
+    const localOnly = orphaned; // only keep truly local-only (new) posts
     // Sort BOTH cloud and local posts by date before merging
     const sortedCloud = [...filteredCloud].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
     const sortedLocal = [...localOnly].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
@@ -4896,6 +4904,7 @@ async function deletePost(id) {
   // Mark as deleted to block background sync from restoring it
   STATE._deletedIds = STATE._deletedIds || [];
   STATE._deletedIds.push(id);
+  ls('_deletedPosts', STATE._deletedIds); // persist so reload doesn't forget
   // Delete from IndexedDB immediately
   if (DB) await idbDelete('posts', id);
   // Remove from STATE
@@ -4908,6 +4917,7 @@ async function deletePost(id) {
     await saveToHV('posts', STATE.posts);
     // After cloud synced, remove from deleted list
     STATE._deletedIds = (STATE._deletedIds || []).filter(i => i !== id);
+    ls('_deletedPosts', STATE._deletedIds);
   }
   toast('Eliminado');
 }
