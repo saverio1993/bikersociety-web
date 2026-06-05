@@ -1160,17 +1160,26 @@ a{color:inherit;text-decoration:none}
 (function() {
   var s = document.getElementById('splash');
   if (s) s.style.display = 'none';
-  // Listen for initApp to hide it again (in case it ran first)
-  window.addEventListener('load', function() {
-    var s2 = document.getElementById('splash');
-    if (s2) s2.style.display = 'none';
-  });
   // Last-resort: hide after 500ms no matter what
   setTimeout(function() {
     var s3 = document.getElementById('splash');
     if (s3) s3.style.display = 'none';
   }, 500);
 })();
+// Catch any unhandled errors and show them
+window.onerror = function(msg, src, line, col, err) {
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ef4444;color:#fff;padding:8px 12px;font-size:11px;font-family:monospace;z-index:99999;max-height:50vh;overflow:auto;white-space:pre-wrap';
+  d.textContent = 'JS ERROR: ' + msg + ' @ line ' + line + ':' + col;
+  document.body && document.body.appendChild(d);
+  console.error('[BS] ERROR:', msg, 'line', line);
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:60px;left:0;right:0;background:#f59e0b;color:#000;padding:8px 12px;font-size:11px;font-family:monospace;z-index:99999;max-height:50vh;overflow:auto;white-space:pre-wrap';
+  d.textContent = 'PROMISE: ' + (e.reason && e.reason.message || e.reason);
+  document.body && document.body.appendChild(d);
+});
 </script>
 
 <!-- Motorcycle engine sound for login -->
