@@ -5890,7 +5890,14 @@ setTimeout(() => {
     else if (typeof showLogin === 'function') showLogin();
   }
 }, 3000);
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+  // ONE-TIME CLEANUP: clear all BikerGram posts
+  if (!localStorage.getItem('_postsCleaned')) {
+    localStorage.setItem('bs_posts', '[]');
+    localStorage.setItem('_postsCleaned', '1');
+  }
+  initApp();
+});
 
 </script>
 </html>
