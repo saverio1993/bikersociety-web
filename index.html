@@ -2203,11 +2203,24 @@ async function syncPostsFromCloud() {
         await idbDelete('posts', post.id);
       }
     }
-    const localOnly = orphaned; // only keep truly local-only (new) posts
-    // Sort BOTH cloud and local posts by date before merging
-    const sortedCloud = [...filteredCloud].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    const sortedLocal = [...localOnly].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    STATE.posts = [...sortedLocal, ...sortedCloud];
+    // Prefer local version if post not yet synced (has pending media upload)
+    const merged = [];
+    const seen = new Set();
+    // Add all cloud posts
+    for (const p of filteredCloud) { merged.push(p); seen.add(p.id); }
+    // Add local-only posts (new posts not yet synced or unsynced)
+    for (const p of (STATE.posts || [])) {
+      if (!seen.has(p.id)) merged.push(p);
+      else {
+        // If local has media_url but cloud doesn't, keep local
+        const cloudP = cloudMap.get(p.id);
+        if (cloudP && !cloudP.media_url && p.media_url) {
+          const idx = merged.findIndex(x => x.id === p.id);
+          if (idx >= 0) merged[idx] = p;
+        }
+      }
+    }
+    STATE.posts = merged.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   }
 }
 
@@ -6378,12 +6391,12 @@ async function createPostInstant(content, mediaData) {
   // Show in UI instantly
   STATE.posts.unshift(post);
   renderBikerGram();
+  // Save to localStorage ONLY (don't sync to cloud yet)
+  saveLocal();
   // Upload media in background
   if (mediaData?.blob && HV.user && HV.pass) {
     uploadMediaAsync(post.id, mediaData);
   }
-  // Save to localStorage
-  saveState();
 }
 
 async function uploadMediaAsync(postId, mediaData) {
