@@ -3682,11 +3682,13 @@ function viewRider(id) {
 function renderRiderDetail() {
   const r = STATE.selectedRider;
   if (!r) { navigate('bikers'); return; }
+  recalculateUserStats(r.id);
   const rank = STATE.users.sort((a,b) => b.points - a.points).findIndex(u => u.id === r.id) + 1;
   const lv = levelOf(r.points);
   const progress = levelProgress(r.points);
   const myBadges = STATE.userBadges.filter(ub => ub.user_id === r.id);
   const earned = myBadges.map(ub => ub.badge_id);
+  const stats = getUserStats(r.id);
   const myEvents = STATE.attendance.filter(a => a.user_id === r.id).length;
   const myRoutes = STATE.routes.filter(rt => rt.created_by === r.id).length;
 
@@ -3715,21 +3717,27 @@ function renderRiderDetail() {
     <div class="stat-row vanish" style="animation-delay:0.05s">
       <div class="stat-box"><div class="stat-val">#${rank}</div><div class="stat-lbl">Ranking</div></div>
       <div class="stat-box"><div class="stat-val">${myEvents}</div><div class="stat-lbl">Eventos</div></div>
-      <div class="stat-box"><div class="stat-val">${myRoutes}</div><div class="stat-lbl">Rutas</div></div>
+      <div class="stat-box"><div class="stat-val">${stats.total_km||0}</div><div class="stat-lbl">Km</div></div>
+      <div class="stat-box"><div class="stat-val">${stats.photos||0}</div><div class="stat-lbl">Fotos</div></div>
     </div>
 
+    ${earned.length > 0 ? `
     <div class="vanish" style="animation-delay:0.1s">
       <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)">INSIGNIAS GANADAS (${earned.length})</div>
-      <div class="badge-grid">
-        ${STATE.badges.map(b => {
-          const isEarned = earned.includes(b.id);
-          return `<div class="badge-item ${isEarned ? 'earned' : ''}" title="${b.description}">
-            <div class="badge-icon">${b.icon}</div>
-            <div class="badge-name">${b.name}</div>
-          </div>`;
-        }).join('')}
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        ${STATE.badges.filter(b => earned.includes(b.id)).map(b => `
+          <div style="text-align:center;cursor:pointer" onclick="showBadgeDetail(${b.id})" title="${b.description}">
+            <div style="margin-bottom:4px;display:flex;justify-content:center">${getBadgeSvg(b, true)}</div>
+            <div style="font-size:10px;font-weight:600;line-height:1.2">${b.name}</div>
+          </div>
+        `).join('')}
       </div>
     </div>
+    ` : `
+    <div class="vanish" style="animation-delay:0.1s;text-align:center;padding:20px;color:var(--text3);font-size:13px">
+      🎖️ Este biker aún no ha ganado insignias
+    </div>
+    `}
 
     ${STATE.user?.id === r.id || STATE.user?.is_admin ? `
       <button class="btn btn-secondary" style="width:100%;margin-top:16px" onclick="editRider(${r.id})">Editar perfil</button>
