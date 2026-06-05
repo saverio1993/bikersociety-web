@@ -3554,16 +3554,16 @@ function startPOIPicker(target) {
   bar.id = 'poi-picker-bar';
   bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface, #1a1a2e);border:1px solid var(--accent);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(255,68,68,0.3);font-size:13px;color:var(--text);flex-wrap:wrap;max-width:95vw';
   bar.innerHTML = '<span style="font-size:16px">📍</span> <b>' + (target === 'start' ? 'SALIDA' : 'DESTINO') + '</b>' +
-    '<input id="poi-map-search" type="text" placeholder="🔍 Buscar por nombre..." style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;outline:none" autocomplete="off">' +
+    '<input id="poi-map-search" type="text" placeholder="🔍 Buscar por nombre..." style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;outline:none" autocomplete="off" oninput="window._handlePOISearch(this.value)">' +
     '<button onclick="cancelPOIPicker()" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;white-space:nowrap">✕ Cancelar</button>';
   document.body.appendChild(bar);
   
-  // Search filter — debounced re-render
-  var searchTimeout = null;
-  document.getElementById('poi-map-search').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    var q = this.value.trim().toLowerCase();
-    searchTimeout = setTimeout(function() {
+  // Search filter — globally accessible via oninput attribute
+  var _searchTimeout = null;
+  window._handlePOISearch = function(q) {
+    clearTimeout(_searchTimeout);
+    q = (q || '').trim().toLowerCase();
+    _searchTimeout = setTimeout(function() {
       var pois = window.panamaPOIs || [];
       if (q.length >= 2) {
         pois = pois.filter(function(p) {
@@ -3575,7 +3575,7 @@ function startPOIPicker(target) {
       }
       renderPOIs(pois);
     }, 100);
-  });
+  };
   
   // Load POIs onto map
   loadPOIsToMap();
