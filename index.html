@@ -1935,34 +1935,51 @@ function getAvatar() {
   try { return localStorage.getItem('bs_avatar') || null; } catch(e) { return null; }
 }
 
-async function handleProfilePicChange(e) {
+// ── Profile picture: 2-step (preview → confirm save) ─────────────────────────
+// Stash the picked file in a module-level var; only persists when user taps "Guardar sí"
+var _pendingProfilePic = null; // { dataUrl, rawFile }
+
+async function previewProfilePic(e) {
   const file = e.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
   e.target.value = '';
-
   const sizeMB = (file.size / 1024 / 1024).toFixed(1);
   toast(`Procesando foto (${sizeMB}MB)...`);
-
   try {
-    // 1. Compress heavily so it fits in localStorage even on small devices
     let dataUrl = await compressImage(file, 256, 0.7);
     if (!dataUrl) dataUrl = await fileToDataUrl(file);
+    if (dataUrl.length > 800 * 1024) dataUrl = await compressImage(file, 200, 0.6) || dataUrl;
+    if (dataUrl.length > 800 * 1024) dataUrl = await compressImage(file, 150, 0.5) || dataUrl;
 
-    // If still > 800KB, compress more
-    if (dataUrl.length > 800 * 1024) {
-      dataUrl = await compressImage(file, 200, 0.6) || dataUrl;
-    }
-    if (dataUrl.length > 800 * 1024) {
-      dataUrl = await compressImage(file, 150, 0.5) || dataUrl;
-    }
+    _pendingProfilePic = { dataUrl, rawFile: file };
 
-    // 2. Save to dedicated localStorage key (the source of truth)
+    // Show preview + reveal Save/Cancel buttons
+    const display = document.getElementById('profile-pic-display');
+    if (display) {
+      display.innerHTML = `<img src="${dataUrl}" style="width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;border:3px solid #ff4444">`;
+    }
+    const actions = document.getElementById('profile-pic-actions');
+    if (actions) actions.style.display = 'flex';
+    toast('Foto lista — toca Guardar sí para confirmar');
+  } catch(err) {
+    console.error('[BS] Preview failed:', err);
+    toast('❌ Error al procesar foto: ' + err.message);
+  }
+}
+
+async function confirmSaveProfilePic() {
+  if (!_pendingProfilePic) {
+    toast('No hay foto pendiente');
+    return;
+  }
+  const { dataUrl } = _pendingProfilePic;
+  toast('💾 Guardando foto...');
+  try {
+    // 1. Save to dedicated localStorage key (the source of truth)
     saveAvatar(dataUrl);
-    // 3. Update STATE so any current renders show it
+    // 2. Update STATE so any current renders show it
     applyAvatarToUI(dataUrl);
-    toast('✅ Foto guardada!');
-
-    // 4. Persist the session so the avatar survives a refresh
+    // 3. Persist the session so the avatar survives a refresh
     try {
       const session = ls('bs_session');
       if (session && session.id === STATE.user.id) {
@@ -1971,8 +1988,7 @@ async function handleProfilePicChange(e) {
         ls('bs_session', session);
       }
     } catch(e) { /* ignore */ }
-
-    // 5. Save user data (avatar) to localStorage so it loads on next visit
+    // 4. Save user data (avatar) to localStorage so it loads on next visit
     try {
       const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
       if (idx >= 0) {
@@ -1983,8 +1999,7 @@ async function handleProfilePicChange(e) {
         ls('bs_users', STATE.users);
       }
     } catch(e) { console.warn('[BS] Could not save users list:', e); }
-
-    // 6. Upload to HeyValue in background (best-effort, non-blocking)
+    // 5. Upload to HeyValue in background (best-effort, non-blocking)
     if (HV.user && HV.pass) {
       const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
       const hvUrl = HV.url + '/nc' + path;
@@ -2002,10 +2017,41 @@ async function handleProfilePicChange(e) {
         console.warn('[BS] HeyValue upload failed, local avatar kept:', err);
       });
     }
+    _pendingProfilePic = null;
+    // Hide buttons, restore normal display
+    const actions = document.getElementById('profile-pic-actions');
+    if (actions) actions.style.display = 'none';
+    const display = document.getElementById('profile-pic-display');
+    if (display) {
+      const u = STATE.user;
+      display.innerHTML = renderAvatar(u, 96);
+    }
+    toast('✅ Foto guardada!');
+    // Re-render profile to make sure all references are fresh
+    if (typeof renderProfile === 'function') renderProfile();
   } catch(err) {
-    console.error('[BS] Profile pic change failed:', err);
-    toast('❌ Error al procesar foto: ' + err.message);
+    console.error('[BS] Save failed:', err);
+    toast('❌ Error al guardar: ' + err.message);
   }
+}
+
+function cancelProfilePic() {
+  _pendingProfilePic = null;
+  const actions = document.getElementById('profile-pic-actions');
+  if (actions) actions.style.display = 'none';
+  const display = document.getElementById('profile-pic-display');
+  if (display) {
+    display.innerHTML = renderAvatar(STATE.user, 96);
+  }
+  // Reset file input so picking the same file again triggers change
+  const input = document.getElementById('profile-pic-input');
+  if (input) input.value = '';
+  toast('Cancelado');
+}
+
+// Backwards compat: keep old name as a wrapper that just previews (no auto-save)
+async function handleProfilePicChange(e) {
+  return previewProfilePic(e);
 }
 
 // Apply avatar URL to all visible avatar elements without re-rendering the whole page
@@ -3383,29 +3429,6 @@ function renderInicio() {
       `).join('')}
     </div>
     ` : ''}
-
-    <!-- Upcoming Events (AL FINAL) -->
-    ${upcoming.length ? `
-    <div class="vanish" style="animation-delay:0.3s;margin-top:16px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-        <span style="color:var(--text2)">PROXIMOS EVENTOS</span>
-        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
-      </div>
-      ${upcoming.map(ev => `
-        <div class="event-card" onclick="viewEvent(${ev.id})">
-          <div style="height:120px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.1));display:flex;align-items:center;justify-content:center;font-size:40px">🏍️</div>
-          <div class="event-body">
-            <div class="event-date">${ev.date} · ${ev.time}</div>
-            <div class="event-title">${ev.title}</div>
-            <div class="event-meta">
-              <span>📍 ${ev.location}</span>
-              <span>⚡ ${ev.difficulty}</span>
-            </div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
   `;
 
   loadNews();
@@ -3636,39 +3659,13 @@ function renderRutas() {
           <button onclick="setRouteSubTab('mis')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='mis'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='mis'?'#ff4444':'var(--text2)'}">Mis rutas (${myRoutes.length})</button>
         </div>
 
-        <!-- Filters panel -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 12px;margin-bottom:12px">
-          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Filtros</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-            ${['todas','facil','media','dificil','epica'].map(d => `
-              <button onclick="setRouteDifficulty('${d}')" style="padding:5px 11px;border-radius:14px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:${routeFilter.difficulty===d?'linear-gradient(135deg,#ff4444,#ff8800)':'var(--surface2)'};color:${routeFilter.difficulty===d?'#fff':'var(--text2)'}">
-                ${d==='todas'?'Todas':d.charAt(0).toUpperCase()+d.slice(1)}
-              </button>
-            `).join('')}
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="font-size:11px;color:var(--text2);flex-shrink:0">Max km</div>
-            <input type="range" min="20" max="500" step="10" value="${routeFilter.maxKm}" oninput="setRouteMaxKm(this.value)" style="flex:1;accent-color:#ff4444">
-            <div style="font-size:11px;font-weight:700;color:var(--accent);min-width:50px;text-align:right">${routeFilter.maxKm}km</div>
-          </div>
-        </div>
-
         <div id="rutas-list">
           ${(() => {
             const sourceList = routeSubTab === 'todas' ? allRoutes : myRoutes;
-            const filtered = sourceList.filter(r => {
-              if (routeFilter.difficulty !== 'todas' && r.difficulty !== routeFilter.difficulty) return false;
-              const km = routeDistanceKm(r);
-              if (km > routeFilter.maxKm) return false;
-              return true;
-            });
             if (sourceList.length === 0) {
               return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>' : ''}</div>`;
             }
-            if (filtered.length === 0) {
-              return `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
-            }
-            return filtered.map(r => renderRouteCard(r)).join('');
+            return sourceList.map(r => renderRouteCard(r)).join('');
           })()}
         </div>
       ` : ''}
@@ -4136,20 +4133,15 @@ function renderRouteCard(r) {
 }
 
 function setRouteDifficulty(d) {
-  routeFilter.difficulty = d;
+  // No-op (filter UI removed). Kept for backwards compatibility.
   renderRutas();
 }
 function setRouteMaxKm(v) {
-  routeFilter.maxKm = parseInt(v);
-  // Re-render only the list & filter label to keep map stable
+  // No-op (filter UI removed). Kept for backwards compatibility.
   const list = document.getElementById('rutas-list');
   if (list) {
     const sourceList = (routeSubTab === 'todas' ? STATE.routes : STATE.routes.filter(r => r.created_by === STATE.user?.id));
-    const filtered = sourceList.filter(r => {
-      if (routeFilter.difficulty !== 'todas' && r.difficulty !== routeFilter.difficulty) return false;
-      if (routeDistanceKm(r) > routeFilter.maxKm) return false;
-      return true;
-    });
+    if (sourceList.length > 0) list.innerHTML = sourceList.map(r => renderRouteCard(r)).join('');
     if (sourceList.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
     else if (filtered.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
     else list.innerHTML = filtered.map(r => renderRouteCard(r)).join('');
@@ -6735,10 +6727,17 @@ function renderProfile() {
 
   document.getElementById('page-profile').innerHTML = `
     <div style="text-align:center;margin-bottom:24px">
-      <div style="margin:0 auto 12px;display:flex;justify-content:center;position:relative;width:96px">
-        ${renderAvatar(u, 96)}
-        <button onclick="document.getElementById('profile-pic-input').click()" style="position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff2020,#ff6600);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3)">📷</button>
-        <input type="file" id="profile-pic-input" accept="image/*" style="display:none" onchange="handleProfilePicChange(event)">
+      <div style="margin:0 auto 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
+        <div style="position:relative;width:96px;height:96px">
+          <div id="profile-pic-display">${renderAvatar(u, 96)}</div>
+          <button onclick="document.getElementById('profile-pic-input').click()" style="position:absolute;bottom:0;right:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ff2020,#ff6600);border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3)">📷</button>
+        </div>
+        <input type="file" id="profile-pic-input" accept="image/*" style="display:none" onchange="previewProfilePic(event)">
+        <!-- Save / Cancel buttons — only shown after picking a file -->
+        <div id="profile-pic-actions" style="display:none;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap">
+          <button onclick="confirmSaveProfilePic()" style="padding:8px 18px;border-radius:20px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(34,197,94,0.4)">✅ Guardar sí</button>
+          <button onclick="cancelProfilePic()" style="padding:8px 18px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer">✕ Cancelar</button>
+        </div>
       </div>
       <div style="font-size:20px;font-weight:800">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:11px">ADMIN</span>' : ''}</div>
       <div style="color:var(--text2);font-size:13px">${u.email}</div>
