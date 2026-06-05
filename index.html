@@ -2338,7 +2338,7 @@ function renderPage(page, pageId) {
     case 'bikers': renderBikers(); break;
     case 'rider-detail': renderRiderDetail(pageId); break;
     case 'bikergram': renderBikerGram(); break;
-    case 'eventos': RUTAS_TAB = 'eventos'; renderRutas(); break;
+    case 'eventos': RUTAS_TAB = 'rutas'; renderRutas(); break;
     case 'retos': renderRetos(); break;
     case 'insignias': renderInsignias(); break;
     case 'profile': renderProfile(); break;
@@ -2781,7 +2781,7 @@ function renderInicio() {
     <div class="vanish" style="animation-delay:0.3s;margin-top:16px">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--text2)">PROXIMOS EVENTOS</span>
-        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('eventos')">Ver todos →</span>
+        <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
       </div>
       ${upcoming.map(ev => `
         <div class="event-card" onclick="viewEvent(${ev.id})">
@@ -2872,14 +2872,12 @@ function initHomeMap() {
 // ============================================================
 // RUTAS PAGE
 // ============================================================
-let RUTAS_TAB = 'rutas'; // 'rutas' | 'eventos'
+let RUTAS_TAB = 'rutas';
 
 function renderRutas() {
   const sel = STATE.selectedRoute;
   const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
   const allRoutes = STATE.routes;
-  const upcoming = STATE.events.filter(e => e.status === 'activo');
-  const past = STATE.events.filter(e => e.status !== 'activo');
   const isOwner = sel && sel.created_by === STATE.user?.id;
   const creator = sel ? STATE.users.find(u => u.id === sel.created_by) : null;
 
@@ -2911,10 +2909,9 @@ function renderRutas() {
         ` : ''}
       </div>
 
-      <!-- Unified tab bar -->
+      <!-- Rutas tab bar only -->
       <div style="display:flex;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px;${sel ? 'display:none' : ''}" id="rutas-tabs">
-        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:${RUTAS_TAB==='rutas'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RUTAS_TAB==='rutas'?'#fff':'var(--text3)'}">🗺️ Rutas (${allRoutes.length})</button>
-        <button onclick="setRutasTab('eventos')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:${RUTAS_TAB==='eventos'?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RUTAS_TAB==='eventos'?'#fff':'var(--text3)'}">📅 Eventos (${upcoming.length})</button>
+        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff">🗺️ Rutas (${allRoutes.length})</button>
       </div>
     </div>
 
@@ -2938,6 +2935,15 @@ function renderRutas() {
         <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
         ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
       </div>
+      ${sel.date ? `
+      <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.2);border-radius:10px;margin-bottom:12px">
+        <span style="font-size:18px">📅</span>
+        <div>
+          <div style="font-size:12px;font-weight:700">${(() => { try { const d=new Date(sel.date+'T00:00');return d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}); } catch(e){return sel.date;} })()}</div>
+          ${sel.time ? `<div style="font-size:11px;color:var(--accent);font-weight:600">🕐 ${sel.time}</div>` : ''}
+        </div>
+        ${sel.notify ? '<span class="badge badge-gold" style="margin-left:auto">🔔 Recordatorio</span>' : ''}
+      </div>` : ''}
       ${isOwner ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
@@ -2998,16 +3004,7 @@ function renderRutas() {
             return filtered.map(r => renderRouteCard(r)).join('');
           })()}
         </div>
-      ` : `
-        <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:12px">
-          <button onclick="setEventSubTab('proximos')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${eventSubTab==='proximos'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${eventSubTab==='proximos'?'#ff4444':'var(--text2)'}">Proximos (${upcoming.length})</button>
-          <button onclick="setEventSubTab('pasados')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${eventSubTab==='pasados'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${eventSubTab==='pasados'?'#ff4444':'var(--text2)'}">Pasados (${past.length})</button>
-        </div>
-        <div id="eventos-list">
-          ${(eventSubTab === 'proximos' ? upcoming : past).length === 0 ? `<div class="empty-state"><div class="empty-icon">📅</div><div>Sin eventos</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createEvent()">Crear evento</button>' : ''}</div>` :
-            (eventSubTab === 'proximos' ? upcoming : past).map(ev => renderEventCard(ev)).join('')}
-        </div>
-      `}
+      ` : ''}
     </div>
   `;
 
@@ -3015,7 +3012,6 @@ function renderRutas() {
 }
 
 let routeSubTab = 'todas';
-let eventSubTab = 'proximos';
 let routeFilter = { difficulty: 'todas', maxKm: 500 };
 // Store selected POI data so it survives modal recreation
 let _routePOI = { start: null, end: null };
@@ -3283,6 +3279,7 @@ function renderRouteCard(r) {
           <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
             <span class="badge" style="background:${diffColor}22;color:${diffColor};border:1px solid ${diffColor}44">⚡ ${r.difficulty}</span>
             ${km > 0 ? `<span class="badge" style="background:rgba(0,212,255,0.1);color:#00d4ff;border:1px solid rgba(0,212,255,0.2)">📏 ${km}km</span>` : ''}
+            ${r.date ? `<span class="badge" style="background:rgba(255,68,68,0.1);color:#ff6666;border:1px solid rgba(255,68,68,0.2)">📅 ${(() => { try { const d=new Date(r.date+'T00:00');return d.toLocaleDateString('es-ES',{day:'numeric',month:'short'}); } catch(e){return r.date;} })()}${r.time ? ' 🕐' : ''}</span>` : ''}
             <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
             ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
@@ -3378,11 +3375,25 @@ function editRoute(id) {
     <div id="ert-stops-container">${stopsHtml}</div>
     <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addEditStopField()">+ Agregar parada</button>
 
-    <select class="input" id="ert-diff" style="margin-bottom:16px">
+    <select class="input" id="ert-diff" style="margin-bottom:12px">
       <option value="facil" ${r.difficulty==='facil'?'selected':''}>Facil</option>
       <option value="intermedia" ${r.difficulty==='intermedia'?'selected':''}>Intermedia</option>
       <option value="alta" ${r.difficulty==='alta'?'selected':''}>Alta</option>
     </select>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <input class="input" type="date" id="ert-date" value="${r.date || ''}" style="font-size:13px">
+      <input class="input" type="time" id="ert-time" value="${r.time || ''}" style="font-size:13px">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;cursor:pointer">
+      <input type="checkbox" id="ert-notify" ${r.notify ? 'checked' : ''} style="width:18px;height:18px;accent-color:#ff4444;cursor:pointer">
+      <div>
+        <div style="font-size:13px;font-weight:600">🔔 Notificacion</div>
+        <div style="font-size:11px;color:var(--text3)">Recordatorio 1 hora antes de la salida</div>
+      </div>
+    </label>
+
     <button class="btn btn-primary" style="width:100%" onclick="doEditRoute(${r.id})">Guardar cambios</button>
   `);
 
@@ -3484,6 +3495,9 @@ function doEditRoute(id) {
   const endLat = parseFloat(document.getElementById('ert-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('ert-end-lng').value) || 0;
   const diff = document.getElementById('ert-diff').value;
+  const date = document.getElementById('ert-date').value;
+  const time = document.getElementById('ert-time').value;
+  const notify = document.getElementById('ert-notify').checked;
 
   if (!name) { toast('El nombre es obligatorio'); return; }
   if (!startLat || !startLng) { toast('Busca y selecciona un punto de SALIDA'); return; }
@@ -3525,6 +3539,9 @@ function doEditRoute(id) {
     end_lng: endLng,
     end_name: endName,
     difficulty: diff,
+    date: date || null,
+    time: time || null,
+    notify: notify,
     stops: JSON.stringify(stops)
   };
 
@@ -3598,11 +3615,28 @@ function createRoute() {
     <div id="rt-stops-container" style="margin-bottom:6px"></div>
     <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addStopField()">+ Agregar parada</button>
 
-    <select class="input" id="rt-diff" style="margin-bottom:16px">
+    <select class="input" id="rt-diff" style="margin-bottom:12px">
       <option value="facil">Facil</option>
       <option value="intermedia" selected>Intermedia</option>
       <option value="alta">Alta</option>
     </select>
+
+    <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      <span>📅</span> SALIDA
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <input class="input" type="date" id="rt-date" style="font-size:13px">
+      <input class="input" type="time" id="rt-time" style="font-size:13px" placeholder="Hora de salida">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px;cursor:pointer">
+      <input type="checkbox" id="rt-notify" style="width:18px;height:18px;accent-color:#ff4444;cursor:pointer">
+      <div>
+        <div style="font-size:13px;font-weight:600">🔔 Notificacion</div>
+        <div style="font-size:11px;color:var(--text3)">Te recuerdo 1 hora antes de la salida</div>
+      </div>
+    </label>
+
     <button class="btn btn-primary" style="width:100%" onclick="doCreateRoute()">Crear ruta</button>
 
     <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6">
@@ -3982,6 +4016,9 @@ function doCreateRoute() {
   const endLat = parseFloat(document.getElementById('rt-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('rt-end-lng').value) || 0;
   const diff = document.getElementById('rt-diff').value;
+  const date = document.getElementById('rt-date').value;
+  const time = document.getElementById('rt-time').value;
+  const notify = document.getElementById('rt-notify').checked;
 
   // Collect stops
   const stops = [];
@@ -4008,6 +4045,9 @@ function doCreateRoute() {
     end_lng: endLng,
     end_name: endName,
     difficulty: diff,
+    date: date || null,
+    time: time || null,
+    notify: notify,
     stops: JSON.stringify(stops),
     created_by: STATE.user.id,
     created_at: new Date().toISOString().slice(0,19).replace('T',' ')
@@ -5161,7 +5201,7 @@ function confirmEvent(id) {
   STATE.attendance.push({id:Date.now(), user_id:STATE.user.id, event_id:id, confirmed_at:new Date().toISOString(), notes:'', status:'confirmed', featured:false});
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Asistencia confirmada!');
 }
 
@@ -5169,7 +5209,7 @@ function cancelEvent(id) {
   STATE.attendance = STATE.attendance.filter(a => !(a.event_id === id && a.user_id === STATE.user.id));
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Asistencia cancelada');
 }
 
@@ -5227,7 +5267,7 @@ function deleteEvent(id) {
   STATE.attendance = STATE.attendance.filter(a => a.event_id !== id);
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Evento eliminado');
 }
 
@@ -5648,7 +5688,7 @@ function doCreateEvent() {
   STATE.events.push({id:Date.now()%100000, title, description:desc, date, time, location, difficulty:diff, status:'activo', max_riders:0, latitude:0, longitude:0, created_by:STATE.user.id});
   saveState();
   closeModal();
-  navigate('eventos');
+  navigate('rutas');
   toast('Evento creado!');
 }
 
