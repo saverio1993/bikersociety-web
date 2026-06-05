@@ -1829,18 +1829,20 @@ function avatarText(name) {
   return (name || '?').charAt(0).toUpperCase();
 }
 
-// Render user avatar HTML — uses uploaded image if present, otherwise initials
-function renderAvatar(user, size = 64) {
-  if (!user) user = {};
+// Render user avatar HTML — checks dedicated bs_avatar key first, then user object
+function renderAvatar(user, size, style) {
   const c1 = avatarColor(user.id);
   const c2 = avatarColor((user.id || 0) + 1);
-  const style = `width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.36)}px;font-weight:900;color:#fff;overflow:hidden;flex-shrink:0;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.25)`;
-  const pic = user.avatar || user.profile_pic;
+  style = style || '';
+  // Priority: bs_avatar localStorage key > user.avatar > user.profile_pic
+  const savedAvatar = getAvatar();
+  const pic = savedAvatar || user.avatar || user.profile_pic;
   if (pic) {
-    // Cache-bust: add ?v=timestamp to force reload
-    const src = pic.includes('?') ? pic : pic + '?v=' + Date.now();
+    const src = pic.startsWith('data:') ? pic : (pic + '?t=' + Date.now());
     return `<div style="${style}"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
   }
+  return `<div style="${style}"><div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${Math.round(size*0.38)}px">${avatarText(user.username)}</div></div>`;
+}
   return `<div style="${style}">${avatarText(user.username)}</div>`;
 }
 
@@ -1864,72 +1866,88 @@ function blobToDataUrl(blob) {
   });
 }
 
+// Dedicated avatar storage — separate from STATE to avoid localStorage quota issues
+function saveAvatar(dataUrl) {
+  try { localStorage.setItem('bs_avatar', dataUrl); } catch(e) { /* quota full — ignore */ }
+}
+function getAvatar() {
+  try { return localStorage.getItem('bs_avatar'); } catch(e) { return null; }
+}
+
 async function handleProfilePicChange(e) {
   const file = e.target.files[0];
   if (!file || !file.type.startsWith('image/')) return;
   e.target.value = '';
 
   const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-  toast(`Subiendo foto (${sizeMB}MB)...`);
+  toast(`Procesando foto (${sizeMB}MB)...`);
 
   try {
-    // Compress to 400x400 for avatar
+    // 1. Compress immediately
     const compressed = await compressImage(file, 400, 0.8);
     const dataUrl = compressed || await fileToDataUrl(file);
 
-    let avatarUrl = dataUrl;
+    // 2. Show avatar NOW — save to dedicated key (not inside STATE)
+    saveAvatar(dataUrl);
+    applyAvatarToUI(dataUrl);
+    toast('✅ Foto actualizada!');
 
-    // Upload to HeyValue
+    // 3. Upload to HeyValue in background — UI already updated
     if (HV.user && HV.pass) {
-      const hvPath = HV.hvPath || HV.user;
       const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
+      const hvUrl = HV.url + '/nc' + path;
       const fullPath = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/nc' + path;
 
-      // Also upload with auth header for upload
-      const uploadPath = HV.url + '/nc' + path;
-
-      // Ensure folder exists
-      try {
-        await fetch(uploadPath, {
-          method: 'PUT',
-          headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
-          body: dataURLtoBlob(dataUrl)
-        });
-        avatarUrl = fullPath;
-      } catch(hvErr) {
-        console.warn('HeyValue upload failed, using local URL:', hvErr);
-      }
+      fetch(hvUrl, {
+        method: 'PUT',
+        headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
+        body: dataURLtoBlob(dataUrl)
+      }).then(res => {
+        if (res.ok || res.status === 201 || res.status === 204) {
+          // HeyValue success — switch to cloud URL
+          saveAvatar(fullPath);
+          applyAvatarToUI(fullPath);
+          // Also update STATE so it syncs to cloud
+          STATE.user.avatar = fullPath;
+          STATE.user.profile_pic = fullPath;
+          const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+          if (idx >= 0) { STATE.users[idx].avatar = fullPath; STATE.users[idx].profile_pic = fullPath; }
+          saveLocal();
+          toast('☁️ Foto guardada en la nube');
+        } else {
+          console.warn('HeyValue returned', res.status, '— keeping local avatar');
+        }
+      }).catch(err => {
+        console.warn('HeyValue upload failed, keeping local avatar:', err);
+      });
     }
 
-    // Update user in STATE
-    STATE.user.avatar = avatarUrl;
-    STATE.user.profile_pic = avatarUrl;
-    const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
-    if (idx >= 0) {
-      STATE.users[idx].avatar = avatarUrl;
-      STATE.users[idx].profile_pic = avatarUrl;
-    }
-    saveState();
-    // Also update session so refresh preserves avatar
-    ls('bs_session', STATE.user);
-    toast('Foto actualizada!');
-
-    // Refresh profile view
-    renderProfile();
-
-    // Refresh current page (avatars everywhere update)
-    const currentPage = document.querySelector('.page[style*="block"], #main-content .page[style*="flex"]') ||
-                       document.querySelector('[id^="page-"]:not([style*="none"])');
-    if (currentPage) {
-      const pageId = currentPage.id;
-      if (pageId === 'page-inicio') renderInicio();
-      else if (pageId === 'page-rutas') renderRutas();
-      else if (pageId === 'page-bikergram') renderBikerGram();
-      else if (pageId === 'page-profile') renderProfile();
-    }
+    // 4. Also update session so refresh works
+    try { ls('bs_session', STATE.user); } catch(e) { /* ignore */ }
 
   } catch(err) {
-    toast('Error al subir foto: ' + err.message);
+    toast('❌ Error al procesar foto: ' + err.message);
+  }
+}
+
+// Apply avatar URL to all visible avatar elements without re-rendering the whole page
+function applyAvatarToUI(avatarUrl) {
+  // Update STATE so any future renderProfile() etc. pick it up
+  STATE.user.avatar = avatarUrl;
+  STATE.user.profile_pic = avatarUrl;
+  const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+  if (idx >= 0) { STATE.users[idx].avatar = avatarUrl; STATE.users[idx].profile_pic = avatarUrl; }
+
+  // Patch every avatar img on screen immediately (no re-render needed)
+  document.querySelectorAll('.post-avatar img, .rider-avatar img, [data-avatar-user]').forEach(img => {
+    img.src = avatarUrl;
+    img.onerror = null; // clear old error handler
+  });
+
+  // If profile page is visible, re-render it
+  const profilePage = document.getElementById('page-profile');
+  if (profilePage && profilePage.style.display !== 'none') {
+    renderProfile();
   }
 }
 
@@ -2132,6 +2150,12 @@ function initApp() {
     const idx = STATE.users.findIndex(u => u.id === session.id);
     if (idx >= 0) STATE.user = STATE.users[idx];
     else STATE.user = session;
+    // Restore avatar from dedicated key (takes priority over STATE object)
+    const savedAvatar = getAvatar();
+    if (savedAvatar) {
+      STATE.user.avatar = savedAvatar;
+      STATE.user.profile_pic = savedAvatar;
+    }
   }
   STATE.routes = ls('bs_routes') || [...SEED_ROUTES];
   STATE.events = ls('bs_events') || [...SEED_EVENTS];
