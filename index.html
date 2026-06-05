@@ -3598,6 +3598,8 @@ function startPOIPicker(target) {
   }
   
   function renderPOIs(pois) {
+    // Remove old markers first to avoid stacking
+    if (_poiMarkers) { STATE.map.removeLayer(_poiMarkers); _poiMarkers = null; }
     _poiMarkers = L.featureGroup();
     
     // Store POI data globally for popup onclick access
