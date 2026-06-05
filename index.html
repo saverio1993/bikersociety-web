@@ -3049,7 +3049,9 @@ function editRoute(id) {
     <input class="input" id="ert-name" value="${escHtml(r.name)}" placeholder="Nombre de la ruta" style="margin-bottom:12px">
     <input class="input" id="ert-desc" value="${escHtml(r.description || '')}" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🚦</span> SALIDA</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🚦</span> SALIDA
+      <button onclick="useMyLocation('ert-start')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
+    </div>
     <div style="position:relative;margin-bottom:8px">
       <input class="input" id="ert-start-name" value="${escHtml(r.start_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
       <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
@@ -3061,7 +3063,9 @@ function editRoute(id) {
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-start')">✕</button>
     </div>
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> DESTINO</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> DESTINO
+      <button onclick="useMyLocation('ert-end')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
+    </div>
     <div style="position:relative;margin-bottom:8px">
       <input class="input" id="ert-end-name" value="${escHtml(r.end_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
       <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
@@ -3241,6 +3245,7 @@ function createRoute() {
 
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🚦</span> SALIDA
+      <button onclick="useMyLocation('rt-start')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
     </div>
     <div style="position:relative;margin-bottom:8px">
       <input class="input" id="rt-start-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
@@ -3255,6 +3260,7 @@ function createRoute() {
 
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🛑</span> DESTINO
+      <button onclick="useMyLocation('rt-end')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
     </div>
     <div style="position:relative;margin-bottom:8px">
       <input class="input" id="rt-end-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
@@ -3295,7 +3301,40 @@ function clearPlace(prefix) {
   document.getElementById(prefix + '-lat').value = '';
   document.getElementById(prefix + '-lng').value = '';
   document.getElementById(prefix + '-name').value = '';
-  document.getElementById(prefix + '-name-dropdown').style.display = 'none';
+  const dd = document.getElementById(prefix + '-name-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function useMyLocation(prefix) {
+  if (!navigator.geolocation) {
+    toast('Geolocalizacion no disponible en este navegador');
+    return;
+  }
+  toast('Obteniendo ubicacion...');
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      document.getElementById(prefix + '-lat').value = lat.toFixed(6);
+      document.getElementById(prefix + '-lng').value = lng.toFixed(6);
+      // Reverse geocode with Nominatim
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
+          headers: { 'Accept-Language': 'es' }
+        });
+        const data = await res.json();
+        let name = data.address?.road || data.address?.neighbourhood || data.address?.suburb || data.address?.city || data.address?.town || 'Mi ubicacion';
+        document.getElementById(prefix + '-name').value = name;
+        toast('Ubicacion detectada: ' + name);
+      } catch(e) {
+        document.getElementById(prefix + '-name').value = 'Mi ubicacion (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')';
+        toast('Ubicacion detectada');
+      }
+    },
+    err => {
+      toast('No se pudo obtener ubicacion: ' + (err.message || 'Permiso denegado'));
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
 }
 
 function setupModalPlaceSearch(prefix) {
