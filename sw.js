@@ -47,7 +47,7 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// ── Background Sync: location update ─────────────────────────────────────
+// ── Background Sync: only runs when GPS is active ─────────────────────────────
 self.addEventListener('sync', e => {
   if (e.tag === 'location-sync') {
     e.waitUntil(doLocationSync());
@@ -74,23 +74,14 @@ self.addEventListener('notificationclick', e => {
   e.waitUntil(clients.openWindow(url));
 });
 
-// ── Periodic Background Sync (if supported) ───────────────────────────────
-self.addEventListener('periodicsync', e => {
-  if (e.tag === 'location-periodic') {
-    e.waitUntil(doLocationSync());
-  }
-});
-
 // ── Helpers ───────────────────────────────────────────────────────────────
 async function doLocationSync() {
   try {
     const reg = await navigator.serviceWorker.ready;
-    // Request a position
     const pos = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, enableHighAccuracy: true });
     });
     const { latitude: lat, longitude: lng } = pos.coords;
-    // Send to the main app window
     const clients = await self.clients.matchAll({ type: 'window' });
     clients.forEach(client => {
       client.postMessage({ type: 'BG_LOCATION', lat, lng });

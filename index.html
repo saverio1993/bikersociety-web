@@ -2217,8 +2217,8 @@ function initApp() {
     if (HV.user && HV.pass) {
       syncPostsFromCloud(); // loads from cloud, localStorage posts shown instantly
     }
-    // Start live location tracking
-    startGeolocation();
+    // Check if a route is active right now — auto-activate GPS
+    autoActivateGPS();
   } else {
     showLogin();
   }
@@ -2259,35 +2259,27 @@ function initApp() {
 
 // Handle location updates from background SW sync
 function handleBackgroundLocation(lat, lng) {
-  if (!STATE.user) return;
+  if (!STATE.user || _activeRouteId === null) return;
   STATE.userLocation = { lat, lng, updated_at: Date.now() };
-  // Try to auto-confirm attendance for any active route
   checkAttendanceForActiveRoutes();
 }
 
-// Auto-confirm attendance for routes active today
+// Auto-confirm attendance for the currently active route only
 function checkAttendanceForActiveRoutes() {
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  const curMin = now.getHours() * 60 + now.getMinutes();
+  if (!_activeRouteId || !STATE.userLocation) return;
+  const route = STATE.routes.find(r => r.id === _activeRouteId);
+  if (!route || !route.start_lat || !route.start_lng) return;
 
-  STATE.routes.filter(r => r.date === today).forEach(route => {
-    if (!route.start_lat || !route.start_lng) return;
-    if (!STATE.userLocation) return;
+  // Check geofence on start point (300m)
+  const distStart = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.start_lat), parseFloat(route.start_lng));
+  if (distStart <= 300) confirmAttendance(route.id, 'auto', false);
 
-    // Check if within time window (-60min to +30min of departure)
-    const depMin = route.time ? (parseInt(route.time.slice(0,2))*60 + parseInt(route.time.slice(3,5))) : null;
-    if (depMin !== null && (curMin < depMin - 60 || curMin > depMin + 30)) return;
-
-    // Check geofence (300m)
-    const dist = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.start_lat), parseFloat(route.start_lng));
-    if (dist <= 300) confirmAttendance(route.id, 'auto');
-
-    // Check destination too (for arrival)
-    if (route.end_lat && route.end_lng) {
-      const distEnd = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.end_lat), parseFloat(route.end_lng));
-      if (distEnd <= 300) confirmAttendance(route.id, 'auto', true);
-    }
+  // Check geofence on destination
+  if (route.end_lat && route.end_lng) {
+    const distEnd = haversineM(STATE.userLocation.lat, STATE.userLocation.lng, parseFloat(route.end_lat), parseFloat(route.end_lng));
+    if (distEnd <= 300) confirmAttendance(route.id, 'auto', true);
+  }
+}
   });
 }
 
@@ -2318,22 +2310,37 @@ function confirmAttendance(routeId, method, isArrival) {
   if (method === 'auto') toast('✅ Asistencia confirmada automaticamente');
 }
 
-// ── Live Location System (two modes) ────────────────────────────────
-// NORMAL: save to HV every 30s, check members every 60s
-// EVENTO ACTIVO: save HV every 30s, check members every 15s, auto-attendance on
+// ── Live Location System ──────────────────────────────────────────────────────
+// GPS OFF by default. Activates when:
+//   a) AUTO: route date==today AND time <= now <= time+2h
+//   b) MANUAL: user taps "Activar GPS" on a route
+// Saves to HeyValue every 30s. Members polled every 15s when active.
 
 var _geoWatchId = null;
-var _locationPollInterval = null;
-var _saveLocationInterval = null;
+var _saveInterval = null;
+var _pollInterval = null;
+var _checkInterval = null;
+var _activeRouteId = null;    // route being tracked right now
+var _activeWindowStart = null; // minutes-of-day when activation started
 var _lastLocationSave = 0;
-var _isEventoActivo = false;
-var _eventoCheckInterval = null;
 
-function startGeolocation() {
-  if (!navigator.geolocation) { toast('GPS no disponible en este navegador'); return; }
-  stopGeolocation();
+function startGPS(routeId) {
+  // If already tracking this route, do nothing
+  if (_geoWatchId !== null && _activeRouteId === routeId) return;
 
-  // Watch GPS — updates STATE.userLocation continuously
+  const route = STATE.routes.find(r => r.id === routeId);
+  if (!route) return;
+
+  stopGPS(); // clean up any existing tracking
+
+  _activeRouteId = routeId;
+  _activeWindowStart = new Date().getHours() * 60 + new Date().getMinutes();
+
+  toast('📍 GPS activado — ' + route.name);
+
+  if (!navigator.geolocation) { toast('GPS no disponible'); return; }
+
+  // Watch position
   _geoWatchId = navigator.geolocation.watchPosition(
     pos => {
       STATE.userLocation = {
@@ -2342,82 +2349,77 @@ function startGeolocation() {
         accuracy: pos.coords.accuracy,
         updated_at: Date.now()
       };
-      // Always try to save (saveLocationToHV respects the 30s throttle)
       saveLocationToHV();
-      // Only check attendance when evento activo
-      if (_isEventoActivo) checkAttendanceForActiveRoutes();
+      checkAttendanceForActiveRoutes();
     },
-    err => { console.warn('[BS] GPS error:', err.message); },
+    err => { console.warn('[BS] GPS:', err.message); },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
   );
 
-  // Save to HeyValue every 30s (throttled)
-  _saveLocationInterval = setInterval(() => {
-    saveLocationToHV();
-  }, 30000);
+  // Save every 30s, poll members every 15s
+  _saveInterval = setInterval(saveLocationToHV, 30000);
+  _pollInterval = setInterval(loadMembersLocation, 15000);
 
-  // Check members every 60s normally, 15s when evento activo
-  _locationPollInterval = setInterval(() => {
-    loadMembersLocation();
-  }, _isEventoActivo ? 15000 : 60000);
+  // Check every 30s if the 2h window expired
+  _checkInterval = setInterval(checkGPSWindow, 30000);
 
-  // Check if an evento is active — every 60s
-  _eventoCheckInterval = setInterval(() => {
-    updateEventoMode();
-  }, 60000);
-
-  // Initial loads
+  // Immediate first run
+  saveLocationToHV();
   loadMembersLocation();
-  updateEventoMode();
 }
 
-function stopGeolocation() {
+function stopGPS() {
   if (_geoWatchId !== null) { navigator.geolocation.clearWatch(_geoWatchId); _geoWatchId = null; }
-  if (_locationPollInterval) { clearInterval(_locationPollInterval); _locationPollInterval = null; }
-  if (_saveLocationInterval) { clearInterval(_saveLocationInterval); _saveLocationInterval = null; }
-  if (_eventoCheckInterval) { clearInterval(_eventoCheckInterval); _eventoCheckInterval = null; }
+  if (_saveInterval) { clearInterval(_saveInterval); _saveInterval = null; }
+  if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+  if (_checkInterval) { clearInterval(_checkInterval); _checkInterval = null; }
+  if (_activeRouteId !== null) {
+    toast('GPS desactivado — ' + (STATE.routes.find(r => r.id === _activeRouteId)?.name || 'ruta'));
+    _activeRouteId = null;
+    _activeWindowStart = null;
+  }
 }
 
-// ── Evento mode: activate when a route is happening today ──────────────────
-// Active window: route departure time → +2 hours after
-function updateEventoMode() {
+// Auto-check every 30s: is the 2h window still open?
+function checkGPSWindow() {
+  if (_activeRouteId === null) return;
+  const route = STATE.routes.find(r => r.id === _activeRouteId);
+  if (!route || !route.date || !route.time) { stopGPS(); return; }
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  if (route.date !== today) { stopGPS(); return; }
+
+  const curMin = now.getHours() * 60 + now.getMinutes();
+  const depMin = parseInt(route.time.slice(0,2))*60 + parseInt(route.time.slice(3,5));
+  const windowEnd = depMin + 120; // +2 hours
+
+  if (curMin > windowEnd) {
+    toast('⏰ Tiempo de ruta terminado — GPS apagado');
+    stopGPS();
+  }
+}
+
+// Check on page load if a route should auto-activate
+function autoActivateGPS() {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const curMin = now.getHours() * 60 + now.getMinutes();
 
-  const activeRoute = STATE.routes.find(r => {
-    if (!r.date || r.date !== today || !r.time) return false;
+  const route = STATE.routes.find(r => {
+    if (!r.date || !r.time) return false;
+    if (r.date !== today) return false;
     const depMin = parseInt(r.time.slice(0,2))*60 + parseInt(r.time.slice(3,5));
-    const windowEnd = depMin + 120; // +2 hours
+    const windowEnd = depMin + 120;
     return curMin >= depMin && curMin <= windowEnd;
   });
 
-  const wasActive = _isEventoActivo;
-  _isEventoActivo = !!activeRoute;
-
-  if (_isEventoActivo && !wasActive) {
-    console.log('[BS] EVENTO ACTIVO:', activeRoute.name);
-    toast('🏍️ Ruta activa — GPS en modo evento');
-    // Switch to fast polling
-    if (_locationPollInterval) {
-      clearInterval(_locationPollInterval);
-      _locationPollInterval = setInterval(loadMembersLocation, 15000);
-    }
-  } else if (!_isEventoActivo && wasActive) {
-    console.log('[BS] Evento finished — normal mode');
-    toast('Evento finalizado — GPS en modo normal');
-    // Switch back to slow polling
-    if (_locationPollInterval) {
-      clearInterval(_locationPollInterval);
-      _locationPollInterval = setInterval(loadMembersLocation, 60000);
-    }
-  }
+  if (route) startGPS(route.id);
 }
 
 async function saveLocationToHV() {
   if (!HV.user || !HV.pass || !STATE.user || !STATE.userLocation) return;
   const now = Date.now();
-  // Save every 30s (throttle)
   if (now - _lastLocationSave < 30000) return;
   _lastLocationSave = now;
   try {
@@ -2426,10 +2428,10 @@ async function saveLocationToHV() {
       lng: STATE.userLocation.lng,
       accuracy: STATE.userLocation.accuracy,
       username: STATE.user.username,
-      isEventoActivo: _isEventoActivo,
+      route_id: _activeRouteId,
       updated_at: now
     });
-  } catch(e) { /* silent fail */ }
+  } catch(e) {}
 }
 
 async function loadMembersLocation() {
@@ -2440,9 +2442,9 @@ async function loadMembersLocation() {
     try {
       const data = await loadFromHV('member_location_' + u.id);
       if (data && data.lat && data.lng) {
-        // Only use if updated in last 10 minutes (normal) or 2 minutes (evento activo)
-        const maxAge = _isEventoActivo ? 120000 : 600000;
-        if (Date.now() - (data.updated_at || 0) < maxAge) {
+        // Only show members tracking the same active route (or no route = manual mode)
+        if (_activeRouteId && data.route_id && data.route_id !== _activeRouteId) continue;
+        if (Date.now() - (data.updated_at || 0) < 120000) { // 2 min max age
           STATE.membersLocation[u.id] = data;
         }
       }
