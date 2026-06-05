@@ -4293,6 +4293,7 @@ function clearPostMedia() {
     const hvPath = HV.hvPath || HV.user;
     const path = '/' + HV.gramFolder + folder + '/' + fileName;
     const fullPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
+    // Embed credentials in URL for auth — resolveHvMedia() will use these
     const fullPathAuth = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
 
     try {
@@ -4304,15 +4305,6 @@ function clearPostMedia() {
       });
       if (r.ok || r.status === 201 || r.status === 204) {
         mediaUrl = fullPathAuth;
-        // Also read file as data URL for persistence across reloads (small/medium videos)
-        if (POST_DRAFT.type !== 'image') {
-          try {
-            const dataUrl = await blobToDataUrl(POST_DRAFT.file);
-            if (dataUrl) mediaUrl = dataUrl; // data URL wins for replay reliability
-          } catch(e) {
-            console.warn('Could not read file as data URL:', e);
-          }
-        }
         toast('Subido a HeyValue!');
       } else {
         toast('Error cloud — guardando local');
