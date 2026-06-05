@@ -3458,11 +3458,16 @@ function createRoute() {
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🚦</span> SALIDA
     </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input class="input" id="rt-start-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
-      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    <div id="rt-start-selected" style="display:none;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
+      <span id="rt-start-selected-name" style="flex:1;color:var(--text);font-weight:600"></span>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-start')">✕</button>
     </div>
-    <div id="rt-start-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <button class="btn btn-ghost" id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s" 
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+      onclick="startPOIPicker('start')">
+      📍 Buscar en el mapa
+    </button>
     <div class="coord-row" style="margin-bottom:16px">
       <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
       <input class="input" id="rt-start-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
@@ -3472,11 +3477,16 @@ function createRoute() {
     <div style="font-size:12px;font-weight:700;color:#ff6666;margin-bottom:6px;display:flex;align-items:center;gap:6px">
       <span>🛑</span> DESTINO
     </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input class="input" id="rt-end-name" data-place-search placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
-      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
+    <div id="rt-end-selected" style="display:none;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;font-size:13px;align-items:center;gap:8px">
+      <span id="rt-end-selected-name" style="flex:1;color:var(--text);font-weight:600"></span>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-end')">✕</button>
     </div>
-    <div id="rt-end-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+    <button class="btn btn-ghost" id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s" 
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+      onclick="startPOIPicker('end')">
+      📍 Buscar en el mapa
+    </button>
     <div class="coord-row" style="margin-bottom:16px">
       <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
       <input class="input" id="rt-end-lng" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
@@ -3497,21 +3507,197 @@ function createRoute() {
     <button class="btn btn-primary" style="width:100%" onclick="doCreateRoute()">Crear ruta</button>
 
     <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="font-size:13px">⛽ Gasolineras</span><span style="font-size:13px">🛍️ Malls</span><span style="font-size:13px">📍 Lugares</span></div>
-      Escribe para buscar o usa <b>OpenStreetMap</b> en linea. Los lugares seleccionados se guardan en <b>EVA Lube</b>.
+      📍 <b>3,048 lugares de Panamá</b> disponibles en el mapa. Haz clic en <b>Buscar en el mapa</b> para ver gasolineras, talleres, restaurantes y más.
     </div>
   `);
 
-  // Setup autocomplete for all place search inputs in the modal
-  setTimeout(() => setupModalPlaceSearch('rt-start'), 100);
-  setTimeout(() => setupModalPlaceSearch('rt-end'), 100);
+  // POI Picker system — no more text search, map-based instead
 }
+
+// ─── POI MAP PICKER ────────────────────────────────────
+var _poiPickTarget = null;
+var _poiMarkers = null;
 
 function clearPlace(prefix) {
   document.getElementById(prefix + '-lat').value = '';
   document.getElementById(prefix + '-lng').value = '';
-  document.getElementById(prefix + '-name').value = '';
-  document.getElementById(prefix + '-name-dropdown').style.display = 'none';
+  // Hide selected-name pill
+  var sel = document.getElementById(prefix + '-selected');
+  if (sel) sel.style.display = 'none';
+  // Show map button
+  var btn = document.getElementById(prefix + '-map-btn');
+  if (btn) btn.style.display = '';
+}
+
+function startPOIPicker(target) {
+  _poiPickTarget = target;
+  
+  // Hide modal overlay to reveal map
+  var overlay = document.querySelector('.modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  
+  // Show floating picker bar
+  var bar = document.createElement('div');
+  bar.id = 'poi-picker-bar';
+  bar.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:var(--surface, #1a1a2e);border:1px solid var(--accent);border-radius:12px;padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(255,68,68,0.3);font-size:13px;color:var(--text)';
+  bar.innerHTML = '<span style="font-size:16px">📍</span> Selecciona <b>' + (target === 'start' ? 'SALIDA' : 'DESTINO') + '</b> en el mapa <span style="color:var(--text3);font-size:11px">— haz clic en un marcador</span>' +
+    '<button onclick="cancelPOIPicker()" style="background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px">✕ Cancelar</button>';
+  document.body.appendChild(bar);
+  
+  // Load POIs onto map
+  loadPOIsToMap();
+  
+  // Color-code by category for circle markers
+  function catColor(cat) {
+    var m = {fuel:'#ff8800', restaurant:'#22c55e', fast_food:'#facc15', hotel:'#3b82f6', 
+             service:'#a855f7', police:'#3b82f6', hospital:'#ef4444', pharmacy:'#06b6d4',
+             supermarket:'#f97316', mall:'#ec4899'};
+    return m[cat] || '#94a3b8';
+  }
+  
+  // Show POIs
+  function loadPOIsToMap() {
+    if (!STATE.map) return;
+    if (_poiMarkers) { STATE.map.removeLayer(_poiMarkers); }
+    
+    var pois = window.panamaPOIs || [];
+    if (pois.length === 0) {
+      // Try loading
+      fetch('data/panama_pois.json')
+        .then(r => r.json())
+        .then(data => { window.panamaPOIs = data; renderPOIs(data); })
+        .catch(() => toast('No se pudo cargar la base de datos'));
+      return;
+    }
+    renderPOIs(pois);
+  }
+  
+  function renderPOIs(pois) {
+    _poiMarkers = L.featureGroup();
+    
+    // Store POI data globally for popup onclick access
+    window._poiDataMap = {};
+    
+    pois.forEach(function(p, idx) {
+      var icon = p.icon || '📍';
+      var color = catColor(p.category);
+      var marker = L.circleMarker([p.lat, p.lng], {
+        radius: 6,
+        fillColor: color,
+        color: '#fff',
+        weight: 1.5,
+        fillOpacity: 0.85
+      });
+      
+      var poiId = 'poi-' + idx;
+      window._poiDataMap[poiId] = p;
+      
+      var targetLabel = _poiPickTarget === 'start' ? 'SALIDA' : 'DESTINO';
+      var altLabel = _poiPickTarget === 'start' ? 'DESTINO' : 'SALIDA';
+      
+      var popupHtml = '<div style="min-width:180px;font-size:12px">' +
+        '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + icon + ' ' + escHtml(p.name || 'Lugar') + '</div>' +
+        '<div style="color:var(--text2);margin-bottom:2px">' + escHtml(p.subcategory || p.category || '') + '</div>' +
+        (p.address ? '<div style="color:var(--text3);font-size:11px;margin-bottom:6px">' + escHtml(p.address) + '</div>' : '') +
+        '<div style="display:flex;gap:6px;margin-top:6px">' +
+          '<button data-poi-id="' + poiId + '" data-action="pick" style="flex:1;background:var(--accent);color:#fff;border:none;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600">✅ ' + targetLabel + '</button>' +
+          '<button data-poi-id="' + poiId + '" data-action="alt" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 8px;border-radius:6px;cursor:pointer;font-size:11px">' + altLabel + '</button>' +
+        '</div>' +
+      '</div>';
+      
+      marker.bindPopup(popupHtml, {maxWidth: 280});
+      marker.bindTooltip((p.name || 'Lugar').substring(0, 25), {direction:'top', offset:[0,-8], opacity:0.9});
+      _poiMarkers.addLayer(marker);
+    });
+    
+    STATE.map.addLayer(_poiMarkers);
+    
+    // Delegate click events from popup buttons
+    STATE.map.on('popupopen', function(e) {
+      setTimeout(function() {
+        document.querySelectorAll('[data-poi-id][data-action]').forEach(function(btn) {
+          btn.onclick = function() {
+            var poiId = this.getAttribute('data-poi-id');
+            var action = this.getAttribute('data-action');
+            var p = window._poiDataMap[poiId];
+            if (!p) return;
+            if (action === 'pick') {
+              selectPOIFromMap(p.lat, p.lng, p.name);
+            } else {
+              selectPOIFromMapAlt(p.lat, p.lng, p.name);
+            }
+          };
+        });
+      }, 50);
+    });
+    
+    // Fit map to show all markers
+    try {
+      var bounds = _poiMarkers.getBounds();
+      STATE.map.fitBounds(bounds, {padding: [30,30], maxZoom: 16});
+    } catch(e) {}
+    
+    toast(pois.length + ' lugares en el mapa — haz clic en un marcador para seleccionar');
+  }
+}
+
+function selectPOIFromMap(lat, lng, name) {
+  fillPOIFields(_poiPickTarget, lat, lng, name);
+}
+
+function selectPOIFromMapAlt(lat, lng, name) {
+  // Select for the OTHER target (SALIDA↔DESTINO)
+  var alt = _poiPickTarget === 'start' ? 'end' : 'start';
+  fillPOIFields(alt, lat, lng, name);
+}
+
+function fillPOIFields(target, lat, lng, name) {
+  document.getElementById('rt-' + target + '-lat').value = lat.toFixed(6);
+  document.getElementById('rt-' + target + '-lng').value = lng.toFixed(6);
+  
+  // Show selected pill
+  var sel = document.getElementById('rt-' + target + '-selected');
+  var selName = document.getElementById('rt-' + target + '-selected-name');
+  if (sel && selName) {
+    selName.textContent = name || 'Lugar seleccionado';
+    sel.style.display = 'flex';
+  }
+  // Hide map button for this target
+  var btn = document.getElementById('rt-' + target + '-map-btn');
+  if (btn) btn.style.display = 'none';
+  
+  // Save to local places
+  savePlace({name: name, lat: lat, lng: lng, isOnline: false});
+  
+  cancelPOIPicker();
+  toast('✅ ' + name + ' → ' + (target === 'start' ? 'SALIDA' : 'DESTINO'));
+}
+
+function cancelPOIPicker() {
+  _poiPickTarget = null;
+  
+  // Remove floating bar
+  var bar = document.getElementById('poi-picker-bar');
+  if (bar) bar.remove();
+  
+  // Remove POI layer from map
+  if (_poiMarkers && STATE.map) {
+    STATE.map.removeLayer(_poiMarkers);
+    _poiMarkers = null;
+  }
+  
+  // Restore modal overlay
+  var overlay = document.querySelector('.modal-overlay');
+  if (overlay) overlay.style.display = '';
+  
+  // If this was the SALIDA picker and nothing was selected, re-show both map buttons
+  ['start', 'end'].forEach(function(t) {
+    var sel = document.getElementById('rt-' + t + '-selected');
+    if (sel && sel.style.display === 'none') {
+      var btn = document.getElementById('rt-' + t + '-map-btn');
+      if (btn) btn.style.display = '';
+    }
+  });
 }
 
 function setupModalPlaceSearch(prefix) {
@@ -3673,10 +3859,13 @@ function openGmapsStop(stopId) {
 function doCreateRoute() {
   const name = document.getElementById('rt-name').value.trim();
   const desc = document.getElementById('rt-desc').value.trim();
-  const startName = document.getElementById('rt-start-name').value.trim();
+  // POI picker now stores names in selected-name spans
+  const startNameEl = document.getElementById('rt-start-selected-name');
+  const endNameEl = document.getElementById('rt-end-selected-name');
+  const startName = startNameEl ? startNameEl.textContent.trim() : '';
+  const endName = endNameEl ? endNameEl.textContent.trim() : '';
   const startLat = parseFloat(document.getElementById('rt-start-lat').value) || 0;
   const startLng = parseFloat(document.getElementById('rt-start-lng').value) || 0;
-  const endName = document.getElementById('rt-end-name').value.trim();
   const endLat = parseFloat(document.getElementById('rt-end-lat').value) || 0;
   const endLng = parseFloat(document.getElementById('rt-end-lng').value) || 0;
   const diff = document.getElementById('rt-diff').value;
