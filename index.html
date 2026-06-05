@@ -643,6 +643,13 @@ a{color:inherit;text-decoration:none}
 }
 @keyframes audioPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,68,68,0.4)}50%{transform:scale(1.05);box-shadow:0 0 0 10px rgba(255,68,68,0)}}
 @keyframes mediaFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes likeBurst{0%{transform:scale(1)}30%{transform:scale(1.08)}60%{transform:scale(0.96)}100%{transform:scale(1)}}
+@keyframes heartFloat{
+  0%{opacity:1;transform:scale(0.5) translateY(0)}
+  20%{opacity:1;transform:scale(1.2) translateY(-20px)}
+  100%{opacity:0;transform:scale(1) translateY(-160px) rotate(20deg)}
+}
+.like-burst{animation:likeBurst 0.5s ease-out}
 .badge-icon{font-size:32px;margin-bottom:8px}
 .badge-name{font-size:11px;font-weight:700;line-height:1.3}
 
@@ -1133,7 +1140,9 @@ a{color:inherit;text-decoration:none}
 <div id="page-retos" class="page"></div>
 <div id="page-insignias" class="page"></div>
 <div id="page-profile" class="page"></div>
-<div id="page-admin" class="page"></div>
+  <div id="page-admin" class="page"></div>
+  <div id="page-chat" class="page"></div>
+  <div id="page-ranking" class="page"></div>
 
 <!-- BOTTOM NAV -->
 <nav class="bottomnav" id="bottomnav" style="display:none">
@@ -1324,7 +1333,11 @@ const SEED_POSTS = [
 ];
 
 const SEED_CHANNELS = [
-  {id:1,name:'General',description:'Charlas y presentaciones',icon:'💬'},
+  {id:1,name:'General',description:'Charlas y presentaciones',icon:'💬',color:'#ff4444',type:'public'},
+  {id:2,name:'Rutas',description:'Comparte y coordina rodadas',icon:'🏍️',color:'#22c55e',type:'public'},
+  {id:3,name:'Mecánica',description:'Consejos técnicos y talleres',icon:'🔧',color:'#f59e0b',type:'public'},
+  {id:4,name:'Eventos',description:'Quedadas y rodadas grupales',icon:'📅',color:'#3b82f6',type:'public'},
+  {id:5,name:'Off-topic',description:'Lo que sea, menos motos',icon:'🎲',color:'#9c27b0',type:'public'},
 ];
 
 const SEED_MESSAGES = [
@@ -2070,6 +2083,8 @@ function renderPage(page) {
     case 'insignias': renderInsignias(); break;
     case 'profile': renderProfile(); break;
     case 'admin': renderAdmin(); break;
+    case 'chat': renderChat(); break;
+    case 'ranking': renderRanking(); break;
   }
 
   // Scroll to top
@@ -2614,10 +2629,13 @@ function renderRutas() {
         ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
       </div>
       ${isOwner ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
+      <button onclick="exportRouteGPX(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
+        📥 Exportar GPX (para GPS)
+      </button>
     </div>
     ` : ''}
 
@@ -2630,13 +2648,45 @@ function renderRutas() {
     <!-- Tab content -->
     <div id="rutas-tab-content" style="${sel ? 'display:none' : ''}">
       ${RUTAS_TAB === 'rutas' ? `
-        <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:12px">
+        <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:10px">
           <button onclick="setRouteSubTab('todas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='todas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='todas'?'#ff4444':'var(--text2)'}">Todas (${allRoutes.length})</button>
           <button onclick="setRouteSubTab('mis')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='mis'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='mis'?'#ff4444':'var(--text2)'}">Mis rutas (${myRoutes.length})</button>
         </div>
+
+        <!-- Filters panel -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Filtros</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            ${['todas','facil','media','dificil','epica'].map(d => `
+              <button onclick="setRouteDifficulty('${d}')" style="padding:5px 11px;border-radius:14px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:${routeFilter.difficulty===d?'linear-gradient(135deg,#ff4444,#ff8800)':'var(--surface2)'};color:${routeFilter.difficulty===d?'#fff':'var(--text2)'}">
+                ${d==='todas'?'Todas':d.charAt(0).toUpperCase()+d.slice(1)}
+              </button>
+            `).join('')}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:11px;color:var(--text2);flex-shrink:0">Max km</div>
+            <input type="range" min="20" max="500" step="10" value="${routeFilter.maxKm}" oninput="setRouteMaxKm(this.value)" style="flex:1;accent-color:#ff4444">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);min-width:50px;text-align:right">${routeFilter.maxKm}km</div>
+          </div>
+        </div>
+
         <div id="rutas-list">
-          ${allRoutes.length === 0 ? `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>` :
-            (routeSubTab === 'todas' ? allRoutes : myRoutes).map(r => renderRouteCard(r)).join('')}
+          ${(() => {
+            const sourceList = routeSubTab === 'todas' ? allRoutes : myRoutes;
+            const filtered = sourceList.filter(r => {
+              if (routeFilter.difficulty !== 'todas' && r.difficulty !== routeFilter.difficulty) return false;
+              const km = routeDistanceKm(r);
+              if (km > routeFilter.maxKm) return false;
+              return true;
+            });
+            if (sourceList.length === 0) {
+              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
+            }
+            if (filtered.length === 0) {
+              return `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
+            }
+            return filtered.map(r => renderRouteCard(r)).join('');
+          })()}
         </div>
       ` : `
         <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:12px">
@@ -2656,6 +2706,53 @@ function renderRutas() {
 
 let routeSubTab = 'todas';
 let eventSubTab = 'proximos';
+let routeFilter = { difficulty: 'todas', maxKm: 500 };
+
+// Haversine distance in km
+function routeDistanceKm(r) {
+  if (!r.start_lat || !r.end_lat) return 0;
+  const R = 6371;
+  const dLat = (parseFloat(r.end_lat) - parseFloat(r.start_lat)) * Math.PI / 180;
+  const dLng = (parseFloat(r.end_lng) - parseFloat(r.start_lng)) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(parseFloat(r.start_lat)*Math.PI/180)*Math.cos(parseFloat(r.end_lat)*Math.PI/180)*Math.sin(dLng/2)**2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// Export route as GPX file
+function exportRouteGPX(routeId) {
+  const r = STATE.routes.find(x => x.id === routeId);
+  if (!r) return;
+  const creator = STATE.users.find(u => u.id === r.created_by);
+  let stops = [];
+  try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
+  const allPoints = [
+    { name: r.start_name || 'Salida', lat: r.start_lat, lng: r.start_lng },
+    ...stops.map(s => ({ name: s.name, lat: s.lat, lng: s.lng })),
+    { name: r.end_name || 'Destino', lat: r.end_lat, lng: r.end_lng },
+  ].filter(p => p.lat && p.lng);
+
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Biker Society" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>${escHtml(r.name)}</name>
+    <desc>${escHtml(r.description || '')}</desc>
+    <author><name>${escHtml(creator?.username || 'Biker Society')}</name></author>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <rte>
+    <name>${escHtml(r.name)}</name>
+    ${allPoints.map(p => `<rtept lat="${p.lat}" lon="${p.lng}"><name>${escHtml(p.name)}</name></rtept>`).join('\n    ')}
+  </rte>
+</gpx>`;
+  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${r.name.replace(/[^a-z0-9]/gi, '-')}.gpx`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  toast('GPX exportado');
+}
 
 function setRutasTab(t) {
   RUTAS_TAB = t;
@@ -2862,22 +2959,53 @@ function showRouteTab(tab) {
 function renderRouteCard(r) {
   const creator = STATE.users.find(u => u.id === r.created_by);
   const isOwner = r.created_by === STATE.user?.id;
+  const km = routeDistanceKm(r);
+  const difficultyColors = { facil: '#22c55e', media: '#f59e0b', dificil: '#ef4444', epica: '#9c27b0' };
+  const diffColor = difficultyColors[r.difficulty] || '#888';
   return `
     <div class="card vanish" style="cursor:pointer" onclick="selectRoute(${r.id})">
-      <div style="display:flex;justify-content:space-between;align-items:start">
-        <div>
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+        <div style="flex:1;min-width:0">
           <div class="card-title">${escHtml(r.name)}</div>
           <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-            <span class="badge">⚡ ${r.difficulty}</span>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <span class="badge" style="background:${diffColor}22;color:${diffColor};border:1px solid ${diffColor}44">⚡ ${r.difficulty}</span>
+            ${km > 0 ? `<span class="badge" style="background:rgba(0,212,255,0.1);color:#00d4ff;border:1px solid rgba(0,212,255,0.2)">📏 ${km}km</span>` : ''}
             <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
             ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
         </div>
-        <div style="font-size:20px">🏍️</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">
+          <div style="font-size:20px">🏍️</div>
+          <button onclick="event.stopPropagation();exportRouteGPX(${r.id})" title="Exportar GPX" style="width:30px;height:30px;border-radius:8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">📥</button>
+        </div>
       </div>
     </div>
   `;
+}
+
+function setRouteDifficulty(d) {
+  routeFilter.difficulty = d;
+  renderRutas();
+}
+function setRouteMaxKm(v) {
+  routeFilter.maxKm = parseInt(v);
+  // Re-render only the list & filter label to keep map stable
+  const list = document.getElementById('rutas-list');
+  if (list) {
+    const sourceList = (routeSubTab === 'todas' ? STATE.routes : STATE.routes.filter(r => r.created_by === STATE.user?.id));
+    const filtered = sourceList.filter(r => {
+      if (routeFilter.difficulty !== 'todas' && r.difficulty !== routeFilter.difficulty) return false;
+      if (routeDistanceKm(r) > routeFilter.maxKm) return false;
+      return true;
+    });
+    if (sourceList.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
+    else if (filtered.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
+    else list.innerHTML = filtered.map(r => renderRouteCard(r)).join('');
+  }
+  // Update km label
+  const labels = document.querySelectorAll('[data-rangefilter-km]');
+  labels.forEach(l => l.textContent = `${routeFilter.maxKm}km`);
 }
 
 function editRoute(id) {
@@ -3727,6 +3855,8 @@ function renderBikerGram() {
   `;
   // Resolve HeyValue video/audio URLs after DOM renders
   resolveHvMedia();
+  // Bind double-tap-to-like on media
+  bindDoubleTapLike();
 }
 
 function resolveHvMedia() {
@@ -3892,7 +4022,7 @@ function renderRacingPost(p) {
   const tc = typeConfig[mediaType] || null;
 
   return `
-    <div class="racing-card vanish" style="margin-bottom:16px;border-radius:20px;overflow:hidden;background:var(--surface);border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 24px rgba(0,0,0,0.3)">
+    <div class="racing-card vanish" data-post-id="${p.id}" style="margin-bottom:16px;border-radius:20px;overflow:hidden;background:var(--surface);border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 24px rgba(0,0,0,0.3)">
 
       <!-- Media: full-width hero image / video -->
       ${hasMedia ? `
@@ -3955,8 +4085,8 @@ function renderRacingPost(p) {
 
       <!-- Engagement bar -->
       <div style="padding:8px 16px 14px;display:flex;align-items:center;gap:4px">
-        <button onclick="toggleLike(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;background:${isLiked?'linear-gradient(135deg,rgba(255,68,68,0.25),rgba(255,136,0,0.2))':'rgba(255,255,255,0.04)'};color:${isLiked?'#ff4444':'var(--text2)'}">
-          ${isLiked ? '❤️' : '🤍'} <span>${likes.length > 0 ? likes.length + ' likes' : 'Me gusta'}</span>
+        <button onclick="toggleLike(${p.id})" data-like-btn="${p.id}" class="like-btn-anim" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;background:${isLiked?'linear-gradient(135deg,rgba(255,68,68,0.25),rgba(255,136,0,0.2))':'rgba(255,255,255,0.04)'};color:${isLiked?'#ff4444':'var(--text2)'}">
+          <span class="like-icon" style="display:inline-block;transition:transform 0.2s">${isLiked ? '❤️' : '🤍'}</span> <span class="like-count" data-count="${p.id}">${likes.length > 0 ? likes.length + ' likes' : 'Me gusta'}</span>
         </button>
         <button onclick="showComments(${p.id})" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;background:rgba(255,255,255,0.04);color:var(--text2);transition:all 0.2s">
           💬 <span>${comments.length > 0 ? comments.length + ' com.' : 'Comentar'}</span>
@@ -3966,17 +4096,25 @@ function renderRacingPost(p) {
         </button>
       </div>
 
-      <!-- Comments (collapsed by default) -->
-      <div id="comments-${p.id}" style="padding:0 16px 12px;display:none">
-        ${comments.length > 0 ? comments.slice(0,3).map(c => {
-          const cu = STATE.users.find(u => u.id === c.user_id) || {username:'?', id:0};
-          return `<div style="font-size:12px;margin-bottom:8px"><b style="color:var(--accent)">${cu.username}</b> <span style="color:var(--text2)">${c.content}</span></div>`;
-        }).join('') : ''}
-        ${comments.length > 3 ? `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Ver los ${comments.length} comentarios</div>` : ''}
-        <div style="display:flex;gap:6px;margin-top:4px;border-top:1px solid rgba(255,255,255,0.05);padding-top:10px">
-          ${STATE.user ? renderAvatar(STATE.user, 26) : '<div style="width:26px;height:26px;border-radius:50%;background:var(--surface2);flex-shrink:0"></div>'}
-          <input class="input" style="margin:0;flex:1;font-size:12px;padding:7px 10px" id="cmt-${p.id}" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter')addComment(${p.id})">
-          <button class="btn btn-primary" style="padding:7px 12px;font-size:12px;flex-shrink:0" onclick="addComment(${p.id})">→</button>
+      <!-- Comments (always visible) -->
+      <div id="comments-${p.id}" style="padding:0 16px 14px">
+        ${comments.length > 0 ? `
+          <div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:10px;margin-bottom:8px">
+            ${comments.map(c => {
+              const cu = STATE.users.find(u => u.id === c.user_id) || {username:'?', id:0};
+              return `<div style="font-size:13px;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start">
+                ${renderAvatar(cu, 24)}
+                <div style="flex:1;background:rgba(255,255,255,0.04);padding:7px 11px;border-radius:14px;line-height:1.4">
+                  <b style="color:var(--accent);font-size:12px">${cu.username}</b> <span style="color:var(--text)">${c.content}</span>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        ` : ''}
+        <div style="display:flex;gap:6px;align-items:center;${comments.length>0?'border-top:1px solid rgba(255,255,255,0.05);padding-top:10px':''}">
+          ${STATE.user ? renderAvatar(STATE.user, 28) : '<div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);flex-shrink:0"></div>'}
+          <input class="input" style="margin:0;flex:1;font-size:13px;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:18px" id="cmt-${p.id}" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter')addComment(${p.id})">
+          <button style="padding:8px 14px;background:linear-gradient(135deg,#ff4444,#ff8800);border:none;border-radius:18px;color:#fff;font-size:13px;cursor:pointer;font-weight:700;flex-shrink:0" onclick="addComment(${p.id})">Enviar</button>
         </div>
       </div>
     </div>
@@ -4000,16 +4138,94 @@ function toggleLike(postId) {
   if (!p) return;
   p.likes = p.likes || [];
   const uid = String(STATE.user.id);
-  if (p.likes.includes(uid)) {
+  const wasLiked = p.likes.includes(uid);
+  if (wasLiked) {
     p.likes = p.likes.filter(l => l !== uid);
   } else {
     p.likes.push(uid);
     if (p.user_id !== STATE.user.id) {
       STATE.notifications.push({id:Date.now(), user_id:p.user_id, actor_id:STATE.user.id, type:'like', message:STATE.user.username + ' le gusto tu publicacion', link:'/feed', read:false, created_at:new Date().toISOString()});
     }
+    // Animate like button on add
+    const btn = document.querySelector(`[data-like-btn="${postId}"]`);
+    if (btn) {
+      const icon = btn.querySelector('.like-icon');
+      if (icon) {
+        icon.style.transform = 'scale(1.5)';
+        setTimeout(() => { icon.style.transform = 'scale(1)'; }, 250);
+      }
+      btn.classList.add('like-burst');
+      setTimeout(() => btn.classList.remove('like-burst'), 600);
+    }
   }
   saveState();
-  renderBikerGram();
+  // Update like count without re-rendering the whole feed (preserves scroll & media state)
+  const countEl = document.querySelector(`[data-count="${postId}"]`);
+  if (countEl) {
+    const l = p.likes.length;
+    countEl.textContent = l > 0 ? l + ' likes' : 'Me gusta';
+  }
+  // Toggle visual state of the button (color/bg)
+  const btn = document.querySelector(`[data-like-btn="${postId}"]`);
+  if (btn) {
+    const isLiked = !wasLiked;
+    btn.style.background = isLiked ? 'linear-gradient(135deg,rgba(255,68,68,0.25),rgba(255,136,0,0.2))' : 'rgba(255,255,255,0.04)';
+    btn.style.color = isLiked ? '#ff4444' : 'var(--text2)';
+    const icon = btn.querySelector('.like-icon');
+    if (icon) icon.textContent = isLiked ? '❤️' : '🤍';
+  }
+}
+
+// Double-tap on media to like with floating heart animation
+function bindDoubleTapLike() {
+  if (window.__bikerGramDblBound) return;
+  window.__bikerGramDblBound = true;
+  let lastTap = 0;
+  let lastTarget = null;
+  document.addEventListener('click', (e) => {
+    // Find closest media element
+    const media = e.target.closest('img[src], video[src]');
+    if (!media) return;
+    // Find which post it belongs to
+    const card = media.closest('[data-post-id]');
+    if (!card) return;
+    const postId = parseInt(card.dataset.postId);
+    const now = Date.now();
+    if (lastTarget === card && now - lastTap < 350) {
+      // Double-tap detected
+      const p = STATE.posts.find(x => x.id === postId);
+      if (!p) return;
+      const wasLiked = (p.likes || []).includes(String(STATE.user?.id));
+      if (!wasLiked) {
+        toggleLike(postId);
+      }
+      // Floating heart animation
+      spawnFloatingHeart(media, wasLiked);
+      lastTap = 0;
+      lastTarget = null;
+    } else {
+      lastTap = now;
+      lastTarget = card;
+    }
+  });
+}
+
+function spawnFloatingHeart(mediaEl, wasLiked) {
+  const rect = mediaEl.getBoundingClientRect();
+  const heart = document.createElement('div');
+  heart.textContent = wasLiked ? '💔' : '❤️';
+  heart.style.cssText = `
+    position:fixed;
+    left:${rect.left + rect.width/2 - 30}px;
+    top:${rect.top + rect.height/2 - 30}px;
+    font-size:64px;
+    z-index:9999;
+    pointer-events:none;
+    filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    animation:heartFloat 1.2s ease-out forwards;
+  `;
+  document.body.appendChild(heart);
+  setTimeout(() => heart.remove(), 1200);
 }
 
 function showComments(postId) {
@@ -4387,21 +4603,55 @@ function showEventTab(tab, btn) {
 function renderEventCard(ev) {
   const attCount = STATE.attendance.filter(a => a.event_id === ev.id).length;
   const myAtt = STATE.user && STATE.attendance.find(a => a.event_id === ev.id && a.user_id === STATE.user.id);
+  // Countdown to event
+  let countdown = '';
+  try {
+    const eventDate = new Date(ev.date + 'T' + (ev.time || '00:00'));
+    const diff = eventDate - new Date();
+    if (diff > 0) {
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      if (days > 0) countdown = `${days}d ${hours}h`;
+      else if (hours > 0) countdown = `${hours}h ${mins}m`;
+      else countdown = `${mins}m`;
+    } else {
+      const passed = Math.abs(diff);
+      const days = Math.floor(passed / 86400000);
+      countdown = days > 0 ? `Hace ${days}d` : 'Pasado';
+    }
+  } catch(e) {}
+
+  // Gradient based on difficulty
+  const diffGradients = {
+    facil: 'linear-gradient(135deg,rgba(34,197,94,0.3),rgba(16,185,129,0.15))',
+    intermedia: 'linear-gradient(135deg,rgba(245,158,11,0.3),rgba(255,68,68,0.15))',
+    alta: 'linear-gradient(135deg,rgba(239,68,68,0.3),rgba(220,38,38,0.15))',
+    epica: 'linear-gradient(135deg,rgba(156,39,176,0.3),rgba(67,56,202,0.15))',
+  };
+  const gradient = diffGradients[ev.difficulty] || 'linear-gradient(135deg,rgba(255,68,68,0.3),rgba(255,136,0,0.15))';
+
   return `
-    <div class="event-card vanish" onclick="viewEvent(${ev.id})">
-      <div style="height:140px;background:linear-gradient(135deg,rgba(255,68,68,0.3),rgba(255,136,0,0.15));display:flex;align-items:center;justify-content:center;font-size:48px">🏍️</div>
-      <div class="event-body">
-        <div class="event-date">${ev.date} · ${ev.time}</div>
-        <div class="event-title">${ev.title}</div>
-        <div class="event-meta">
-          <span>📍 ${ev.location || 'N/A'}</span>
-          <span>⚡ ${ev.difficulty}</span>
-          <span>👥 ${attCount} riders</span>
+    <div class="event-card vanish" onclick="viewEvent(${ev.id})" style="overflow:hidden;cursor:pointer;border-radius:16px;border:1px solid var(--border);background:var(--surface);margin-bottom:12px;transition:transform 0.2s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+      <div style="height:120px;background:${gradient};display:flex;align-items:center;justify-content:space-between;padding:16px;position:relative">
+        <div style="font-size:48px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3))">🏍️</div>
+        <div style="text-align:right">
+          <div style="background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);color:#fff;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:800">${countdown}</div>
         </div>
-        <div style="margin-top:10px">
+      </div>
+      <div style="padding:14px 16px">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">${ev.date} · ${ev.time}</div>
+        <div style="font-size:16px;font-weight:800;margin-bottom:8px;line-height:1.3">${escHtml(ev.title)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin-bottom:10px">
+          <span>📍 ${escHtml(ev.location || 'N/A')}</span>
+          <span>⚡ ${ev.difficulty}</span>
+          <span>👥 ${attCount}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
           ${myAtt
-            ? '<span class="badge-green">✅ Confirmado</span>'
-            : '<button class="btn btn-primary" style="padding:6px 14px;font-size:12px" onclick="event.stopPropagation();confirmEvent(' + ev.id + ')">Confirmar asistencia</button>'}
+            ? '<span class="badge-green" style="font-size:11px;padding:4px 10px">✅ Confirmado</span>'
+            : `<button onclick="event.stopPropagation();confirmEvent(${ev.id})" style="flex:1;padding:8px 14px;background:linear-gradient(135deg,#ff4444,#ff8800);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='none'">+ Confirmar asistencia</button>`}
+          <button onclick="event.stopPropagation();viewEvent(${ev.id})" style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text2);cursor:pointer;font-size:12px">👁️</button>
         </div>
       </div>
     </div>
@@ -4414,6 +4664,9 @@ function viewEvent(id) {
   const attCount = STATE.attendance.filter(a => a.event_id === ev.id).length;
   const attList = STATE.attendance.filter(a => a.event_id === ev.id).map(a => STATE.users.find(u => u.id === a.user_id)).filter(Boolean);
   const myAtt = STATE.user && STATE.attendance.find(a => a.event_id === ev.id && a.user_id === STATE.user.id);
+  // Reminder state
+  const remKey = 'bs_event_rem_' + ev.id + '_' + (STATE.user ? STATE.user.id : '');
+  const hasReminder = ls(remKey) ? true : false;
 
   openModal(ev.title, `
     <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
@@ -4424,15 +4677,24 @@ function viewEvent(id) {
     <div style="margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px">ASISTENTES (${attCount})</div>
       ${attList.length === 0 ? '<div style="font-size:12px;color:var(--text3)">Nadie ha confirmado aun</div>' :
-        attList.map(u => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px">
-          <div style="width:28px;height:28px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">${initials(u.username)}</div>
+        attList.slice(0, 8).map(u => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px">
+          ${renderAvatar(u, 28)}
           <span>${u.username}</span>
           ${u.is_injured ? '<span class="badge-red" style="font-size:9px">LESIONADO</span>' : ''}
         </div>`).join('')}
+      ${attList.length > 8 ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">+${attList.length-8} más</div>` : ''}
     </div>
     ${myAtt
       ? '<button class="btn btn-secondary" style="width:100%" onclick="cancelEvent(' + ev.id + ')">Cancelar asistencia</button>'
       : '<button class="btn btn-primary" style="width:100%" onclick="confirmEvent(' + ev.id + ')">Confirmar asistencia</button>'}
+    <div style="margin-top:10px;display:flex;gap:6px;align-items:center;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:10px">
+      <div style="font-size:18px">⏰</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700">Recordatorio</div>
+        <div style="font-size:10px;color:var(--text2)">${hasReminder ? 'Activado · te avisaremos antes' : 'Recibe una notificacion antes del evento'}</div>
+      </div>
+      <button onclick="toggleEventReminder(${ev.id})" style="padding:6px 12px;background:${hasReminder ? 'rgba(255,68,68,0.15)' : 'var(--surface2)'};border:1px solid ${hasReminder ? 'rgba(255,68,68,0.3)' : 'var(--border)'};border-radius:8px;color:${hasReminder ? '#ff4444' : 'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer">${hasReminder ? 'Quitar' : 'Activar'}</button>
+    </div>
     ${STATE.user?.is_admin ? `<button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger)" onclick="deleteEvent(${ev.id})">Eliminar evento</button>` : ''}
   `);
 }
@@ -4457,6 +4719,54 @@ function cancelEvent(id) {
   toast('Asistencia cancelada');
 }
 
+// Event reminder — set a localStorage flag, then a global setInterval checks every 60s
+// and pushes a notification if the event is within 1h and the user has confirmed
+function toggleEventReminder(eventId) {
+  if (!STATE.user) { toast('Inicia sesion'); return; }
+  const remKey = 'bs_event_rem_' + eventId + '_' + STATE.user.id;
+  if (ls(remKey)) {
+    ls(remKey, null);
+    toast('Recordatorio desactivado');
+  } else {
+    ls(remKey, { eventId, userId: STATE.user.id, at: Date.now() });
+    toast('Te avisaremos 1h antes del evento');
+  }
+  // Re-render modal
+  viewEvent(eventId);
+}
+
+// Check events every 60s and push reminder notifications
+setInterval(() => {
+  if (!STATE.user) return;
+  const now = Date.now();
+  STATE.attendance.filter(a => a.user_id === STATE.user.id).forEach(a => {
+    const ev = STATE.events.find(e => e.id === a.event_id);
+    if (!ev) return;
+    const remKey = 'bs_event_rem_' + ev.id + '_' + STATE.user.id;
+    if (!ls(remKey)) return;
+    const eventTime = new Date(ev.date + 'T' + (ev.time || '00:00')).getTime();
+    const diff = eventTime - now;
+    // Notify when 1h before (with 5min tolerance window)
+    if (diff > 55*60*1000 && diff < 65*60*1000) {
+      const notifId = 'reminder_' + ev.id;
+      const existing = STATE.notifications.find(n => n.id === notifId);
+      if (!existing) {
+        STATE.notifications.unshift({
+          id: notifId, user_id: STATE.user.id, type: 'event_reminder',
+          message: `⏰ "${ev.title}" empieza en ~1 hora`,
+          link: '/eventos', read: false, created_at: new Date().toISOString()
+        });
+        saveState();
+        toast('⏰ ' + ev.title + ' empieza pronto!');
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try { new Notification('Biker Society · Recordatorio', { body: ev.title + ' en ~1 hora', icon: 'icons/icon-192.png' }); } catch(e){}
+        }
+        ls(remKey, null); // consume reminder
+      }
+    }
+  });
+}, 60000);
+
 function deleteEvent(id) {
   if (!confirm('Eliminar este evento?')) return;
   STATE.events = STATE.events.filter(e => e.id !== id);
@@ -4466,6 +4776,395 @@ function deleteEvent(id) {
   navigate('eventos');
   toast('Evento eliminado');
 }
+
+// ============================================================
+// CHAT PAGE
+// ============================================================
+let CHAT_CHANNEL = 1; // active channel id
+let CHAT_BEFORE_PUSH = 0; // unread count snapshot for badge
+
+function renderChat() {
+  if (!STATE.user) { showLogin(); return; }
+  if (!CHAT_CHANNEL) CHAT_CHANNEL = STATE.chatChannels[0]?.id || 1;
+  const channel = STATE.chatChannels.find(c => c.id === CHAT_CHANNEL) || STATE.chatChannels[0];
+  const messages = STATE.chatMessages.filter(m => m.channel_id === CHAT_CHANNEL).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  // Pre-render messages
+  const msgsHtml = messages.map(m => renderChatMessage(m)).join('');
+
+  document.getElementById('page-chat').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <button id="chat-channels-toggle" onclick="toggleChatSidebar()" style="width:36px;height:36px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:16px;flex-shrink:0">☰</button>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800;display:flex;align-items:center;gap:6px">
+          <span>${channel.icon}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(channel.name)}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(channel.description || '')}</div>
+      </div>
+    </div>
+
+    <!-- Channels sidebar (slide-in) -->
+    <div id="chat-sidebar" style="position:fixed;top:0;left:0;bottom:0;width:280px;background:var(--surface);border-right:1px solid var(--border);z-index:200;transform:translateX(-100%);transition:transform 0.3s ease;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,0.4)">
+      <div style="padding:18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:15px;font-weight:800">Canales</div>
+        <button onclick="toggleChatSidebar()" style="width:28px;height:28px;border-radius:8px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px">
+        ${STATE.chatChannels.map(c => {
+          const isActive = c.id === CHAT_CHANNEL;
+          const unread = STATE.chatMessages.filter(m => m.channel_id === c.id && m.user_id !== STATE.user.id).slice(-1)[0];
+          return `
+            <div onclick="setChatChannel(${c.id});toggleChatSidebar()" style="padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:${isActive?(c.color||'#ff4444')+'22':'transparent'};border:1px solid ${isActive?(c.color||'#ff4444')+'66':'transparent'};display:flex;align-items:center;gap:10px;transition:all 0.2s" onmouseover="if(!${isActive})this.style.background='rgba(255,255,255,0.04)'">
+              <div style="width:36px;height:36px;border-radius:10px;background:${c.color||'#ff4444'}33;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${c.icon}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:700">${escHtml(c.name)}</div>
+                <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.description || '')}</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div style="padding:12px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);text-align:center">5 canales · ${STATE.chatMessages.length} mensajes</div>
+    </div>
+    <div id="chat-sidebar-backdrop" onclick="toggleChatSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:199;backdrop-filter:blur(4px)"></div>
+
+    <!-- Messages list -->
+    <div id="chat-messages" style="display:flex;flex-direction:column;gap:8px;min-height:50vh;max-height:60vh;overflow-y:auto;padding:8px 4px;margin-bottom:8px;-webkit-overflow-scrolling:touch">
+      ${msgsHtml || `<div style="text-align:center;padding:40px 20px;color:var(--text3)"><div style="font-size:48px;margin-bottom:8px">${channel.icon}</div><div style="font-size:13px">Sin mensajes en este canal</div><div style="font-size:11px;margin-top:6px">Sé el primero en escribir</div></div>`}
+    </div>
+
+    <!-- Quick emoji bar -->
+    <div style="display:flex;gap:4px;padding:6px 0;overflow-x:auto;scrollbar-width:none;margin-bottom:6px">
+      ${['👍','🔥','🏍️','😂','❤️','👀','💪','🍕','☕','⛽','🛣️','🌧️','🛠️','👋','😎','💯','🎉','🚀','👊','🤙'].map(e => `<button onclick="appendChatEmoji('${e}')" style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;font-size:18px;padding:0;display:flex;align-items:center;justify-content:center;transition:transform 0.15s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">${e}</button>`).join('')}
+    </div>
+
+    <!-- Mention suggestion popup -->
+    <div id="mention-popup" style="display:none;position:relative;max-height:160px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;box-shadow:0 -4px 16px rgba(0,0,0,0.3)"></div>
+
+    <!-- Input row -->
+    <div style="display:flex;gap:6px;align-items:flex-end;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:6px 6px 6px 12px">
+      <textarea id="chat-input" rows="1" placeholder="Mensaje en #${channel.name}..." onkeydown="handleChatKeydown(event)" oninput="autoGrowChatInput(this);handleMentionInput(this)" style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:14px;font-family:inherit;resize:none;max-height:120px;padding:8px 4px;line-height:1.4"></textarea>
+      <button onclick="sendChatMessage()" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff4444,#ff8800);border:none;color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(255,68,68,0.4)">➤</button>
+    </div>
+  `;
+  // Scroll to bottom
+  setTimeout(() => {
+    const m = document.getElementById('chat-messages');
+    if (m) m.scrollTop = m.scrollHeight;
+  }, 50);
+  bindChatNotifications();
+}
+
+function toggleChatSidebar() {
+  const sb = document.getElementById('chat-sidebar');
+  const bd = document.getElementById('chat-sidebar-backdrop');
+  if (!sb) return;
+  const isOpen = sb.style.transform === 'translateX(0%)';
+  sb.style.transform = isOpen ? 'translateX(-100%)' : 'translateX(0%)';
+  if (bd) bd.style.display = isOpen ? 'none' : 'block';
+}
+
+function setChatChannel(id) {
+  CHAT_CHANNEL = id;
+  renderChat();
+}
+
+function renderChatMessage(m) {
+  const author = STATE.users.find(u => u.id === m.user_id) || { username: '?', id: 0, is_admin: false };
+  const isMe = STATE.user && m.user_id === STATE.user.id;
+  // Convert @mentions into highlighted spans
+  const content = escHtml(m.content).replace(/@(\w+)/g, '<span style="color:var(--accent);font-weight:700;background:rgba(255,68,68,0.1);padding:1px 4px;border-radius:4px">@$1</span>');
+  // Time
+  let t = '';
+  try {
+    const d = new Date(m.created_at.replace(' ', 'T'));
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) t = 'ahora';
+    else if (diff < 3600) t = Math.floor(diff/60) + 'm';
+    else if (diff < 86400) t = Math.floor(diff/3600) + 'h';
+    else t = Math.floor(diff/86400) + 'd';
+  } catch(e) { t = ''; }
+
+  return `
+    <div style="display:flex;gap:8px;align-items:flex-start;${isMe?'flex-direction:row-reverse':''}">
+      ${renderAvatar(author, 32)}
+      <div style="max-width:75%;${isMe?'text-align:right':''}">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px;${isMe?'text-align:right':''}">
+          <span style="font-weight:700;color:var(--text2)">${escHtml(author.username)}</span>
+          ${author.is_admin ? '<span style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:0 4px;border-radius:3px;font-size:8px;font-weight:800;margin-left:2px">ADMIN</span>' : ''}
+          <span style="margin-left:4px">${t}</span>
+        </div>
+        <div style="display:inline-block;padding:8px 12px;border-radius:14px;${isMe?'background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;border-bottom-right-radius:4px':'background:var(--surface2);color:var(--text);border-bottom-left-radius:4px'};font-size:13px;line-height:1.45;word-wrap:break-word;text-align:left">
+          ${content}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function appendChatEmoji(e) {
+  const inp = document.getElementById('chat-input');
+  if (!inp) return;
+  inp.value += e;
+  inp.focus();
+  autoGrowChatInput(inp);
+}
+
+function autoGrowChatInput(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(120, el.scrollHeight) + 'px';
+}
+
+function handleChatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+}
+
+let MENTION_FILTER = '';
+function handleMentionInput(el) {
+  const cursor = el.selectionStart;
+  const text = el.value.substring(0, cursor);
+  const match = text.match(/@(\w*)$/);
+  if (!match) {
+    document.getElementById('mention-popup').style.display = 'none';
+    return;
+  }
+  MENTION_FILTER = match[1].toLowerCase();
+  const candidates = STATE.users.filter(u => u.username.toLowerCase().includes(MENTION_FILTER)).slice(0, 6);
+  if (candidates.length === 0) {
+    document.getElementById('mention-popup').style.display = 'none';
+    return;
+  }
+  const popup = document.getElementById('mention-popup');
+  popup.innerHTML = candidates.map(u => `
+    <div onclick="insertMention('${u.username}')" style="padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.15s" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
+      ${renderAvatar(u, 26)}
+      <span style="font-size:13px;font-weight:600">${u.username}</span>
+    </div>
+  `).join('');
+  popup.style.display = 'block';
+}
+function insertMention(name) {
+  const inp = document.getElementById('chat-input');
+  if (!inp) return;
+  const cursor = inp.selectionStart;
+  const text = inp.value.substring(0, cursor);
+  const replaced = text.replace(/@\w*$/, '@' + name + ' ');
+  inp.value = replaced + inp.value.substring(cursor);
+  document.getElementById('mention-popup').style.display = 'none';
+  inp.focus();
+  autoGrowChatInput(inp);
+}
+
+function sendChatMessage() {
+  if (!STATE.user) { toast('Inicia sesion'); return; }
+  const inp = document.getElementById('chat-input');
+  if (!inp) return;
+  const content = inp.value.trim();
+  if (!content) return;
+  const msg = {
+    id: Date.now() % 1000000,
+    channel_id: CHAT_CHANNEL,
+    user_id: STATE.user.id,
+    content,
+    created_at: new Date().toISOString(),
+    recipient_id: null,
+  };
+  STATE.chatMessages.push(msg);
+  // Notify mentioned users
+  const mentions = content.match(/@(\w+)/g) || [];
+  mentions.forEach(m => {
+    const username = m.substring(1);
+    const target = STATE.users.find(u => u.username === username);
+    if (target && target.id !== STATE.user.id) {
+      STATE.notifications.push({
+        id: Date.now() + Math.random(),
+        user_id: target.id,
+        actor_id: STATE.user.id,
+        type: 'mention',
+        message: STATE.user.username + ' te menciono en #' + (STATE.chatChannels.find(c => c.id === CHAT_CHANNEL)?.name || 'chat'),
+        link: '/chat',
+        read: false,
+        created_at: new Date().toISOString()
+      });
+    }
+  });
+  saveState();
+  inp.value = '';
+  autoGrowChatInput(inp);
+  renderChat();
+}
+
+function bindChatNotifications() {
+  // Browser notification permission (soft request, only after a user action)
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+  // In-app: when user is on chat page, listen to new messages and visual ping
+  window.__chatBound = true;
+}
+
+// ============================================================
+// RANKING PAGE
+// ============================================================
+let RANK_SORT = 'points'; // 'points' | 'rides' | 'km' | 'badges'
+
+function renderRanking() {
+  if (!STATE.user) { showLogin(); return; }
+  // Build ranking data: compute stats for each user
+  const userStats = STATE.users.filter(u => !u.is_invisible).map(u => {
+    const s = getUserStats(u.id);
+    return {
+      user: u,
+      points: u.points || 0,
+      rides: s.rides || 0,
+      km: s.total_km || 0,
+      badges: STATE.userBadges.filter(ub => ub.user_id === u.id).length,
+      posts: s.posts || 0,
+    };
+  });
+  // Sort
+  userStats.sort((a, b) => b[RANK_SORT] - a[RANK_SORT]);
+  const top10 = userStats.slice(0, 10);
+  const myRank = userStats.findIndex(s => s.user.id === STATE.user.id) + 1;
+  const top1 = top10[0];
+  const podium = [top10[1], top10[0], top10[2]]; // 2nd, 1st, 3rd (visual order)
+
+  // Build SVG bar chart of top 10 points
+  const maxPoints = Math.max(...top10.map(s => s.points), 1);
+  const chartBars = top10.map((s, i) => {
+    const h = (s.points / maxPoints) * 100;
+    const colors = ['#fbbf24','#9ca3af','#ea580c','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#f43f5e','#06b6d4'];
+    const c = colors[i % colors.length];
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:9px;font-weight:700;color:${c}">${s.points}</div>
+      <div style="width:100%;height:${Math.max(h,5)}px;background:linear-gradient(to top,${c},${c}66);border-radius:4px 4px 0 0;transition:height 0.5s"></div>
+      <div style="font-size:8px;color:var(--text3);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i+1}. ${escHtml(s.user.username)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('page-ranking').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div>
+        <div style="font-size:20px;font-weight:900;letter-spacing:-0.5px">
+          <span style="background:linear-gradient(135deg,#fbbf24,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🏆 Ranking</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">Tu posicion: <b style="color:#ff4444">#${myRank || '-'}</b> de ${userStats.length}</div>
+      </div>
+    </div>
+
+    <!-- Sort tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px">
+      ${[['points','⭐ Puntos'],['rides','🏍️ Rides'],['km','📏 Km'],['badges','🏅 Insignias']].map(([k,label]) => `
+        <button onclick="setRankSort('${k}')" style="flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:700;transition:all 0.2s;background:${RANK_SORT===k?'linear-gradient(135deg,#ff4444,#ff8800)':'transparent'};color:${RANK_SORT===k?'#fff':'var(--text3)'}">${label}</button>
+      `).join('')}
+    </div>
+
+    <!-- Podium top 3 -->
+    ${top10.length >= 3 ? `
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:8px;margin-bottom:18px;padding:14px;background:linear-gradient(180deg,rgba(251,191,36,0.08),transparent);border-radius:16px">
+      ${podium.map((s, idx) => {
+        if (!s) return '';
+        const position = idx === 1 ? 1 : (idx === 0 ? 2 : 3);
+        const heights = {1: 110, 2: 90, 3: 70};
+        const medals = {1: '🥇', 2: '🥈', 3: '🥉'};
+        const colors = {1: 'linear-gradient(180deg,#fbbf24,#f59e0b)', 2: 'linear-gradient(180deg,#9ca3af,#6b7280)', 3: 'linear-gradient(180deg,#ea580c,#c2410c)'};
+        const isMe = s.user.id === STATE.user.id;
+        return `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;max-width:120px">
+            ${renderAvatar(s.user, position === 1 ? 64 : 54)}
+            <div style="font-size:11px;font-weight:700;margin-top:4px;text-align:center;color:${isMe?'#ff4444':'var(--text)'};${isMe?'text-shadow:0 0 8px rgba(255,68,68,0.4)':''}">${escHtml(s.user.username)}${isMe?' (tu)':''}</div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:6px">${s[RANK_SORT]} ${RANK_SORT === 'points' ? 'pts' : (RANK_SORT === 'km' ? 'km' : '')}</div>
+            <div style="width:100%;height:${heights[position]}px;background:${colors[position]};border-radius:10px 10px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:6px;font-size:20px;font-weight:900;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.3)">${medals[position]}</div>
+            <div style="font-size:14px;font-weight:900;color:#fff;background:${colors[position]};padding:2px 0;border-radius:0 0 6px 6px;width:60%;text-align:center">${position}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>` : ''}
+
+    <!-- Bar chart of top 10 -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Top 10 · ${RANK_SORT === 'points' ? 'Puntos' : RANK_SORT === 'rides' ? 'Rodadas' : RANK_SORT === 'km' ? 'Kilómetros' : 'Insignias'}</div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:140px;padding-bottom:24px;border-bottom:1px solid var(--border)">
+        ${chartBars}
+      </div>
+    </div>
+
+    <!-- Full list -->
+    <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Clasificación completa</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${userStats.map((s, i) => {
+        const isMe = s.user.id === STATE.user.id;
+        const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+        const points = s[RANK_SORT];
+        return `
+          <div onclick="navigate('rider-detail')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${isMe?'linear-gradient(135deg,rgba(255,68,68,0.15),rgba(255,136,0,0.08))':'var(--surface)'};border:1px solid ${isMe?'rgba(255,68,68,0.4)':'var(--border)'};border-radius:12px;cursor:pointer;transition:transform 0.15s" onmouseover="this.style.transform='translateX(2px)'" onmouseout="this.style.transform='none'">
+            <div style="min-width:32px;text-align:center;font-size:14px;font-weight:800;color:${isMe?'#ff4444':'var(--text2)'}">${rankEmoji}</div>
+            ${renderAvatar(s.user, 36)}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px">
+                <span>${escHtml(s.user.username)}</span>
+                ${s.user.is_admin ? '<span style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#000;padding:0 4px;border-radius:3px;font-size:8px;font-weight:800">ADMIN</span>' : ''}
+                ${isMe ? '<span style="background:#ff4444;color:#fff;padding:0 4px;border-radius:3px;font-size:8px;font-weight:800">TU</span>' : ''}
+              </div>
+              <div style="font-size:10px;color:var(--text3)">${s.km} km · ${s.rides} rides · ${s.badges} 🏅</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:15px;font-weight:800;color:#ff4444">${points}</div>
+              <div style="font-size:9px;color:var(--text3)">${RANK_SORT === 'points' ? 'pts' : RANK_SORT === 'km' ? 'km' : RANK_SORT === 'rides' ? 'rides' : 'badges'}</div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setRankSort(s) {
+  RANK_SORT = s;
+  renderRanking();
+}
+
+// Browser notification for new chat messages (when tab is not focused)
+let LAST_SEEN_MSG_COUNT = STATE.chatMessages.length;
+setInterval(() => {
+  if (STATE.chatMessages.length > LAST_SEEN_MSG_COUNT) {
+    const newMsgs = STATE.chatMessages.slice(LAST_SEEN_MSG_COUNT);
+    LAST_SEEN_MSG_COUNT = STATE.chatMessages.length;
+    // Skip if user is currently in chat
+    const onChatPage = document.querySelector('.page.active')?.id === 'page-chat';
+    if (!onChatPage) {
+      const last = newMsgs[newMsgs.length - 1];
+      const author = STATE.users.find(u => u.id === last.user_id);
+      if (author && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('Biker Society · #' + (STATE.chatChannels.find(c => c.id === last.channel_id)?.name || 'chat'), {
+            body: `${author.username}: ${last.content.substring(0, 80)}`,
+            icon: 'icons/icon-192.png',
+            tag: 'bs-chat-' + last.channel_id,
+          });
+        } catch (e) { /* ignore */ }
+      }
+      // Update bottom nav badge
+      const chatNav = document.querySelector('[data-nav="chat"]');
+      if (chatNav) {
+        const total = STATE.chatMessages.filter(m => m.user_id !== STATE.user?.id).length;
+        let badge = chatNav.querySelector('.nav-badge');
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.className = 'nav-badge';
+          badge.style.cssText = 'position:absolute;top:4px;right:8px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center';
+          chatNav.style.position = 'relative';
+          chatNav.appendChild(badge);
+        }
+        badge.textContent = total > 99 ? '99+' : total;
+      }
+    }
+  }
+}, 3000);
 
 function createEvent() {
   openModal('Crear Evento', `
