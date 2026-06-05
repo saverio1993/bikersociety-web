@@ -3366,8 +3366,11 @@ function renderInicio() {
         <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
       </div>
       ${STATE.routes.slice(0,3).map(r => `
-        <div class="card vanish" style="cursor:pointer" onclick="navigateToRoute(${r.id})">
-          <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="navigateToRoute(${r.id})">
+          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)">
+            🧭 Seguir
+          </button>
+          <div style="display:flex;justify-content:space-between;align-items:start;padding-right:90px">
             <div>
               <div class="card-title">${escHtml(r.name)}</div>
               <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
@@ -3375,7 +3378,6 @@ function renderInicio() {
                 <span class="badge">⚡ ${r.difficulty}</span>
               </div>
             </div>
-            <div style="font-size:20px">🏍️</div>
           </div>
         </div>
       `).join('')}
@@ -3555,9 +3557,6 @@ function renderRutas() {
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
-      <button onclick="openRouteInNav(${sel.id})" style="width:100%;padding:10px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);border-radius:10px;color:#00d4ff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">
-        🧭 Usar Waze o Maps para seguir ruta
-      </button>
       ${sel.date ? `
       <div id="gps-panel-${sel.id}">
         ${_activeRouteId === sel.id ? `
@@ -4114,8 +4113,12 @@ function renderRouteCard(r) {
   const difficultyColors = { facil: '#22c55e', media: '#f59e0b', dificil: '#ef4444', epica: '#9c27b0' };
   const diffColor = difficultyColors[r.difficulty] || '#888';
   return `
-    <div class="card vanish" style="cursor:pointer" onclick="selectRoute(${r.id})">
-      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+    <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="selectRoute(${r.id})">
+      <!-- Floating Waze/Maps button — always visible, opens native nav app -->
+      <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        🧭 Seguir
+      </button>
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;padding-right:90px">
         <div style="flex:1;min-width:0">
           <div class="card-title">${escHtml(r.name)}</div>
           <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
@@ -4126,10 +4129,6 @@ function renderRouteCard(r) {
             <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
             ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0">
-          <div style="font-size:20px">🏍️</div>
-          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze/Maps" style="width:30px;height:30px;border-radius:8px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(0,212,255,0.2)'" onmouseout="this.style.background='rgba(0,212,255,0.1)'">🧭</button>
         </div>
       </div>
     </div>
