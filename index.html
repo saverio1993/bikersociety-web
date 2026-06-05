@@ -344,6 +344,18 @@ a{color:inherit;text-decoration:none}
   animation:poiPulse 2s ease-in-out infinite;
   position:relative;
 }
+.poi-tooltip{
+  background:var(--surface)!important;
+  border:1px solid var(--border)!important;
+  border-radius:8px!important;
+  padding:6px 12px!important;
+  font-size:13px!important;
+  font-weight:600!important;
+  color:var(--text)!important;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3)!important;
+  white-space:nowrap!important;
+}
+.poi-tooltip::before{border-top-color:var(--border)!important}
 .poi-pill::before{
   content:'';position:absolute;inset:-4px;
   border-radius:inherit;
@@ -3664,7 +3676,9 @@ function startPOIPicker(target) {
       '</div>';
       
       marker.bindPopup(popupHtml, {maxWidth: 280});
-      marker.bindTooltip((p.name || 'Lugar').substring(0, 25), {direction:'top', offset:[0,-8], opacity:0.9});
+      marker.bindTooltip(icon + ' ' + (p.name || 'Lugar'), {direction:'top', offset:[0,-8], opacity:1, className: 'poi-tooltip'});
+      // Larger markers for easier tapping
+      marker.setRadius(8);
       _poiMarkers.addLayer(marker);
     });
     
