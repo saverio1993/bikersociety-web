@@ -2318,18 +2318,22 @@ function confirmAttendance(routeId, method, isArrival) {
   if (method === 'auto') toast('✅ Asistencia confirmada automaticamente');
 }
 
-// ── Live Location System ────────────────────────────────────────────────
+// ── Live Location System (two modes) ────────────────────────────────
+// NORMAL: save to HV every 30s, check members every 60s
+// EVENTO ACTIVO: save HV every 30s, check members every 15s, auto-attendance on
+
 var _geoWatchId = null;
 var _locationPollInterval = null;
+var _saveLocationInterval = null;
 var _lastLocationSave = 0;
+var _isEventoActivo = false;
+var _eventoCheckInterval = null;
 
 function startGeolocation() {
   if (!navigator.geolocation) { toast('GPS no disponible en este navegador'); return; }
-
-  // Stop any existing tracking
   stopGeolocation();
 
-  // Watch position continuously
+  // Watch GPS — updates STATE.userLocation continuously
   _geoWatchId = navigator.geolocation.watchPosition(
     pos => {
       STATE.userLocation = {
@@ -2338,50 +2342,93 @@ function startGeolocation() {
         accuracy: pos.coords.accuracy,
         updated_at: Date.now()
       };
-      // Save to HeyValue
+      // Always try to save (saveLocationToHV respects the 30s throttle)
       saveLocationToHV();
-      // Check auto-attendance
-      checkAttendanceForActiveRoutes();
+      // Only check attendance when evento activo
+      if (_isEventoActivo) checkAttendanceForActiveRoutes();
     },
     err => { console.warn('[BS] GPS error:', err.message); },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
   );
 
-  // Also poll members' locations every 30s
-  _locationPollInterval = setInterval(() => {
-    loadMembersLocation();
+  // Save to HeyValue every 30s (throttled)
+  _saveLocationInterval = setInterval(() => {
+    saveLocationToHV();
   }, 30000);
 
-  // Initial load
+  // Check members every 60s normally, 15s when evento activo
+  _locationPollInterval = setInterval(() => {
+    loadMembersLocation();
+  }, _isEventoActivo ? 15000 : 60000);
+
+  // Check if an evento is active — every 60s
+  _eventoCheckInterval = setInterval(() => {
+    updateEventoMode();
+  }, 60000);
+
+  // Initial loads
   loadMembersLocation();
+  updateEventoMode();
 }
 
 function stopGeolocation() {
-  if (_geoWatchId !== null) {
-    navigator.geolocation.clearWatch(_geoWatchId);
-    _geoWatchId = null;
-  }
-  if (_locationPollInterval) {
-    clearInterval(_locationPollInterval);
-    _locationPollInterval = null;
+  if (_geoWatchId !== null) { navigator.geolocation.clearWatch(_geoWatchId); _geoWatchId = null; }
+  if (_locationPollInterval) { clearInterval(_locationPollInterval); _locationPollInterval = null; }
+  if (_saveLocationInterval) { clearInterval(_saveLocationInterval); _saveLocationInterval = null; }
+  if (_eventoCheckInterval) { clearInterval(_eventoCheckInterval); _eventoCheckInterval = null; }
+}
+
+// ── Evento mode: activate when a route is happening today ──────────────────
+// Active window: route departure time → +2 hours after
+function updateEventoMode() {
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const curMin = now.getHours() * 60 + now.getMinutes();
+
+  const activeRoute = STATE.routes.find(r => {
+    if (!r.date || r.date !== today || !r.time) return false;
+    const depMin = parseInt(r.time.slice(0,2))*60 + parseInt(r.time.slice(3,5));
+    const windowEnd = depMin + 120; // +2 hours
+    return curMin >= depMin && curMin <= windowEnd;
+  });
+
+  const wasActive = _isEventoActivo;
+  _isEventoActivo = !!activeRoute;
+
+  if (_isEventoActivo && !wasActive) {
+    console.log('[BS] EVENTO ACTIVO:', activeRoute.name);
+    toast('🏍️ Ruta activa — GPS en modo evento');
+    // Switch to fast polling
+    if (_locationPollInterval) {
+      clearInterval(_locationPollInterval);
+      _locationPollInterval = setInterval(loadMembersLocation, 15000);
+    }
+  } else if (!_isEventoActivo && wasActive) {
+    console.log('[BS] Evento finished — normal mode');
+    toast('Evento finalizado — GPS en modo normal');
+    // Switch back to slow polling
+    if (_locationPollInterval) {
+      clearInterval(_locationPollInterval);
+      _locationPollInterval = setInterval(loadMembersLocation, 60000);
+    }
   }
 }
 
 async function saveLocationToHV() {
   if (!HV.user || !HV.pass || !STATE.user || !STATE.userLocation) return;
   const now = Date.now();
-  // Save to HeyValue max every 60s (avoid rate limit)
-  if (now - _lastLocationSave < 60000) return;
+  // Save every 30s (throttle)
+  if (now - _lastLocationSave < 30000) return;
   _lastLocationSave = now;
   try {
-    const locData = {
+    await saveToHV('member_location_' + STATE.user.id, {
       lat: STATE.userLocation.lat,
       lng: STATE.userLocation.lng,
       accuracy: STATE.userLocation.accuracy,
       username: STATE.user.username,
+      isEventoActivo: _isEventoActivo,
       updated_at: now
-    };
-    await saveToHV('member_location_' + STATE.user.id, locData);
+    });
   } catch(e) { /* silent fail */ }
 }
 
@@ -2393,8 +2440,9 @@ async function loadMembersLocation() {
     try {
       const data = await loadFromHV('member_location_' + u.id);
       if (data && data.lat && data.lng) {
-        // Only use if updated in last 5 minutes
-        if (Date.now() - (data.updated_at || 0) < 300000) {
+        // Only use if updated in last 10 minutes (normal) or 2 minutes (evento activo)
+        const maxAge = _isEventoActivo ? 120000 : 600000;
+        if (Date.now() - (data.updated_at || 0) < maxAge) {
           STATE.membersLocation[u.id] = data;
         }
       }
