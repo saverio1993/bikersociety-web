@@ -2191,10 +2191,13 @@ async function syncPostsFromCloud() {
   if (!HV.user) return;
   const data = await loadFromHV('posts');
   if (data && Array.isArray(data)) {
-    const cloudMap = new Map(data.map(item => [item.id, item]));
-    const localOnly = (STATE.posts || []).filter(item => !cloudMap.has(item.id));
+    const deletedIds = STATE._deletedIds || [];
+    // Filter out deleted posts from cloud data
+    const filteredCloud = data.filter(item => !deletedIds.includes(item.id));
+    const cloudMap = new Map(filteredCloud.map(item => [item.id, item]));
+    const localOnly = (STATE.posts || []).filter(item => !cloudMap.has(item.id) && !deletedIds.includes(item.id));
     // Sort BOTH cloud and local posts by date before merging
-    const sortedCloud = [...data].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    const sortedCloud = [...filteredCloud].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
     const sortedLocal = [...localOnly].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
     STATE.posts = [...sortedLocal, ...sortedCloud];
   }
@@ -4876,14 +4879,22 @@ function clearPostMedia() {
 
 async function deletePost(id) {
   if (!confirm('Eliminar esta publicacion?')) return;
+  // Mark as deleted to block background sync from restoring it
+  STATE._deletedIds = STATE._deletedIds || [];
+  STATE._deletedIds.push(id);
   // Delete from IndexedDB immediately
   if (DB) await idbDelete('posts', id);
   // Remove from STATE
   STATE.posts = STATE.posts.filter(p => p.id !== id);
-  saveState();
   renderBikerGram();
-  // Delete from cloud in background
-  if (HV.connected) syncQueueProcess();
+  // Save local first
+  saveLocal();
+  // Push to cloud immediately so it doesn't come back
+  if (HV.connected) {
+    await saveToHV('posts', STATE.posts);
+    // After cloud synced, remove from deleted list
+    STATE._deletedIds = (STATE._deletedIds || []).filter(i => i !== id);
+  }
   toast('Eliminado');
 }
 
