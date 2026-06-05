@@ -1194,7 +1194,7 @@ a{color:inherit;text-decoration:none}
 // STATE & CONFIG
 // ============================================================
 const HV = {
-  url: 'https://cloud.heyvalue.com',
+  url: 'https://bikersociety.duckdns.org',
   user: 'saveriomanrrique19@gmail.com',
   pass: 'Lozano1993@',
   hvPath: '8202944a-6bb4-49f3-9e06-a4a5849813f2',
@@ -1822,10 +1822,10 @@ async function handleProfilePicChange(e) {
     if (HV.user && HV.pass) {
       const hvPath = HV.hvPath || HV.user;
       const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
-      const fullPath = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/remote.php/dav/files/' + hvPath + path;
+      const fullPath = HV.url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`) + '/nc' + path;
 
       // Also upload with auth header for upload
-      const uploadPath = HV.url + '/remote.php/dav/files/' + hvPath + path;
+      const uploadPath = HV.url + '/nc' + path;
 
       // Ensure folder exists
       try {
@@ -1960,20 +1960,18 @@ function timeAgo(ts) {
 // ============================================================
 async function hvRequest(method, path, body) {
   if (!HV.user || !HV.pass) return null;
-  const davPath = HV.hvPath || HV.user; // fallback to email if no hvPath
   const opts = {
     method,
     headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) }
   };
   if (body && typeof body === 'string') {
     opts.headers['Content-Type'] = 'application/octet-stream';
-    opts.body = body;
   } else if (body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
   try {
-    const r = await fetch(HV.url + '/remote.php/dav/files/' + davPath + path, opts);
+    const r = await fetch(HV.url + '/nc' + path, opts);
     if (r.status === 207) return {ok:true, data: await r.json()};
     if (r.status === 204 || r.status === 201) return {ok:true};
     const t = await r.text();
@@ -4659,7 +4657,7 @@ function clearPostMedia() {
         ? dataURLtoBlob(POST_DRAFT.dataUrl) 
         : await fetch(POST_DRAFT.dataUrl).then(r => r.blob());
       
-      const r = await fetch(HV.url + '/remote.php/dav/files/' + HV.hvPath + path, {
+      const r = await fetch(HV.url + '/nc' + path, {
         method: 'PUT',
         headers: { 
           Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass),
@@ -4670,7 +4668,7 @@ function clearPostMedia() {
       
       if (r.ok || r.status === 201 || r.status === 204) {
         // Success — use cloud URL
-        const fullPathAuth = HV.url.replace('https://', 'https://' + HV.user + ':' + HV.pass + '@') + '/remote.php/dav/files/' + HV.hvPath + path;
+        const fullPathAuth = HV.url.replace('https://', 'https://' + HV.user + ':' + HV.pass + '@') + '/nc' + path;
         mediaUrl = fullPathAuth;
         toast('Subido a la nube ✓');
       } else {
