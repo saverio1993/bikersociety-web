@@ -1194,7 +1194,7 @@ a{color:inherit;text-decoration:none}
 // STATE & CONFIG
 // ============================================================
 const HV = {
-  url: 'https://beth-drivers-simulation-allowed.trycloudflare.com',
+  url: 'https://cloud.heyvalue.com',
   user: 'saveriomanrrique19@gmail.com',
   pass: 'Lozano1993@',
   hvPath: '8202944a-6bb4-49f3-9e06-a4a5849813f2',
@@ -4638,8 +4638,48 @@ function clearPostMedia() {
 
   let mediaUrl = POST_DRAFT?.dataUrl || null;
 
-  // Cloud upload disabled — using local data URLs
-  // Media persists in localStorage as data URL (base64 for images)
+  // Upload to HeyValue (Nextcloud) via WebDAV
+  if (HV.user && HV.pass && POST_DRAFT?.file) {
+    const fileSize = POST_DRAFT.file.size;
+    const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
+    const typeFolder = POST_DRAFT.type === 'video' ? 'videos' : POST_DRAFT.type === 'audio' ? 'audio' : 'photos';
+    const ext = POST_DRAFT.file.name.split('.').pop() || 'jpg';
+    const filename = Date.now() + '_' + Math.random().toString(36).substring(2,8) + '.' + ext;
+    const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
+    
+    toast(`Subiendo a la nube (${sizeMB}MB)...`);
+    
+    try {
+      // Ensure folder exists
+      await ensureHVDir('/' + HV.gramFolder);
+      await ensureHVDir('/' + HV.gramFolder + '/' + typeFolder);
+      
+      // Upload file via WebDAV PUT
+      const buffer = POST_DRAFT.dataUrl.startsWith('data:') 
+        ? dataURLtoBlob(POST_DRAFT.dataUrl) 
+        : await fetch(POST_DRAFT.dataUrl).then(r => r.blob());
+      
+      const r = await fetch(HV.url + '/remote.php/dav/files/' + HV.hvPath + path, {
+        method: 'PUT',
+        headers: { 
+          Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass),
+          'Content-Type': POST_DRAFT.mimeType || 'application/octet-stream'
+        },
+        body: buffer
+      });
+      
+      if (r.ok || r.status === 201 || r.status === 204) {
+        // Success — use cloud URL
+        const fullPathAuth = HV.url.replace('https://', 'https://' + HV.user + ':' + HV.pass + '@') + '/remote.php/dav/files/' + HV.hvPath + path;
+        mediaUrl = fullPathAuth;
+        toast('Subido a la nube ✓');
+      } else {
+        toast('Error cloud — guardando local');
+      }
+    } catch(e) {
+      toast('Error subiendo: ' + e.message);
+    }
+  }
 
   const post = {
     id: Date.now() % 100000,
