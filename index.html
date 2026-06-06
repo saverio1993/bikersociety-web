@@ -3631,6 +3631,36 @@ function renderRutas() {
     } catch(e) {}
   }
 
+  // Prepare confirmed bikers list
+  let confirmedBikers = '';
+  if (sel) { (() => {
+    const seen = new Set();
+    const confirmed = [];
+    (STATE.attendance || []).filter(a => a.route_id === sel.id && a.user_id !== STATE.user?.id).forEach(a => {
+      if (!seen.has(a.user_id)) { seen.add(a.user_id); confirmed.push(a); }
+    });
+    if (confirmed.length > 0) {
+      confirmedBikers = '<div style="margin-bottom:12px">' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
+        '<span style="font-size:13px;font-weight:700;color:var(--text2)">👥 Bikers confirmados</span>' +
+        '<span class="badge badge-green" style="font-size:10px;padding:2px 6px">' + confirmed.length + '</span>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+        confirmed.map(a => {
+          const u = STATE.users.find(u => u.id === a.user_id);
+          if (!u) return '';
+          let timeStr = '';
+          try { const d = new Date(a.confirmed_at); timeStr = d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); } catch(e) {}
+          return '<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);padding:6px 10px 6px 6px;border-radius:20px;border:1px solid var(--border)">' +
+            renderAvatar(u, 28) +
+            '<span style="font-size:11px;font-weight:600">' + escHtml(u.username) + '</span>' +
+            (timeStr ? '<span style="font-size:9px;color:var(--text3);margin-left:2px">' + timeStr + '</span>' : '') +
+          '</div>';
+        }).join('') +
+        '</div>';
+    }
+  })(); }
+
   document.getElementById('page-rutas').innerHTML = `
     <!-- Header + Tabs (always visible) -->
     <div style="margin-bottom:10px">
@@ -3680,33 +3710,7 @@ function renderRutas() {
         ${sel.notify ? '<span class="badge badge-gold" style="margin-left:auto">🔔 Recordatorio</span>' : ''}
       </div>` : ''}
       <!-- CONFIRMED BIKERS -->
-      ${(() => {
-        // Deduplicar por user_id y excluir al usuario actual
-        const seen = new Set();
-        const confirmed = [];
-        (STATE.attendance || []).filter(a => a.route_id === sel.id && a.user_id !== STATE.user?.id).forEach(a => {
-          if (!seen.has(a.user_id)) { seen.add(a.user_id); confirmed.push(a); }
-        });
-        return confirmed.length > 0 ? `
-        <div style="margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:700;color:var(--text2)">👥 Bikers confirmados</span>
-            <span class="badge badge-green" style="font-size:10px;padding:2px 6px">${confirmed.length}</span>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${confirmed.map(a => {
-              const u = STATE.users.find(u => u.id === a.user_id);
-              if (!u) return '';
-              const timeStr = (() => { try { const d = new Date(a.confirmed_at); return d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); } catch(e) { return ''; } })();
-              return '<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);padding:6px 10px 6px 6px;border-radius:20px;border:1px solid var(--border)">' +
-                renderAvatar(u, 28) +
-                '<span style="font-size:11px;font-weight:600">' + escHtml(u.username) + '</span>' +
-                (timeStr ? '<span style="font-size:9px;color:var(--text3);margin-left:2px">' + timeStr + '</span>' : '') +
-              '</div>';
-            }).join('')}
-          </div>
-        </div>` : '';
-      })()}
+      ${(confirmedBikers || '')}
       ${isOwner ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
