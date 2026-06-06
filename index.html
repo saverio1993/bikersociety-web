@@ -3679,6 +3679,29 @@ function renderRutas() {
         </div>
         ${sel.notify ? '<span class="badge badge-gold" style="margin-left:auto">🔔 Recordatorio</span>' : ''}
       </div>` : ''}
+      <!-- CONFIRMED BIKERS -->
+      ${(() => {
+        const routeAtt = (STATE.attendance || []).filter(a => a.route_id === sel.id);
+        return routeAtt.length > 0 ? `
+        <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700;color:var(--text2)">👥 Bikers confirmados</span>
+            <span class="badge badge-green" style="font-size:10px;padding:2px 6px">${routeAtt.length}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${routeAtt.map(a => {
+              const u = STATE.users.find(u => u.id === a.user_id);
+              if (!u) return '';
+              const timeStr = (() => { try { const d = new Date(a.confirmed_at); return d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); } catch(e) { return ''; } })();
+              return '<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);padding:6px 10px 6px 6px;border-radius:20px;border:1px solid var(--border)">' +
+                renderAvatar(u, 28) +
+                '<span style="font-size:11px;font-weight:600">' + escHtml(u.username) + '</span>' +
+                (timeStr ? '<span style="font-size:9px;color:var(--text3);margin-left:2px">' + timeStr + '</span>' : '') +
+              '</div>';
+            }).join('')}
+          </div>
+        </div>` : '';
+      })()}
       ${isOwner ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
