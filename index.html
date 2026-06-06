@@ -3681,15 +3681,20 @@ function renderRutas() {
       </div>` : ''}
       <!-- CONFIRMED BIKERS -->
       ${(() => {
-        const routeAtt = (STATE.attendance || []).filter(a => a.route_id === sel.id);
-        return routeAtt.length > 0 ? `
+        // Deduplicar por user_id y excluir al usuario actual
+        const seen = new Set();
+        const confirmed = [];
+        (STATE.attendance || []).filter(a => a.route_id === sel.id && a.user_id !== STATE.user?.id).forEach(a => {
+          if (!seen.has(a.user_id)) { seen.add(a.user_id); confirmed.push(a); }
+        });
+        return confirmed.length > 0 ? `
         <div style="margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
             <span style="font-size:13px;font-weight:700;color:var(--text2)">👥 Bikers confirmados</span>
-            <span class="badge badge-green" style="font-size:10px;padding:2px 6px">${routeAtt.length}</span>
+            <span class="badge badge-green" style="font-size:10px;padding:2px 6px">${confirmed.length}</span>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${routeAtt.map(a => {
+            ${confirmed.map(a => {
               const u = STATE.users.find(u => u.id === a.user_id);
               if (!u) return '';
               const timeStr = (() => { try { const d = new Date(a.confirmed_at); return d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); } catch(e) { return ''; } })();
