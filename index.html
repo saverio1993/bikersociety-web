@@ -3111,16 +3111,18 @@ function showForgotPassword() {
   document.getElementById('page-login').innerHTML = `
     <img src="icons/logo.png" class="login-logo" alt="Biker Society">
     <div class="login-title">Recuperar Contraseña</div>
-    <div class="login-sub">Ingresa tu email para recibir un código de recuperación</div>
+    <div class="login-sub">Contacta al administrador para recibir tu código de recuperación</div>
     <div class="login-form">
       <input class="input" type="email" id="fp-email" placeholder="Tu email registrado" autocomplete="off">
-      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="requestRecoveryCode()">Solicitar código</button>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="requestRecoveryCode()">Solicitar por WhatsApp</button>
       <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Volver al login</button>
     </div>
-    <div style="margin-top:24px;text-align:center;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:380px;width:100%">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">¿Necesitas ayuda?</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Contacta al administrador por Telegram</div>
-      <button class="btn btn-secondary" style="width:100%;font-size:13px" onclick="window.open('https://t.me/hermessaveriobot','_blank')">Abrir Telegram</button>
+    <div style="margin-top:20px;text-align:center;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:380px;width:100%">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">💬 Contacta al admin</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Escríbele a WhatsApp indicando tu email registrado y te enviará el código</div>
+      <button class="btn btn-secondary" style="width:100%;font-size:13px" onclick="window.open('https://wa.me/50768344847?text=Hola%2C%20necesito%20recuperar%20mi%20clave%20de%20Biker%20Society.%20Mi%20email%20es%3A%20','_blank')">
+        📱 Escribir al WhatsApp
+      </button>
     </div>
   `;
 }
@@ -3129,49 +3131,25 @@ async function requestRecoveryCode() {
   const email = document.getElementById('fp-email').value.trim().toLowerCase();
   if (!email) { toast('Ingresa tu email'); return; }
   const user = STATE.users.find(x => x.email.toLowerCase() === email);
-  if (!user) {
-    // Por seguridad no revelamos si el email existe o no
-    showRecoveryCodeSent();
-    return;
+  if (user) {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const record = {
+      code,
+      userId: user.id,
+      username: user.username,
+      email,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      used: false
+    };
+    let codes = await loadFromHV('recovery_codes') || {};
+    codes[email] = record;
+    await saveToHV('recovery_codes', codes);
+    ls('bs_recovery_pending', email);
   }
-  // Generar código de 6 dígitos
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const record = {
-    code,
-    userId: user.id,
-    username: user.username,
-    email,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
-    used: false
-  };
-  // Guardar en WebDAV
-  let codes = await loadFromHV('recovery_codes') || {};
-  codes[email] = record;
-  await saveToHV('recovery_codes', codes);
-  // También guardar localmente como backup
-  ls('bs_recovery_pending', email);
-  showRecoveryCodeSent();
-}
-
-function showRecoveryCodeSent() {
-  document.getElementById('page-login').innerHTML = `
-    <img src="icons/logo.png" class="login-logo" alt="Biker Society">
-    <div class="login-title">Código Enviado</div>
-    <div class="login-sub">Si tu email está registrado, recibirás instrucciones de recuperación.</div>
-    <div class="login-form">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Si no recibes el correo en 5 minutos:</div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">1. Revisa tu bandeja de spam</div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">2. Contacta al administrador por Telegram</div>
-        <button class="btn btn-secondary" style="width:100%;font-size:13px" onclick="window.open('https://t.me/hermessaveriobot','_blank')">
-          💬 Abrir Telegram con Admin
-        </button>
-      </div>
-      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="showResetPassword()">Ya tengo un código</button>
-      <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Volver al login</button>
-    </div>
-  `;
+  const msg = encodeURIComponent(`Hola! Necesito recuperar mi clave de Biker Society.\nMi email es: ${email}`);
+  window.open(`https://wa.me/50768344847?text=${msg}`, '_blank');
+  toast('Abriendo WhatsApp...');
 }
 
 function showResetPassword() {
@@ -7217,6 +7195,17 @@ function renderAdmin() {
       </div>
     </div>
 
+    <!-- RECOVERY CODES -->
+    <div class="admin-section">
+      <div class="admin-section-header" onclick="toggleAdmin('recovery')">🔑 Recuperaciones Pendientes <span id="arrow-recovery">▼</span></div>
+      <div class="admin-list" id="admin-recovery" style="display:none">
+        <div style="padding:12px 12px 4px;font-size:12px;color:var(--text2);margin-bottom:8px">
+          Códigos activos — compártelos con los usuarios por WhatsApp
+        </div>
+        <div id="recovery-codes-list"></div>
+      </div>
+    </div>
+
     <!-- DANGER -->
     <div style="margin-top:24px;padding:16px;border:1px solid var(--danger);border-radius:var(--radius)">
       <div style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:8px">Zona de peligro</div>
@@ -7232,6 +7221,57 @@ function toggleAdmin(section) {
   el.style.display = isHidden ? 'block' : 'none';
   const arrow = document.getElementById('arrow-' + section);
   if (arrow) arrow.textContent = isHidden ? '▲' : '▼';
+  if (section === 'recovery' && isHidden) loadRecoveryCodesAdmin();
+}
+
+async function loadRecoveryCodesAdmin() {
+  const codes = await loadFromHV('recovery_codes') || {};
+  const now = new Date();
+  const active = Object.entries(codes).filter(([email, r]) => !r.used && new Date(r.expiresAt) > now);
+  const container = document.getElementById('recovery-codes-list');
+  if (!container) return;
+  if (active.length === 0) {
+    container.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text3)">Sin códigos activos</div>';
+    return;
+  }
+  container.innerHTML = active.map(([email, r]) => `
+    <div class="admin-list-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;width:100%;align-items:center;gap:8px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${r.username || email}</div>
+          <div style="font-size:11px;color:var(--text2)">${email}</div>
+        </div>
+        <div style="font-size:18px;font-weight:900;color:var(--accent);font-family:monospace;letter-spacing:4px">${r.code}</div>
+      </div>
+      <div style="display:flex;gap:6px;width:100%">
+        <button class="btn btn-secondary" style="flex:1;font-size:11px;padding:6px" onclick="adminCopyCode('${email}')">📋 Copiar código</button>
+        <button class="btn btn-primary" style="flex:1;font-size:11px;padding:6px" onclick="adminResetPassword('${email}')">🔑 Nueva clave</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function adminCopyCode(email) {
+  loadFromHV('recovery_codes').then(codes => {
+    const code = codes && codes[email] ? codes[email].code : '';
+    if (code) {
+      navigator.clipboard.writeText(code).then(() => toast('Código copiado!'));
+    }
+  });
+}
+
+async function adminResetPassword(email) {
+  const newPass = prompt('Nueva contraseña para ' + email + ':');
+  if (!newPass || newPass.length < 4) { toast('La clave debe tener al menos 4 caracteres'); return; }
+  const codes = await loadFromHV('recovery_codes') || {};
+  const userIdx = STATE.users.findIndex(x => x.email.toLowerCase() === email);
+  if (userIdx === -1) { toast('Usuario no encontrado'); return; }
+  STATE.users[userIdx].password = newPass;
+  if (codes[email]) { codes[email].used = true; await saveToHV('recovery_codes', codes); }
+  await syncToCloud();
+  saveLocal();
+  toast('Contraseña actualizada para ' + STATE.users[userIdx].username);
+  loadRecoveryCodesAdmin();
 }
 
 function editEvent(id) {
