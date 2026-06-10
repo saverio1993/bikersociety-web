@@ -2307,7 +2307,7 @@ async function syncToCloud() {
   STATE.syncStatus = 'synced';
 }
 
-async function syncFromCloud() {
+async function syncFromCloud(silent) {
   if (!HV.user) return;
   const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance','comments','follows'];
   const results = await Promise.all(tables.map(t => loadFromHV(t)));
@@ -2315,19 +2315,45 @@ async function syncFromCloud() {
   tables.forEach((t, i) => {
     const data = results[i];
     if (data && Array.isArray(data)) {
-      // Block deleted IDs from being restored (routes + posts)
+      // Block deleted IDs from being restored (routes + posts + users)
       const deletedRouteIds = STATE._deletedRouteIds || [];
       const deletedPostIds = STATE._deletedIds || [];
-      const blockedIds = new Set([...deletedRouteIds, ...deletedPostIds]);
+      const deletedUserIds = ls('_deletedUsers') || [];
+      const blockedIds = new Set([...deletedRouteIds, ...deletedPostIds, ...deletedUserIds]);
       const filtered = data.filter(item => !blockedIds.has(item.id));
-      // Merge by ID: cloud wins for same IDs, keep local-only items
-      const cloudMap = new Map(filtered.map(item => [item.id, item]));
-      const localOnly = (STATE[t] || []).filter(item => !cloudMap.has(item.id));
-      STATE[t] = [...localOnly, ...filtered];
+
+      // For users table: block local users not in cloud (deleted from cloud = authoritative)
+      if (t === 'users') {
+        const cloudIds = new Set(filtered.map(u => u.id));
+        const localUsers = (STATE.users || []).filter(u => {
+          // Keep: in cloud OR in SEED_USERS (always allow seed users)
+          if (cloudIds.has(u.id)) return false; // in cloud, don't add separately
+          const inSeed = SEED_USERS.some(s => s.id === u.id);
+          return !inSeed; // keep only if not in seed (seed will be added below)
+        });
+        STATE[t] = [...localUsers, ...filtered];
+      } else {
+        // Merge by ID: cloud wins for same IDs, keep local-only items
+        const cloudMap = new Map(filtered.map(item => [item.id, item]));
+        const localOnly = (STATE[t] || []).filter(item => !cloudMap.has(item.id));
+        STATE[t] = [...localOnly, ...filtered];
+      }
       loaded = true;
     }
   });
   if (loaded) {
+    // Clean related data for deleted users
+    const deletedUserIds = ls('_deletedUsers') || [];
+    if (deletedUserIds.length > 0) {
+      const dSet = new Set(deletedUserIds);
+      const cleanRelated = (arr, uidField) => arr.filter(item => !dSet.has(item[uidField]));
+      STATE.userChallenges = cleanRelated(STATE.userChallenges || [], 'user_id');
+      STATE.userBadges = cleanRelated(STATE.userBadges || [], 'user_id');
+      STATE.notifications = cleanRelated(STATE.notifications || [], 'user_id').filter(n => !dSet.has(n.actor_id));
+      STATE.attendance = cleanRelated(STATE.attendance || [], 'user_id');
+      STATE.comments = cleanRelated(STATE.comments || [], 'user_id');
+      STATE.follows = STATE.follows || [];
+    }
     STATE.users = STATE.users.length ? STATE.users : [...SEED_USERS];
     STATE.badges = STATE.badges.length ? STATE.badges : [...SEED_BADGES];
     STATE.challenges = STATE.challenges.length ? STATE.challenges : [...SEED_CHALLENGES];
@@ -2344,6 +2370,8 @@ async function syncFromCloud() {
     STATE.attendance = STATE.attendance || [];
     STATE.comments = STATE.comments || [];
     STATE.follows = STATE.follows || [];
+    saveLocal();
+    if (!silent && STATE.currentPage) renderPage(STATE.currentPage);
   }
 }
 
@@ -2886,6 +2914,7 @@ function initApp() {
     STATE.follows = ls('bs_follows') || [];
     STATE._deletedIds = ls('_deletedPosts') || [];
     STATE._deletedRouteIds = ls('_deletedRoutes') || [];
+    STATE._deletedUsers = ls('_deletedUsers') || [];
   } catch(err) {
     console.error('[BS] State load failed, using seeds:', err);
     STATE.users = [...SEED_USERS];
@@ -2904,6 +2933,7 @@ function initApp() {
     STATE.follows = [];
     STATE._deletedIds = [];
     STATE._deletedRouteIds = [];
+    STATE._deletedUsers = [];
   }
 
   // ── Phase 2: Show UI immediately — this MUST run so splash always hides ──
@@ -3850,6 +3880,12 @@ function doLogin() {
   navigate('inicio');
   toast('Bienvenido, ' + user.username + '!');
   startPresence();
+  // Auto-sync from cloud if HeyValue is already configured
+  if (HV.user && HV.pass) {
+    syncFromCloud(true).then(() => {
+      if (STATE.currentPage) renderPage(STATE.currentPage);
+    });
+  }
 }
 
 function doRegister() {
@@ -7822,13 +7858,22 @@ function deleteUser(id) {
   const u = STATE.users.find(x => x.id === id);
   if (!u) return;
   if (!confirm(`Eliminar al usuario "${u.username}"? Esta accion no se puede deshacer.`)) return;
+  // Track deleted user so syncFromCloud never restores them
+  const deletedUsers = ls('_deletedUsers') || [];
+  if (!deletedUsers.includes(id)) {
+    deletedUsers.push(id);
+    ls('_deletedUsers', deletedUsers);
+  }
   STATE.users = STATE.users.filter(x => x.id !== id);
   STATE.userBadges = STATE.userBadges.filter(ub => ub.user_id !== id);
   STATE.userChallenges = STATE.userChallenges.filter(uc => uc.user_id !== id);
   STATE.attendance = STATE.attendance.filter(a => a.user_id !== id);
   STATE.notifications = STATE.notifications.filter(n => n.user_id !== id && n.actor_id !== id);
+  STATE.comments = STATE.comments.filter(c => c.user_id !== id);
   if (STATE.user?.id === id) { logout(); return; }
   saveState();
+  // Also push deletion to cloud immediately so other users don't restore this user
+  if (HV.user) syncToCloud();
   renderAdmin();
   toast('Usuario eliminado');
 }
