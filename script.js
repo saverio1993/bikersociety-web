@@ -700,8 +700,8 @@ function isRoutePast(r) {
 
 function renderRutas() {
   const now = new Date().toISOString().split('T')[0];
-  const upcoming = STATE.routes.filter(r => !r.route_date || r.route_date >= now);
-  const past = STATE.routes.filter(r => r.route_date && r.route_date < now);
+  const nuevas = STATE.routes.filter(r => !r.route_date || r.route_date >= now);
+  const vencidas = STATE.routes.filter(r => r.route_date && r.route_date < now);
 
   document.getElementById('page-rutas').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -710,31 +710,28 @@ function renderRutas() {
     </div>
 
     <div class="tab-bar">
-      <button class="tab ${'active'}" onclick="showRouteTab('proximas')">Proximas (${upcoming.length})</button>
-      <button class="tab" onclick="showRouteTab('pasadas')">Pasadas (${past.length})</button>
-      <button class="tab" onclick="showRouteTab('todas')">Todas (${STATE.routes.length})</button>
+      <button class="tab ${'active'}" onclick="showRouteTab('nuevas')">🗺️ Nuevas (${nuevas.length})</button>
+      <button class="tab" onclick="showRouteTab('vencidas')">✅ Vencidas (${vencidas.length})</button>
     </div>
 
     <div id="rutas-list"></div>
   `;
 
-  showRouteTab('proximas');
+  showRouteTab('nuevas');
 }
 
 function showRouteTab(tab) {
   const now = new Date().toISOString().split('T')[0];
-  let routes = [];
-  if (tab === 'proximas') routes = STATE.routes.filter(r => !r.route_date || r.route_date >= now);
-  else if (tab === 'pasadas') routes = STATE.routes.filter(r => r.route_date && r.route_date < now);
-  else routes = [...STATE.routes];
+  let routes = tab === 'nuevas'
+    ? STATE.routes.filter(r => !r.route_date || r.route_date >= now)
+    : STATE.routes.filter(r => r.route_date && r.route_date < now);
 
   document.querySelectorAll('.tab-bar .tab').forEach((btn, i) => {
-    const tabs = ['proximas','pasadas','todas'];
-    btn.classList.toggle('active', tabs[i] === tab);
+    btn.classList.toggle('active', (i === 0 && tab === 'nuevas') || (i === 1 && tab === 'vencidas'));
   });
 
   document.getElementById('rutas-list').innerHTML = routes.length === 0
-    ? `<div class="empty-state"><div class="empty-icon">🗺️</div><div>${tab === 'pasadas' ? 'No hay rutas pasadas' : 'No hay rutas todavia'}</div></div>`
+    ? `<div class="empty-state"><div class="empty-icon">🗺️</div><div>${tab === 'vencidas' ? 'No hay rutas vencidas' : 'No hay rutas todavia'}</div></div>`
     : routes.map(r => renderRouteCard(r)).join('');
 }
 
