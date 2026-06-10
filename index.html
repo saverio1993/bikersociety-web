@@ -3967,7 +3967,7 @@ function renderRutas() {
 
       <!-- Rutas tab bar only -->
       <div style="display:flex;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px;${sel ? 'display:none' : ''}" id="rutas-tabs">
-        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff">🗺️ Rutas (${allRoutes.length})</button>
+        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff">🗺️ Rutas</button>
       </div>
     </div>
 
@@ -4010,11 +4010,12 @@ function renderRutas() {
     </div>
     ` : ''}
 
-    <!-- MAP — always at the top, unified -->
+    <!-- MAP — solo cuando hay ruta seleccionada -->
+    ${sel ? `
     <div class="map-container" style="margin-bottom:10px;border-radius:16px;overflow:hidden;border:1px solid rgba(0,212,255,0.15)">
-      <div id="map-rutas" style="height:${sel ? '200px' : '280px'}"></div>
-      ${!sel ? '<div class="map-label">📍 Panama · Toca una ruta en el mapa o lista para ver detalle</div>' : ''}
+      <div id="map-rutas" style="height:200px"></div>
     </div>
+    ` : ''}
 
     
     <!-- FAB — botón flotante para acciones de ruta -->
