@@ -692,9 +692,16 @@ function initHomeMap() {
 // ============================================================
 // RUTAS PAGE
 // ============================================================
+function isRoutePast(r) {
+  if (!r.route_date) return false;
+  const today = new Date().toISOString().split('T')[0];
+  return r.route_date < today;
+}
+
 function renderRutas() {
-  const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
-  const allRoutes = STATE.routes;
+  const now = new Date().toISOString().split('T')[0];
+  const upcoming = STATE.routes.filter(r => !r.route_date || r.route_date >= now);
+  const past = STATE.routes.filter(r => r.route_date && r.route_date < now);
 
   document.getElementById('page-rutas').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -703,42 +710,47 @@ function renderRutas() {
     </div>
 
     <div class="tab-bar">
-      <button class="tab ${myRoutes.length === 0 ? 'active' : ''}" onclick="showRouteTab('mis')">Todas (${allRoutes.length})</button>
-      <button class="tab" onclick="showRouteTab('creadas')">Mis rutas (${myRoutes.length})</button>
+      <button class="tab ${'active'}" onclick="showRouteTab('proximas')">Proximas (${upcoming.length})</button>
+      <button class="tab" onclick="showRouteTab('pasadas')">Pasadas (${past.length})</button>
+      <button class="tab" onclick="showRouteTab('todas')">Todas (${STATE.routes.length})</button>
     </div>
 
-    <div id="rutas-list">
-      ${allRoutes.length === 0 ? `
-        <div class="empty-state">
-          <div class="empty-icon">🗺️</div>
-          <div>No hay rutas todavia</div>
-          <button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>
-        </div>
-      ` : allRoutes.map(r => renderRouteCard(r)).join('')}
-    </div>
+    <div id="rutas-list"></div>
   `;
+
+  showRouteTab('proximas');
 }
 
 function showRouteTab(tab) {
-  const routes = tab === 'creadas'
-    ? STATE.routes.filter(r => r.created_by === STATE.user?.id)
-    : STATE.routes;
+  const now = new Date().toISOString().split('T')[0];
+  let routes = [];
+  if (tab === 'proximas') routes = STATE.routes.filter(r => !r.route_date || r.route_date >= now);
+  else if (tab === 'pasadas') routes = STATE.routes.filter(r => r.route_date && r.route_date < now);
+  else routes = [...STATE.routes];
+
+  document.querySelectorAll('.tab-bar .tab').forEach((btn, i) => {
+    const tabs = ['proximas','pasadas','todas'];
+    btn.classList.toggle('active', tabs[i] === tab);
+  });
+
   document.getElementById('rutas-list').innerHTML = routes.length === 0
-    ? '<div class="empty-state"><div class="empty-icon">🗺️</div><div>Sin rutas</div></div>'
+    ? `<div class="empty-state"><div class="empty-icon">🗺️</div><div>${tab === 'pasadas' ? 'No hay rutas pasadas' : 'No hay rutas todavia'}</div></div>`
     : routes.map(r => renderRouteCard(r)).join('');
 }
 
 function renderRouteCard(r) {
   const creator = STATE.users.find(u => u.id === r.created_by);
+  const past = isRoutePast(r);
   return `
-    <div class="card vanish" style="cursor:pointer" onclick="viewRoute(${r.id})">
+    <div class="card vanish" style="cursor:pointer;${past ? 'opacity:0.5;filter:grayscale(0.7)' : ''}" onclick="viewRoute(${r.id})">
       <div style="display:flex;justify-content:space-between;align-items:start">
         <div>
-          <div class="card-title">${r.name}</div>
+          <div class="card-title">${r.name} ${past ? '✅' : ''}</div>
           <div class="card-sub">${r.start_name || 'Sin origen'} → ${r.end_name || 'Sin destino'}</div>
-          <div style="margin-top:6px;display:flex;gap:6px">
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="badge">⚡ ${r.difficulty}</span>
             <span class="badge">${creator ? creator.username : '?'}</span>
+            ${r.route_date ? `<span class="badge" style="${past ? 'background:rgba(128,128,128,0.2);color:#888' : ''}">📅 ${r.route_date}</span>` : ''}
           </div>
         </div>
         <div style="font-size:20px">🏍️</div>
@@ -826,6 +838,7 @@ function createRoute() {
   openModal('Nueva Ruta', `
     <input class="input" id="rt-name" placeholder="Nombre de la ruta">
     <input class="input" id="rt-desc" placeholder="Descripcion (opcional)">
+    <input class="input" id="rt-date" type="date" class="input">
     <input class="input" id="rt-start-name" placeholder="Nombre del punto de salida">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <input class="input" id="rt-start-lat" placeholder="Latitud inicio" type="number" step="any">
@@ -848,6 +861,7 @@ function createRoute() {
 function doCreateRoute() {
   const name = document.getElementById('rt-name').value.trim();
   const desc = document.getElementById('rt-desc').value.trim();
+  const date = document.getElementById('rt-date').value;
   const startName = document.getElementById('rt-start-name').value.trim();
   const startLat = parseFloat(document.getElementById('rt-start-lat').value) || 0;
   const startLng = parseFloat(document.getElementById('rt-start-lng').value) || 0;
@@ -856,7 +870,7 @@ function doCreateRoute() {
   const endLng = parseFloat(document.getElementById('rt-end-lng').value) || 0;
   const diff = document.getElementById('rt-diff').value;
   if (!name) { toast('El nombre es obligatorio'); return; }
-  const route = {id:Date.now()%100000, name, description:desc, start_lat:startLat, start_lng:startLng, start_name:startName, end_lat:endLat, end_lng:endLng, end_name:endName, difficulty:diff, stops:'[]', created_by:STATE.user.id};
+  const route = {id:Date.now()%100000, name, description:desc, route_date:date||null, start_lat:startLat, start_lng:startLng, start_name:startName, end_lat:endLat, end_lng:endLng, end_name:endName, difficulty:diff, stops:'[]', created_by:STATE.user.id};
   STATE.routes.push(route);
   saveState();
   closeModal();
