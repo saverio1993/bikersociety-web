@@ -3523,10 +3523,34 @@ async function loadNews() {
   if (!container) return;
   container.innerHTML = '<div class="news-loading">Cargando noticias...</div>';
   try {
-    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`);
-    const data = await res.json();
-    if (data.status !== 'ok' || !data.items) throw new Error('Invalid response');
-    const items = data.items.slice(0, 5);
+    // Fetch motorcycle news and Panama news in parallel
+    const [motoRes, panamaRes] = await Promise.all([
+      fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://motorbike-thailand.com/feed')}`).catch(() => null),
+      fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`).catch(() => null),
+    ]);
+
+    let items = [];
+    const half = 3; // mostrar 3 de cada fuente
+
+    if (motoRes?.ok) {
+      const d = await motoRes.json();
+      if (d.status === 'ok' && d.items?.length) {
+        items.push(...d.items.slice(0, half).map(i => ({ ...i, _cat: '🏍️ Motos' })));
+      }
+    }
+
+    if (panamaRes?.ok) {
+      const d = await panamaRes.json();
+      if (d.status === 'ok' && d.items?.length) {
+        items.push(...d.items.slice(0, half).map(i => ({ ...i, _cat: '🌎 Panama' })));
+      }
+    }
+
+    if (!items.length) throw new Error('No news');
+
+    // Mezclar aleatoriamente
+    items.sort(() => Math.random() - 0.5);
+
     container.innerHTML = '<div class="news-grid">' + items.map(item => `
       <a class="news-card" href="${item.link}" target="_blank" rel="noopener">
         ${item.thumbnail ? `<img class="news-card-img" src="${item.thumbnail}" alt="${item.title}" onerror="this.style.display='none'">` : ''}
@@ -3534,7 +3558,7 @@ async function loadNews() {
           <div class="news-card-title">${item.title}</div>
           <div class="news-card-desc">${item.description ? item.description.replace(/<[^>]+>/g, '').substring(0, 100) + '...' : ''}</div>
           <div class="news-card-meta">
-            <span class="news-badge">🔴 BBC</span>
+            <span class="news-badge">${item._cat}</span>
             ${new Date(item.pubDate).toLocaleDateString('es-PA', {day:'numeric',month:'short'})}
           </div>
         </div>
