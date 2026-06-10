@@ -2434,6 +2434,239 @@ function showOnlineMembers() {
 }
 
 // ============================================================
+// FULL-SCREEN ROUTE MAP PICKER
+// ============================================================
+var _pickerPoints = []; // {lat, lng, name, type: 'start'|'stop'|'end'}
+var _pickerMode = 'start'; // 'start' | 'stop' | 'end'
+var _pickerMap = null;
+var _pickerMarkers = [];
+
+function openRouteMapPicker(existing) {
+  // existing: optional {start, end, stops} to pre-fill
+  _pickerPoints = [];
+  if (existing) {
+    if (existing.start) _pickerPoints.push({ lat: existing.start.lat, lng: existing.start.lng, name: existing.start.name || '', type: 'start' });
+    if (existing.stops) existing.stops.forEach(s => _pickerPoints.push({ lat: s.lat, lng: s.lng, name: s.name || '', type: 'stop' }));
+    if (existing.end) _pickerPoints.push({ lat: existing.end.lat, lng: existing.end.lng, name: existing.end.name || '', type: 'end' });
+  }
+  _pickerMode = _pickerPoints.length === 0 ? 'start' : 'stop';
+
+  // Build overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'route-picker-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:var(--bg,#0d0d1a);display:flex;flex-direction:column';
+  document.body.appendChild(overlay);
+
+  // Top bar
+  var topBar = document.createElement('div');
+  topBar.style.cssText = 'flex-shrink:0;display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface,#1a1a2e);border-bottom:1px solid var(--border,rgba(255,255,255,0.1))';
+  topBar.innerHTML = `
+    <button onclick="closeRouteMapPicker()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;line-height:1">✕</button>
+    <span style="font-size:15px;font-weight:700;flex:1;text-align:center">Elegir puntos de ruta</span>
+    <div style="width:32px"></div>
+  `;
+  overlay.appendChild(topBar);
+
+  // Instructions
+  var instr = document.createElement('div');
+  instr.id = 'picker-instr';
+  instr.style.cssText = 'flex-shrink:0;padding:8px 16px;background:rgba(255,68,68,0.08);font-size:12px;color:#ff6666;text-align:center';
+  overlay.appendChild(instr);
+
+  // Map container
+  var mapDiv = document.createElement('div');
+  mapDiv.id = 'picker-map';
+  mapDiv.style.cssText = 'flex:1;min-height:0';
+  overlay.appendChild(mapDiv);
+
+  // Bottom panel
+  var bottom = document.createElement('div');
+  bottom.style.cssText = 'flex-shrink:0;padding:12px 16px;background:var(--surface,#1a1a2e);border-top:1px solid var(--border,rgba(255,255,255,0.1))';
+  bottom.id = 'picker-bottom';
+  overlay.appendChild(bottom);
+
+  document.body.style.overflow = 'hidden';
+
+  // Init map after DOM is ready
+  setTimeout(() => {
+    if (!window.L) { toast('Error: mapa no disponible'); closeRouteMapPicker(); return; }
+    _pickerMap = L.map('picker-map', {zoomControl:true, attributionControl:false}).setView([8.9824, -79.5199], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19}).addTo(_pickerMap);
+
+    // Existing point markers
+    _pickerPoints.forEach((p, i) => _addPickerMarker(p, i));
+
+    // Tap on map to add point
+    _pickerMap.on('click', function(e) {
+      _handlePickerTap(e.latlng);
+    });
+
+    _updatePickerUI();
+  }, 50);
+}
+
+function _handlePickerTap(latlng) {
+  if (_pickerMode === 'done') return;
+  var type = _pickerMode;
+  var label = type === 'start' ? 'SALIDA' : type === 'stop' ? 'PARADA ' + (_pickerPoints.filter(p=>p.type==='stop').length + 1) : 'DESTINO';
+  var color = type === 'start' ? '#22c55e' : type === 'stop' ? '#ff8800' : '#ef4444';
+  var icon = type === 'start' ? '🟢' : type === 'stop' ? '🟠' : '🔴';
+
+  var pt = { lat: latlng.lat, lng: latlng.lng, name: '', type: type };
+
+  // Reverse-geocode approximate name
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`)
+    .then(r => r.json())
+    .then(d => { pt.name = (d.address?.road || d.address?.neighbourhood || d.address?.suburb || 'Punto ' + _pickerPoints.length); _updatePickerUI(); })
+    .catch(() => {});
+
+  _pickerPoints.push(pt);
+  _addPickerMarker(pt, _pickerPoints.length - 1);
+
+  if (type === 'start') _pickerMode = 'stop';
+  else if (type === 'stop') { /* stay in stop mode */ }
+  else if (type === 'end') _pickerMode = 'done';
+
+  _updatePickerUI();
+}
+
+function _addPickerMarker(p, idx) {
+  var color = p.type === 'start' ? '#22c55e' : p.type === 'stop' ? '#ff8800' : '#ef4444';
+  var icon = p.type === 'start' ? 'SALIDA' : p.type === 'stop' ? 'P' + (idx + 1) : 'DEST';
+  var label = p.type === 'start' ? 'SALIDA' : p.type === 'stop' ? 'PARADA' : 'DESTINO';
+  var div = L.divIcon({className:'', html:`<div style="background:${color};color:#fff;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.5)">${icon}</div>`});
+  var m = L.marker([p.lat, p.lng], {icon:div}).addTo(_pickerMap).bindPopup(label);
+  _pickerMarkers.push(m);
+}
+
+function _updatePickerUI() {
+  var instr = document.getElementById('picker-instr');
+  var bottom = document.getElementById('picker-bottom');
+  if (!instr || !bottom) return;
+
+  var stops = _pickerPoints.filter(p => p.type === 'stop');
+  var hasStart = _pickerPoints.some(p => p.type === 'start');
+  var hasEnd = _pickerPoints.some(p => p.type === 'end');
+  var canFinish = hasStart && hasEnd;
+
+  // Instruction
+  if (_pickerMode === 'start') {
+    instr.textContent = '👆 Tocá en el mapa para marcar la SALIDA';
+  } else if (_pickerMode === 'stop') {
+    instr.textContent = '👆 Tocá para agregar PARADAS (opcional) · Tocá DESTINO cuando termines';
+  } else {
+    instr.textContent = '✅ Ruta completa — usá los botones de abajo';
+  }
+
+  // Bottom panel
+  bottom.innerHTML = `
+    <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
+      ${_pickerPoints.map((p, i) => `
+        <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:20px;font-size:11px;font-weight:600;background:${p.type==='start'?'rgba(34,197,94,0.15)':p.type==='stop'?'rgba(255,136,0,0.15)':'rgba(239,68,68,0.15)'};border:1px solid ${p.type==='start'?'rgba(34,197,94,0.4)':p.type==='stop'?'rgba(255,136,0,0.4)':'rgba(239,68,68,0.4)'};color:${p.type==='start'?'#22c55e':p.type==='stop'?'#ff8800':'#ef4444'}">
+          ${p.type==='start'?'🟢':p.type==='stop'?'🟠':'🔴'} ${p.name || p.type.toUpperCase()}
+          <button onclick="_removePickerPoint(${i})" style="background:none;border:none;color:inherit;cursor:pointer;font-size:13px;padding:0;margin-left:2px;opacity:0.7">✕</button>
+        </div>
+      `).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${_pickerMode !== 'done' ? `
+        ${_pickerMode === 'stop' && !hasEnd ? `<button onclick="_setPickerModeEnd()" style="padding:10px;border-radius:10px;border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.1);color:#ef4444;font-size:13px;font-weight:700;cursor:pointer">🔴 Marcar DESTINO</button>` : ''}
+        ${_pickerMode === 'stop' ? `<button onclick="_addStopMode()" style="padding:10px;border-radius:10px;border:1px solid rgba(255,136,0,0.4);background:rgba(255,136,0,0.1);color:#ff8800;font-size:13px;font-weight:700;cursor:pointer">🟠 + Parada</button>` : ''}
+      ` : ''}
+      <button onclick="_undoLastPoint()" style="padding:10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,0.1));background:var(--surface2,#252540);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer" ${_pickerPoints.length === 0 ? 'disabled style="opacity:0.4"' : ''}>↩ Deshacer</button>
+      <button onclick="_confirmPicker()" style="padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:14px;font-weight:700;cursor:pointer" ${!canFinish ? 'disabled style="opacity:0.4"' : ''}>✅ Listo</button>
+    </div>
+  `;
+}
+
+function _removePickerPoint(idx) {
+  var p = _pickerPoints[idx];
+  if (_pickerMarkers[idx]) { _pickerMap.removeLayer(_pickerMarkers[idx]); _pickerMarkers[idx] = null; }
+  _pickerPoints.splice(idx, 1);
+  // Recalculate mode
+  var hasStart = _pickerPoints.some(p => p.type === 'start');
+  var hasEnd = _pickerPoints.some(p => p.type === 'end');
+  _pickerMode = !hasStart ? 'start' : !hasEnd ? 'stop' : 'done';
+  // Remove all markers and re-add
+  _pickerMarkers.forEach(m => { if (m) _pickerMap.removeLayer(m); });
+  _pickerMarkers = [];
+  _pickerPoints.forEach((pt, i) => _addPickerMarker(pt, i));
+  _updatePickerUI();
+}
+
+function _undoLastPoint() {
+  if (_pickerPoints.length === 0) return;
+  _removePickerPoint(_pickerPoints.length - 1);
+}
+
+function _setPickerModeEnd() {
+  _pickerMode = 'end';
+  _updatePickerUI();
+}
+
+function _addStopMode() {
+  _pickerMode = 'stop';
+  _updatePickerUI();
+}
+
+function _confirmPicker() {
+  var start = _pickerPoints.find(p => p.type === 'start');
+  var end = _pickerPoints.find(p => p.type === 'end');
+  var stops = _pickerPoints.filter(p => p.type === 'stop');
+  if (!start || !end) { toast('Marcá SALIDA y DESTINO'); return; }
+  closeRouteMapPicker();
+
+  // Detect form mode: 'rt-' = create, 'ert-' = edit
+  var prefix = document.getElementById('rt-start-lat') ? 'rt' : document.getElementById('ert-start-lat') ? 'ert' : 'rt';
+
+  // Fill start
+  var startNameEl = document.getElementById(prefix + '-start-name') || document.getElementById(prefix + '-start-selected-name');
+  if (startNameEl) startNameEl.textContent = start.name;
+  var startLatEl = document.getElementById(prefix + '-start-lat');
+  var startLngEl = document.getElementById(prefix + '-start-lng');
+  if (startLatEl) startLatEl.value = start.lat.toFixed(6);
+  if (startLngEl) startLngEl.value = start.lng.toFixed(6);
+  var startSel = document.getElementById(prefix + '-start-selected');
+  if (startSel) startSel.style.display = 'flex';
+  var startBtn = document.getElementById(prefix + '-start-map-btn');
+  if (startBtn) startBtn.style.display = 'none';
+
+  // Fill end
+  var endNameEl = document.getElementById(prefix + '-end-name') || document.getElementById(prefix + '-end-selected-name');
+  if (endNameEl) endNameEl.textContent = end.name;
+  var endLatEl = document.getElementById(prefix + '-end-lat');
+  var endLngEl = document.getElementById(prefix + '-end-lng');
+  if (endLatEl) endLatEl.value = end.lat.toFixed(6);
+  if (endLngEl) endLngEl.value = end.lng.toFixed(6);
+  var endSel = document.getElementById(prefix + '-end-selected');
+  if (endSel) endSel.style.display = 'flex';
+  var endBtn = document.getElementById(prefix + '-end-map-btn');
+  if (endBtn) endBtn.style.display = 'none';
+
+  // Fill stops
+  var stopsCont = document.getElementById(prefix + '-stops-container');
+  if (stopsCont) {
+    stopsCont.innerHTML = '';
+    stops.forEach((s) => {
+      if (prefix === 'rt') addStopField(s.lat, s.lng, s.name);
+      else addEditStopField(s.lat, s.lng, s.name);
+    });
+  }
+
+  toast('✅ Puntos cargados — ' + (stops.length > 0 ? stops.length + ' parada(s)' : 'sin paradas'));
+}
+
+function closeRouteMapPicker() {
+  if (_pickerMap) { _pickerMap.remove(); _pickerMap = null; }
+  var overlay = document.getElementById('route-picker-overlay');
+  if (overlay) overlay.remove();
+  _pickerMarkers = [];
+  _pickerPoints = [];
+  _pickerMode = 'start';
+  document.body.style.overflow = '';
+}
+
+// ============================================================
 // PWA INSTALL
 // ============================================================
 var _installPromptEvent = null;
@@ -4785,7 +5018,7 @@ function setupEditStopPlaceSearch(idx) {
   nameInput.addEventListener('blur', () => setTimeout(() => dropdown.style.display = 'none', 200));
 }
 
-function addEditStopField() {
+function addEditStopField(lat, lng, name) {
   stopCounter++;
   const id = 'editstop-' + stopCounter;
   const container = document.getElementById('ert-stops-container');
@@ -4799,13 +5032,13 @@ function addEditStopField() {
       <button onclick="this.closest('#${id}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
     </div>
     <div style="position:relative;margin-bottom:6px">
-      <input class="input" id="${id}-name" placeholder="Buscar lugar..." style="margin-bottom:0;padding-right:36px">
+      <input class="input" id="${id}-name" placeholder="Buscar lugar..." value="${name ? escHtml(name) : ''}" style="margin-bottom:0;padding-right:36px">
       <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--accent)">🔍</span>
     </div>
     <div id="${id}-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
     <div class="coord-row">
-      <input class="input" id="${id}-lat" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="${id}-lng" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="${id}-lat" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" value="${lat ? lat.toFixed(6) : ''}" readonly>
+      <input class="input" id="${id}-lng" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" value="${lng ? lng.toFixed(6) : ''}" readonly>
     </div>`;
   container.appendChild(div);
   setTimeout(() => setupEditstopPlaceSearch(id), 100);
@@ -4940,7 +5173,7 @@ function createRoute() {
     <button class="btn btn-ghost" id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${startBtnDisplay}" 
       onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
-      onclick="startPOIPicker('start')">
+      onclick="openRouteMapPicker()">
       📍 Buscar en el mapa
     </button>
     <div class="coord-row" style="margin-bottom:16px">
@@ -4960,7 +5193,7 @@ function createRoute() {
     <button class="btn btn-ghost" id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${endBtnDisplay}" 
       onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
-      onclick="startPOIPicker('end')">
+      onclick="openRouteMapPicker()">
       📍 Buscar en el mapa
     </button>
     <div class="coord-row" style="margin-bottom:16px">
@@ -5370,7 +5603,7 @@ document.addEventListener('paste', function(e) {
 });
 
 let stopCounter = 0;
-function addStopField() {
+function addStopField(lat, lng, name) {
   stopCounter++;
   const id = 'stop-' + stopCounter;
   const container = document.getElementById('rt-stops-container');
@@ -5383,13 +5616,13 @@ function addStopField() {
       <button onclick="this.closest('#${id}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
     </div>
     <div style="position:relative;margin-bottom:6px">
-      <input class="input" id="${id}-name" placeholder="Buscar lugar..." style="margin-bottom:0;padding-right:36px">
+      <input class="input" id="${id}-name" placeholder="Buscar lugar..." value="${name ? escHtml(name) : ''}" style="margin-bottom:0;padding-right:36px">
       <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;color:var(--accent)">🔍</span>
     </div>
     <div id="${id}-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
     <div class="coord-row">
-      <input class="input" id="${id}-lat" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="${id}-lng" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" readonly>
+      <input class="input" id="${id}-lat" placeholder="Lat" type="text" inputmode="decimal" style="flex:1" value="${lat ? lat.toFixed(6) : ''}" readonly>
+      <input class="input" id="${id}-lng" placeholder="Lng" type="text" inputmode="decimal" style="flex:1" value="${lng ? lng.toFixed(6) : ''}" readonly>
     </div>`;
   container.appendChild(div);
   // Setup autocomplete for this stop
