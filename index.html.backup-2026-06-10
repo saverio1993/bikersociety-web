@@ -129,24 +129,6 @@ a{color:inherit;text-decoration:none}
   box-shadow:0 0 16px var(--glow);
 }
 
-/* ===== BREADCRUMB BAR ===== */
-.breadcrumb-seg{
-  display:flex;align-items:center;gap:4px;flex-shrink:0;
-}
-.breadcrumb-link{
-  font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;
-  padding:4px 6px;border-radius:6px;transition:all 0.15s;
-  white-space:nowrap;
-}
-.breadcrumb-link:hover{background:rgba(0,212,255,0.1)}
-.breadcrumb-current{
-  font-size:12px;font-weight:700;color:var(--text);cursor:default;
-  padding:4px 0;white-space:nowrap;
-}
-.breadcrumb-sep{
-  color:var(--text3);font-size:11px;user-select:none;flex-shrink:0;
-}
-
 /* ===== FLOATING MORE PANEL ===== */
 .fpanel-overlay{
   position:fixed;inset:0;z-index:2000;
@@ -1228,11 +1210,6 @@ if (localStorage.getItem('bs_debug') === '1') {
   </div>
 </div>
 
-<!-- Breadcrumb navigation bar -->
-<div id="breadcrumb-bar" style="display:none;background:var(--card);border-bottom:1px solid var(--border);padding:0 12px;min-height:38px;align-items:center;overflow-x:auto;scrollbar-width:none;flex-shrink:0">
-  <div id="breadcrumb-inner" style="display:flex;align-items:center;gap:4px;flex-shrink:0"></div>
-</div>
-
 <!-- PAGES -->
 <div id="page-login" class="page login-page" style="display:none"></div>
 <div id="page-inicio" class="page"></div>
@@ -1338,8 +1315,7 @@ const STATE = {
   myLocationMarker: null,
   bikerMarkers: {},
   places: [],
-  userStats: {},  // { userId: { rides, events, routes_created, photos, chat_messages, total_km, days_active, streak, last_active } }
-  navStack: []    // breadcrumb history: [{page, pageId, label}]
+  userStats: {}   // { userId: { rides, events, routes_created, photos, chat_messages, total_km, days_active, streak, last_active } }
 };
 
 // ============================================================
@@ -2510,8 +2486,6 @@ function initApp() {
     }, 50);
   } else {
     showLogin();
-    STATE.navStack = [];
-    renderBreadcrumb();
     setTimeout(() => {
       initIndexedDB().catch(() => {});
       loadPlaces();
@@ -3102,97 +3076,10 @@ function saveLocal() {
 }
 
 // ============================================================
-// BREADCRUMB NAVIGATION SYSTEM
-// ============================================================
-const BREADCRUMB_PAGES = ['profile', 'rider-detail', 'admin', 'admin-users', 'admin-events', 'admin-edit-user', 'admin-edit-event', 'retos', 'insignias'];
-
-function pushNav(page, pageId, label) {
-  const isMainTab = ['inicio', 'rutas', 'bikergram', 'chat'].includes(page);
-  if (isMainTab) {
-    STATE.navStack = [];
-  } else {
-    const top = STATE.navStack[STATE.navStack.length - 1];
-    if (top && top.page === page && top.pageId === pageId) return;
-  }
-  STATE.navStack.push({ page, pageId, label });
-  renderBreadcrumb();
-}
-
-function popNav() {
-  if (STATE.navStack.length <= 1) return;
-  STATE.navStack.pop();
-  const prev = STATE.navStack[STATE.navStack.length - 1];
-  if (prev) {
-    _navNoPush = true;
-    navigate(prev.page, prev.pageId);
-    _navNoPush = false;
-  }
-  renderBreadcrumb();
-}
-
-function navigateToBreadcrumb(index) {
-  if (index < 0 || index >= STATE.navStack.length) return;
-  STATE.navStack = STATE.navStack.slice(0, index + 1);
-  const target = STATE.navStack[index];
-  _navNoPush = true;
-  navigate(target.page, target.pageId);
-  _navNoPush = false;
-  renderBreadcrumb();
-}
-
-function renderBreadcrumb() {
-  const bar = document.getElementById('breadcrumb-bar');
-  const inner = document.getElementById('breadcrumb-inner');
-  if (!bar || !inner) return;
-  const stack = STATE.navStack;
-  if (stack.length === 0) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  let html = '';
-  stack.forEach((item, i) => {
-    const isLast = i === stack.length - 1;
-    if (i > 0) html += '<span class="breadcrumb-sep">›</span>';
-    if (isLast) {
-      html += `<span class="breadcrumb-current">${item.label}</span>`;
-    } else {
-      html += `<span class="breadcrumb-link" onclick="navigateToBreadcrumb(${i})">${item.label}</span>`;
-    }
-  });
-  inner.innerHTML = html;
-}
-
-// ============================================================
 // NAVIGATION
 // ============================================================
-let _navNoPush = false; // set true by popNav/navigateToBreadcrumb to avoid duplicate stack entry
-
 function navigate(page, pageId) {
   closeFpanel(); // always close floating panel on navigation
-
-  const pageLabels = {
-    inicio: 'Inicio', rutas: 'Rutas', bikergram: 'Gram',
-    profile: 'Mi Perfil', admin: 'Admin',
-    'admin-users': 'Usuarios', 'admin-events': 'Eventos',
-    'admin-notif': 'Notificaciones', 'admin-sync': 'HeyValue Sync',
-    'admin-recovery': 'Recuperaciones',
-    'admin-edit-user': 'Editar Usuario', 'admin-edit-event': 'Editar Evento',
-    retos: 'Retos', insignias: 'Insignias',
-    'rider-detail': 'Perfil'
-  };
-  const label = pageLabels[page] || page;
-
-  if (!_navNoPush) {
-    const isMainTab = ['inicio', 'rutas', 'bikergram', 'chat'].includes(page);
-    if (isMainTab) {
-      STATE.navStack = [{ page, pageId, label }];
-    } else {
-      const top = STATE.navStack[STATE.navStack.length - 1];
-      if (!top || top.page !== page || String(top.pageId) !== String(pageId)) {
-        STATE.navStack.push({ page, pageId, label });
-      }
-    }
-  }
-  }
-
   // Update bottom nav
   document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`.bnav-item[data-page="${page}"]`);
@@ -3204,7 +3091,6 @@ function navigate(page, pageId) {
   STATE.currentPage = page;
   STATE.currentPageId = pageId;
   renderPage(page, pageId);
-  renderBreadcrumb();
 
   // Refresh posts from cloud when entering BikerGram (no flicker — render happens once via timer)
   if (page === 'bikergram' && HV.connected) {
@@ -3241,8 +3127,6 @@ function renderPage(page, pageId) {
 // ============================================================
 function showLogin() {
   closeFpanel(); // always close floating panel to prevent overlay blocking clicks
-  STATE.navStack = [];
-  renderBreadcrumb();
   document.getElementById('page-login').style.display = 'flex';
   document.getElementById('page-login').innerHTML = `
     <img src="icons/logo.png" class="login-logo" alt="Biker Society">
@@ -5427,9 +5311,8 @@ function renderRiderDetail(userId) {
   const posts = STATE.posts.filter(p => p.user_id === r.id);
 
   document.getElementById('page-rider-detail').innerHTML = `
-    <div style="display:flex;align-items:center;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:15px;font-weight:700;margin-left:4px">${r.username}</span>
+    <div style="margin-bottom:16px">
+      <button class="btn btn-ghost" style="padding:6px 0" onclick="navigate('bikers')">← Volver</button>
     </div>
     <div style="text-align:center;margin-bottom:16px">
       <div style="margin:0 auto 12px;display:flex;justify-content:center">
@@ -5574,7 +5457,7 @@ function clearAvatar(userId) {
   toast('Foto quitada — guarda para confirmar');
 }
 
-function doEditRider(id, onSaveNav) {
+function doEditRider(id) {
   const r = STATE.users.find(u => u.id === id);
   if (!r) return;
   const isAdmin = STATE.user?.is_admin;
@@ -5601,8 +5484,7 @@ function doEditRider(id, onSaveNav) {
   saveState();
   recalculateUserStats(id);
   closeModal();
-  if (onSaveNav) { onSaveNav(); }
-  else { navigate(id === STATE.user?.id ? 'profile' : 'rider-detail'); }
+  navigate(id === STATE.user?.id ? 'profile' : 'rider-detail');
   toast('Perfil actualizado!');
 }
 
@@ -7170,9 +7052,6 @@ function renderProfile() {
   const stats = getUserStats(u.id);
 
   document.getElementById('page-profile').innerHTML = `
-    <div style="display:flex;align-items:center;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-    </div>
     <div style="text-align:center;margin-bottom:24px">
       <div style="margin:0 auto 12px;display:flex;flex-direction:column;align-items:center;gap:10px">
         <div style="position:relative;width:96px;height:96px">
@@ -7294,41 +7173,6 @@ function renderProfile() {
 // ============================================================
 // ADMIN PAGE
 // ============================================================
-
-function renderAdminEditUser(id) {
-  // Wrapper: opens editRider modal, but after save navigates back to admin users list
-  const _origDoEdit = doEditRider;
-  window.doEditRider = function(uid) {
-    const r = STATE.users.find(u => u.id === uid);
-    if (!r) return;
-    const isAdmin = STATE.user?.is_admin;
-    r.username = document.getElementById('ed-username').value.trim() || r.username;
-    r.email = document.getElementById('ed-email').value.trim() || r.email;
-    r.bike_model = document.getElementById('ed-bike').value.trim();
-    r.city = document.getElementById('ed-city').value.trim();
-    r.bio = document.getElementById('ed-bio').value.trim();
-    const newPass = document.getElementById('ed-pass')?.value;
-    if (newPass) r.password = newPass;
-    if (isAdmin) {
-      const edIsAdmin = document.getElementById('ed-isadmin');
-      const edIsInjured = document.getElementById('ed-isinjured');
-      const edPoints = document.getElementById('ed-points');
-      if (edIsAdmin) r.is_admin = edIsAdmin.checked;
-      if (edIsInjured) r.is_injured = edIsInjured.checked;
-      if (edPoints) r.points = parseInt(edPoints.value) || r.points;
-    }
-    if (STATE.user?.id === uid) STATE.user = r;
-    ls('bs_session', STATE.user);
-    saveState();
-    recalculateUserStats(uid);
-    closeModal();
-    window.doEditRider = _origDoEdit; // restore
-    renderAdminUsers();
-    toast('Perfil actualizado!');
-  };
-  editRider(id);
-}
-
 function deleteUser(id) {
   const u = STATE.users.find(x => x.id === id);
   if (!u) return;
@@ -7352,27 +7196,87 @@ function renderAdmin() {
 
     <!-- USERS -->
     <div class="admin-section">
-      <div class="admin-section-header" onclick="renderAdminUsers()">👥 Usuarios (${STATE.users.length}) <span style="float:right;color:var(--text3)">→</span></div>
+      <div class="admin-section-header" onclick="toggleAdmin('users')">👥 Usuarios (${STATE.users.length}) <span id="arrow-users">▼</span></div>
+      <div class="admin-list" id="admin-users" style="display:none">
+        ${STATE.users.map(u => `
+          <div class="admin-list-item" style="flex-wrap:wrap;gap:6px">
+            <div style="width:32px;height:32px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${initials(u.username)}</div>
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:13px;font-weight:600">${u.username}</div>
+              <div style="font-size:11px;color:var(--text2)">${u.email}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">
+                🔑 <span id="show-pass-${u.id}" style="cursor:pointer;color:var(--accent)" onclick="togglePass(${u.id},'${u.password}')">ver clave</span>
+              </div>
+            </div>
+            <div style="text-align:right;display:flex;align-items:center;gap:4px;flex-shrink:0">
+              <div style="font-size:12px;color:var(--accent);font-weight:600">${u.points}pts</div>
+              ${u.is_admin ? '<span class="badge-gold" style="font-size:9px">ADMIN</span>' : ''}
+              ${u.is_injured ? '<span class="badge-red" style="font-size:9px">INJ</span>' : ''}
+            </div>
+            <div style="width:100%;display:flex;gap:6px;margin-top:4px">
+              <button class="btn btn-secondary" style="flex:1;font-size:11px;padding:6px" onclick="adminCopyPass(${u.id})">📋 Copiar clave</button>
+              <button class="btn btn-ghost" style="flex:1;font-size:11px;padding:6px" onclick="editRider(${u.id})">✏️ Editar</button>
+              <button class="btn btn-ghost" style="font-size:11px;padding:6px;color:var(--danger)" onclick="deleteUser(${u.id})">🗑️</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
     </div>
 
     <!-- EVENTS -->
     <div class="admin-section">
-      <div class="admin-section-header" onclick="renderAdminEvents()">📅 Eventos (${STATE.events.length}) <span style="float:right;color:var(--text3)">→</span></div>
+      <div class="admin-section-header" onclick="toggleAdmin('events')">📅 Eventos (${STATE.events.length}) <span id="arrow-events">▼</span></div>
+      <div class="admin-list" id="admin-events" style="display:none">
+        ${STATE.events.map(ev => `
+          <div class="admin-list-item">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600">${ev.title}</div>
+              <div style="font-size:11px;color:var(--text2)">${ev.date} · ${ev.location}</div>
+            </div>
+            <span class="badge ${ev.status==='activo'?'badge-green':'badge-red'}" style="font-size:10px">${ev.status}</span>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px" onclick="editEvent(${ev.id})">✏️</button>
+          </div>
+        `).join('')}
+      </div>
     </div>
 
     <!-- NOTIFICATIONS -->
     <div class="admin-section">
-      <div class="admin-section-header" onclick="renderAdminNotif()">🔔 Notificaciones (${STATE.notifications.length}) <span style="float:right;color:var(--text3)">→</span></div>
+      <div class="admin-section-header" onclick="toggleAdmin('notif')">🔔 Notificaciones (${STATE.notifications.length}) <span id="arrow-notif">▼</span></div>
+      <div class="admin-list" id="admin-notif" style="display:none">
+        ${STATE.notifications.length === 0 ? '<div style="padding:12px;font-size:12px;color:var(--text3)">Sin notificaciones</div>' :
+          STATE.notifications.map(n => `
+            <div class="admin-list-item" style="flex-direction:column;align-items:flex-start;gap:4px">
+              <div style="font-size:12px">${n.message}</div>
+              <div style="font-size:10px;color:var(--text3)">${timeAgo(n.created_at)}</div>
+            </div>
+          `).join('')}
+        <button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger);font-size:12px" onclick="STATE.notifications=[];saveState();renderAdmin();toast('Notificaciones borradas')">Borrar todas</button>
+      </div>
     </div>
 
     <!-- SYNC -->
     <div class="admin-section">
-      <div class="admin-section-header" onclick="renderAdminSync()">☁️ HeyValue Sync <span style="float:right;color:var(--text3)">→</span></div>
+      <div class="admin-section-header" onclick="toggleAdmin('sync')">☁️ HeyValue Sync <span id="arrow-sync">▼</span></div>
+      <div class="admin-list" id="admin-sync" style="display:none">
+        <div style="padding:12px;font-size:12px">
+          <div>Estado: <b>${STATE.syncStatus}</b></div>
+          <div style="margin-top:8px">Usuario: <b>${HV.user || 'No configurado'}</b></div>
+          <button class="btn btn-primary" style="margin-top:10px;width:100%" onclick="syncToCloud();toast('Sincronizando...')">Forzar sincronizacion</button>
+          <button class="btn btn-secondary" style="margin-top:6px;width:100%" onclick="showHVSetup()">Configurar HeyValue</button>
+        </div>
+      </div>
     </div>
 
     <!-- RECOVERY CODES -->
     <div class="admin-section">
-      <div class="admin-section-header" onclick="renderAdminRecovery()">🔑 Recuperaciones Pendientes <span style="float:right;color:var(--text3)">→</span></div>
+      <div class="admin-section-header" onclick="toggleAdmin('recovery')">🔑 Recuperaciones Pendientes <span id="arrow-recovery">▼</span></div>
+      <div class="admin-list" id="admin-recovery" style="display:none">
+        <div style="padding:12px 12px 4px;font-size:12px;color:var(--text2);margin-bottom:8px">
+          Códigos activos — compártelos con los usuarios por WhatsApp
+        </div>
+        <div id="recovery-codes-list"></div>
+      </div>
     </div>
 
     <!-- DANGER -->
@@ -7381,99 +7285,6 @@ function renderAdmin() {
       <button class="btn btn-ghost" style="width:100%;color:var(--danger);border:1px solid var(--danger);margin-bottom:8px" onclick="if(confirm('Resetear TODOS los datos?')){localStorage.clear();location.reload()}">Resetear todos los datos</button>
     </div>
   `;
-}
-
-function renderAdminUsers() {
-  pushNav('admin-users', null, 'Usuarios');
-  document.getElementById('page-admin').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:18px;font-weight:800">👥 Usuarios (${STATE.users.length})</span>
-    </div>
-    ${STATE.users.map(u => `
-      <div class="admin-list-item" style="flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:12px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
-        <div style="width:40px;height:40px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${initials(u.username)}</div>
-        <div style="flex:1;min-width:120px">
-          <div style="font-size:14px;font-weight:700">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:9px">ADMIN</span>' : ''} ${u.is_injured ? '<span class="badge-red" style="font-size:9px">INJ</span>' : ''}</div>
-          <div style="font-size:11px;color:var(--text2)">${u.email}</div>
-          <div style="font-size:11px;color:var(--accent);margin-top:2px;cursor:pointer" onclick="togglePass(${u.id},'${u.password}')">🔑 <span id="show-pass-${u.id}">ver clave</span></div>
-        </div>
-        <div style="width:100%;display:flex;gap:6px;margin-top:8px">
-          <button class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px" onclick="adminCopyPass(${u.id})">📋 Copiar clave</button>
-          <button class="btn btn-primary" style="flex:1;font-size:11px;padding:8px" onclick="renderAdminEditUser(${u.id})">✏️ Editar</button>
-          <button class="btn btn-ghost" style="font-size:11px;padding:8px;color:var(--danger)" onclick="if(confirm('Eliminar a ${u.username}?')){deleteUser(${u.id});popNav()}">🗑️</button>
-        </div>
-      </div>
-    `).join('')}
-  `;
-}
-
-function renderAdminEvents() {
-  pushNav('admin-events', null, 'Eventos');
-  document.getElementById('page-admin').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:18px;font-weight:800">📅 Eventos (${STATE.events.length})</span>
-    </div>
-    ${STATE.events.map(ev => `
-      <div class="admin-list-item" style="margin-bottom:10px;padding:12px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">${ev.title}</div>
-          <div style="font-size:11px;color:var(--text2)">${ev.date} · ${ev.location}</div>
-        </div>
-        <span class="badge ${ev.status==='activo'?'badge-green':'badge-red'}" style="font-size:10px;margin:0 8px">${ev.status}</span>
-        <button class="btn btn-primary" style="font-size:11px;padding:6px 10px" onclick="renderAdminEditEvent(${ev.id})">✏️ Editar</button>
-      </div>
-    `).join('')}
-  `;
-}
-
-function renderAdminNotif() {
-  pushNav('admin-notif', null, 'Notificaciones');
-  document.getElementById('page-admin').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:18px;font-weight:800">🔔 Notificaciones</span>
-    </div>
-    ${STATE.notifications.length === 0 ? '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Sin notificaciones</div>' :
-      STATE.notifications.map(n => `
-        <div style="padding:10px 12px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:8px">
-          <div style="font-size:13px">${n.message}</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:4px">${timeAgo(n.created_at)}</div>
-        </div>
-      `).join('')}
-    <button class="btn btn-ghost" style="width:100%;margin-top:8px;color:var(--danger);border:1px solid var(--danger)" onclick="STATE.notifications=[];saveState();renderAdminNotif();toast('Notificaciones borradas')">Borrar todas</button>
-  `;
-}
-
-function renderAdminSync() {
-  pushNav('admin-sync', null, 'HeyValue Sync');
-  document.getElementById('page-admin').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:18px;font-weight:800">☁️ HeyValue Sync</span>
-    </div>
-    <div style="padding:16px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
-      <div style="font-size:13px;margin-bottom:8px">Estado: <b style="color:var(--accent)">${STATE.syncStatus}</b></div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Usuario: <b>${HV.user || 'No configurado'}</b></div>
-      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="syncToCloud();toast('Sincronizando...')">Forzar sincronizacion</button>
-      <button class="btn btn-secondary" style="width:100%" onclick="showHVSetup()">Configurar HeyValue</button>
-    </div>
-  `;
-}
-
-function renderAdminRecovery() {
-  pushNav('admin-recovery', null, 'Recuperaciones');
-  loadRecoveryCodesAdmin();
-  document.getElementById('page-admin').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:18px;font-weight:800">🔑 Recuperaciones Pendientes</span>
-    </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Códigos activos — compártelos con los usuarios por WhatsApp</div>
-    <div id="recovery-codes-list"></div>
-  `;
-  loadRecoveryCodesAdmin();
 }
 
 function toggleAdmin(section) {
@@ -7593,45 +7404,6 @@ function editEvent(id) {
   `);
 }
 
-function renderAdminEditEvent(id) {
-  const ev = STATE.events.find(x => x.id === id);
-  if (!ev) return;
-  openModal('Editar Evento', `
-    <input class="input" id="ev-title" value="${ev.title}" placeholder="Titulo">
-    <input class="input" id="ev-desc" value="${ev.description}" placeholder="Descripcion">
-    <input class="input" id="ev-date" type="date" value="${ev.date}" class="input">
-    <input class="input" id="ev-time" type="time" value="${ev.time}" class="input">
-    <input class="input" id="ev-location" value="${ev.location}" placeholder="Ubicacion">
-    <select class="input" id="ev-diff">
-      <option value="facil" ${ev.difficulty==='facil'?'selected':''}>Facil</option>
-      <option value="intermedia" ${ev.difficulty==='intermedia'?'selected':''}>Intermedia</option>
-      <option value="alta" ${ev.difficulty==='alta'?'selected':''}>Alta</option>
-    </select>
-    <select class="input" id="ev-status">
-      <option value="activo" ${ev.status==='activo'?'selected':''}>Activo</option>
-      <option value="cancelado" ${ev.status==='cancelado'?'selected':''}>Cancelado</option>
-      <option value="completado" ${ev.status==='completado'?'selected':''}>Completado</option>
-    </select>
-    <button class="btn btn-primary" style="width:100%" onclick="doEditEventAdmin(${id})">Guardar</button>
-  `);
-}
-
-function doEditEventAdmin(id) {
-  const ev = STATE.events.find(x => x.id === id);
-  if (!ev) return;
-  ev.title = document.getElementById('ev-title').value.trim() || ev.title;
-  ev.description = document.getElementById('ev-desc').value.trim();
-  ev.date = document.getElementById('ev-date').value || ev.date;
-  ev.time = document.getElementById('ev-time').value || ev.time;
-  ev.location = document.getElementById('ev-location').value.trim();
-  ev.difficulty = document.getElementById('ev-diff').value;
-  ev.status = document.getElementById('ev-status').value;
-  saveState();
-  closeModal();
-  renderAdminEvents();
-  toast('Evento actualizado');
-}
-
 function doEditEvent(id) {
   const ev = STATE.events.find(x => x.id === id);
   if (!ev) return;
@@ -7644,7 +7416,7 @@ function doEditEvent(id) {
   ev.status = document.getElementById('ev-status').value;
   saveState();
   closeModal();
-  if (onSaveNav) { onSaveNav(); } else { navigate('admin'); }
+  navigate('admin');
   toast('Evento actualizado');
 }
 
