@@ -3799,14 +3799,14 @@ function renderInicio() {
       `).join('')}
     </div>
 
-    <!-- Proximas Rutas (ANTES DE EVENTOS) -->
-    ${STATE.routes.length ? `
+    <!-- Proximas Rutas (solo futuras) -->
+    ${(() => { const today = new Date().toISOString().slice(0,10); const prox = STATE.routes.filter(r => !r.date || r.date >= today).slice(0,3); return prox.length ? `
     <div class="vanish" style="animation-delay:0.25s;margin-top:16px">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--text2)">PROXIMAS RUTAS</span>
         <span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="navigate('rutas')">Ver todos →</span>
       </div>
-      ${STATE.routes.slice(0,3).map(r => `
+      ${prox.map(r => `
         <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="navigateToRoute(${r.id})">
           <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)">
             🧭 Seguir
@@ -3823,7 +3823,7 @@ function renderInicio() {
         </div>
       `).join('')}
     </div>
-    ` : ''}
+    ` : ''; })()}
   `;
 
   loadNews();
