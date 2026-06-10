@@ -7922,24 +7922,41 @@ function renderAdminUsers() {
   document.getElementById('page-admin').innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button class="btn btn-ghost" style="padding:6px 10px;font-size:13px" onclick="popNav()">← Volver</button>
-      <span style="font-size:18px;font-weight:800">👥 Usuarios (${STATE.users.length})</span>
+      <span style="font-size:18px;font-weight:800">👥 ${STATE.users.length} Miembros</span>
     </div>
-    ${STATE.users.map(u => `
-      <div class="admin-list-item" style="flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:12px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border)">
-        <div style="width:40px;height:40px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">${initials(u.username)}</div>
-        <div style="flex:1;min-width:120px">
-          <div style="font-size:14px;font-weight:700">${u.username} ${u.is_admin ? '<span class="badge-gold" style="font-size:9px">ADMIN</span>' : ''} ${u.is_injured ? '<span class="badge-red" style="font-size:9px">INJ</span>' : ''}</div>
-          <div style="font-size:11px;color:var(--text2)">${u.email}</div>
-          <div style="font-size:11px;color:var(--accent);margin-top:2px;cursor:pointer" onclick="togglePass(${u.id},'${u.password}')">🔑 <span id="show-pass-${u.id}">ver clave</span></div>
+    <input class="input" type="text" id="admin-user-search" placeholder="🔍 Buscar miembro..." style="margin-bottom:14px" oninput="filterAdminUsers(this.value)">
+    <div id="admin-users-list">
+      ${STATE.users.map(u => {
+        const lv = levelOf(u.points || 0);
+        return `
+        <div class="admin-user-card" id="auc-${u.id}" style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--card);border-radius:14px;border:1px solid var(--border);margin-bottom:10px;cursor:pointer;transition:all 0.2s" onclick="renderAdminEditUser(${u.id})" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <div style="width:48px;height:48px;border-radius:50%;background:${avatarColor(u.id)};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 0 12px ${avatarColor(u.id)}44">${initials(u.username)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:15px;font-weight:700">${escHtml(u.username)}</span>
+              ${u.is_admin ? '<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;font-weight:700">ADMIN</span>' : ''}
+              ${u.is_injured ? '<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-weight:700">LESIONADO</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">${escHtml(u.email)} · ${u.bike_model || 'Sin moto'}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:16px;font-weight:900;color:var(--accent)">${u.points || 0}</div>
+            <div style="font-size:10px;color:var(--text3)">puntos · ${lv.name}</div>
+          </div>
         </div>
-        <div style="width:100%;display:flex;gap:6px;margin-top:8px">
-          <button class="btn btn-secondary" style="flex:1;font-size:11px;padding:8px" onclick="adminCopyPass(${u.id})">📋 Copiar clave</button>
-          <button class="btn btn-primary" style="flex:1;font-size:11px;padding:8px" onclick="renderAdminEditUser(${u.id})">✏️ Editar</button>
-          <button class="btn btn-ghost" style="font-size:11px;padding:8px;color:var(--danger)" onclick="if(confirm('Eliminar a ${u.username}?')){deleteUser(${u.id});popNav()}">🗑️</button>
-        </div>
-      </div>
-    `).join('')}
+      `}).join('')}
+    </div>
   `;
+}
+
+function filterAdminUsers(q) {
+  q = q.toLowerCase();
+  STATE.users.forEach(u => {
+    const el = document.getElementById('auc-' + u.id);
+    if (!el) return;
+    const match = !q || (u.username + ' ' + u.email).toLowerCase().includes(q);
+    el.style.display = match ? 'flex' : 'none';
+  });
 }
 
 function renderAdminEvents() {
