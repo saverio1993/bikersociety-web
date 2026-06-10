@@ -2302,8 +2302,7 @@ window.addEventListener('beforeinstallprompt', function(e) {
   if (!sessionStorage.getItem('bs_install_dismissed') && !isAppInstalled()) {
     showInstallBanner();
   }
-  // Refresh any visible "Instalar app" menu item
-  try { showMoreMenu(); } catch(_) {}
+  // Note: do NOT call showMoreMenu() here — it would open the fpanel overlay automatically
 });
 
 window.addEventListener('appinstalled', function() {
@@ -2312,7 +2311,6 @@ window.addEventListener('appinstalled', function() {
   console.log('[BS] App installed');
   toast('✅ Biker Society instalada en tu pantalla');
   hideInstallBanner();
-  try { showMoreMenu(); } catch(_) {}
 });
 
 function isAppInstalled() {
@@ -2341,7 +2339,6 @@ async function installApp() {
   } else {
     toast('Instalacion cancelada');
   }
-  try { showMoreMenu(); } catch(_) {}
 }
 
 function dismissInstallBanner() {
