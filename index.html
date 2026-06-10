@@ -7095,6 +7095,19 @@ function renderProfile() {
     </div>
     ` : ''}
 
+    <!-- My Password -->
+    <div style="margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Mi Contraseña</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:14px;font-weight:600" id="my-profile-pass">
+          <span id="profile-pass-hidden">••••••••</span>
+          <span id="profile-pass-visible" style="display:none;color:var(--accent)">${u.password}</span>
+        </div>
+        <button onclick="toggleMyPass()" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">👁️ Ver</button>
+        <button onclick="copyMyPass()" style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">📋 Copiar</button>
+      </div>
+    </div>
+
     <div style="margin-top:20px">
       <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="editRider(${u.id})">Editar perfil</button>
       <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="closeModal();navigate('rutas');setTimeout(createRoute,300)">Crear ruta</button>
@@ -7244,6 +7257,24 @@ function adminCopyPass(userId) {
   const user = STATE.users.find(x => x.id === userId);
   if (!user) return;
   navigator.clipboard.writeText(user.password).then(() => toast('Clave copiada!'));
+}
+
+function toggleMyPass() {
+  const hidden = document.getElementById('profile-pass-hidden');
+  const visible = document.getElementById('profile-pass-visible');
+  if (!hidden || !visible) return;
+  if (hidden.style.display !== 'none') {
+    hidden.style.display = 'none';
+    visible.style.display = 'inline';
+  } else {
+    hidden.style.display = 'inline';
+    visible.style.display = 'none';
+  }
+}
+
+function copyMyPass() {
+  if (!STATE.user) return;
+  navigator.clipboard.writeText(STATE.user.password).then(() => toast('Clave copiada!'));
 }
 
 async function loadRecoveryCodesAdmin() {
