@@ -1223,6 +1223,7 @@ if (localStorage.getItem('bs_debug') === '1') {
     <img src="icons/logo.png" alt="Biker Society" style="width:36px;height:36px;border-radius:8px;object-fit:cover;box-shadow:0 0 10px rgba(255,32,32,0.4)">
   </div>
   <div class="topbar-actions">
+    <button id="online-count-btn" onclick="showOnlineMembers()" title="Miembros en linea" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:4px 6px;border-radius:8px"></button>
     <button onclick="showNotifications()" title="Notificaciones">🔔</button>
     <button onclick="navigate('profile')" title="Mi perfil">👤</button>
   </div>
@@ -2348,6 +2349,91 @@ async function syncFromCloud() {
 }
 
 // ============================================================
+// ONLINE PRESENCE — miembros en linea via HeyValue
+// ============================================================
+let _presenceInterval = null;
+const PRESENCE_TIMEOUT_MS = 180000; // 3 min para considerarse "en linea"
+
+async function updatePresence() {
+  if (!STATE.user || !HV.user) return;
+  try {
+    const r = await hvRequest('GET', '/' + HV.syncKey + '/presence.json');
+    let list = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
+    // Limpiar ids de usuarios que ya no existen
+    const validIds = new Set(STATE.users.map(u => u.id));
+    list = list.filter(p => validIds.has(p.id));
+    // Actualizar o agregar este usuario
+    list = list.filter(p => p.id !== STATE.user.id);
+    list.push({ id: STATE.user.id, username: STATE.user.username, lastSeen: Date.now() });
+    await hvRequest('PUT', '/' + HV.syncKey + '/presence.json', list);
+  } catch(e) {}
+}
+
+async function loadOnlineCount() {
+  const btn = document.getElementById('online-count-btn');
+  if (!btn || !STATE.user) { if (btn) btn.textContent = ''; return; }
+  try {
+    const r = await hvRequest('GET', '/' + HV.syncKey + '/presence.json');
+    const list = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
+    const cutoff = Date.now() - PRESENCE_TIMEOUT_MS;
+    const online = list.filter(p => p.lastSeen > cutoff);
+    if (online.length > 0) {
+      btn.textContent = '🟢 ' + online.length + ' en linea';
+      btn.title = online.map(p => p.username).join(', ');
+    } else {
+      btn.textContent = '';
+    }
+  } catch(e) {
+    const btn = document.getElementById('online-count-btn');
+    if (btn) btn.textContent = '';
+  }
+}
+
+function startPresence() {
+  if (_presenceInterval) clearInterval(_presenceInterval);
+  updatePresence();
+  loadOnlineCount();
+  _presenceInterval = setInterval(() => { updatePresence(); loadOnlineCount(); }, 30000);
+}
+
+function showOnlineMembers() {
+  const list = document.querySelector('#online-members-list');
+  if (!list) return;
+  // Ya se cargo arriba, solo abre el modal
+  openModal('🟢 Miembros en linea', `
+    <div id="online-members-list"></div>
+  `);
+  // Recargar para modal
+  (async () => {
+    try {
+      const r = await hvRequest('GET', '/' + HV.syncKey + '/presence.json');
+      const all = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
+      const cutoff = Date.now() - PRESENCE_TIMEOUT_MS;
+      const online = all.filter(p => p.lastSeen > cutoff).map(p => {
+        const u = STATE.users.find(x => x.id === p.id);
+        return { ...p, avatar: u ? renderAvatar(u, 28) : '' };
+      });
+      const el = document.getElementById('online-members-list');
+      if (!el) return;
+      if (!online.length) {
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">No hay nadie en linea</div>';
+        return;
+      }
+      el.innerHTML = online.map(p => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          ${p.avatar}
+          <span style="font-size:14px;font-weight:600">${escHtml(p.username)}</span>
+          <span style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0"></span>
+        </div>
+      `).join('');
+    } catch(e) {
+      const el = document.getElementById('online-members-list');
+      if (el) el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">No se pudo cargar</div>';
+    }
+  })();
+}
+
+// ============================================================
 // PWA INSTALL
 // ============================================================
 var _installPromptEvent = null;
@@ -2497,6 +2583,7 @@ function initApp() {
     if (topbarEl) topbarEl.style.display = 'flex';
     if (bottomnavEl) bottomnavEl.style.display = 'flex';
     navigate('inicio');
+    startPresence();
     // Background ops — defer so UI renders first
     setTimeout(() => {
       initIndexedDB().catch(() => {});
@@ -3429,6 +3516,7 @@ function doLogin() {
   document.getElementById('bottomnav').style.display = 'flex';
   navigate('inicio');
   toast('Bienvenido, ' + user.username + '!');
+  startPresence();
 }
 
 function doRegister() {
@@ -3510,6 +3598,7 @@ async function saveHVSetup() {
 }
 
 function logout() {
+  if (_presenceInterval) { clearInterval(_presenceInterval); _presenceInterval = null; }
   STATE.user = null;
   ls('bs_session', null);
   showLogin();
