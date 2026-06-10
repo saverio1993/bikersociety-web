@@ -4048,17 +4048,20 @@ function renderRutas() {
     <div id="rutas-tab-content" style="${sel ? 'display:none' : ''}">
       ${RUTAS_TAB === 'rutas' ? `
         <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:10px">
-          <button onclick="setRouteSubTab('todas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='todas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='todas'?'#ff4444':'var(--text2)'}">Todas (${allRoutes.length})</button>
-          <button onclick="setRouteSubTab('mis')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='mis'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='mis'?'#ff4444':'var(--text2)'}">Mis rutas (${myRoutes.length})</button>
+          <button onclick="setRouteSubTab('nuevas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='nuevas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='nuevas'?'#ff4444':'var(--text2)'}">🗺️ Nuevas (${(()=>{const t=new Date().toISOString().slice(0,10);return allRoutes.filter(r=>!r.date||r.date>=t).length;})()})</button>
+          <button onclick="setRouteSubTab('vencidas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='vencidas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='vencidas'?'#ff4444':'var(--text2)'}">✅ Vencidas (${(()=>{const t=new Date().toISOString().slice(0,10);return allRoutes.filter(r=>r.date&&r.date<t).length;})()})</button>
         </div>
 
         <div id="rutas-list">
           ${(() => {
-            const sourceList = routeSubTab === 'todas' ? allRoutes : myRoutes;
+            const today = new Date().toISOString().slice(0,10);
+            const nuevas = allRoutes.filter(r => !r.date || r.date >= today);
+            const vencidas = allRoutes.filter(r => r.date && r.date < today);
+            const sourceList = routeSubTab === 'nuevas' ? nuevas : vencidas;
             if (sourceList.length === 0) {
-              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div>${STATE.user?.is_admin ? '<button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>' : ''}</div>`;
+              return `<div class="empty-state"><div class="empty-icon">🗺️</div><div>${routeSubTab==='nuevas'?'No hay rutas nuevas todavia':'No hay rutas vencidas'}</div>${STATE.user?.is_admin&&routeSubTab==='nuevas'?'<button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button>':''}</div>`;
             }
-            return sourceList.map(r => renderRouteCard(r)).join('');
+            return sourceList.map(r => renderRouteCard(r, routeSubTab==='vencidas')).join('');
           })()}
         </div>
       ` : ''}
@@ -4068,7 +4071,7 @@ function renderRutas() {
   setTimeout(initRutasMap, 100);
 }
 
-let routeSubTab = 'todas';
+let routeSubTab = 'nuevas';
 let routeFilter = { difficulty: 'todas', maxKm: 500 };
 // Store selected POI data so it survives modal recreation
 let _routePOI = { start: null, end: null };
@@ -4303,9 +4306,13 @@ function setRouteSubTab(t) {
   routeSubTab = t;
   const list = document.getElementById('rutas-list');
   if (list) {
-    const allRoutes = STATE.routes;
-    const myRoutes = STATE.routes.filter(r => r.created_by === STATE.user?.id);
-    list.innerHTML = (t === 'todas' ? allRoutes : myRoutes).map(r => renderRouteCard(r)).join('');
+    const today = new Date().toISOString().slice(0,10);
+    const nuevas = STATE.routes.filter(r => !r.date || r.date >= today);
+    const vencidas = STATE.routes.filter(r => r.date && r.date < today);
+    const sourceList = t === 'nuevas' ? nuevas : vencidas;
+    list.innerHTML = sourceList.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">🗺️</div><div>${t==='nuevas'?'No hay rutas nuevas todavia':'No hay rutas vencidas'}</div></div>`
+      : sourceList.map(r => renderRouteCard(r, t==='vencidas')).join('');
   }
   document.querySelectorAll('.sub-tab-bar button').forEach(b => {
     b.style.background = 'var(--surface2)';
@@ -4496,14 +4503,15 @@ function showRouteTab(tab) {
     : routes.map(r => renderRouteCard(r)).join('');
 }
 
-function renderRouteCard(r) {
+function renderRouteCard(r, vencida) {
   const creator = STATE.users.find(u => u.id === r.created_by);
   const isOwner = r.created_by === STATE.user?.id;
   const km = routeDistanceKm(r);
   const difficultyColors = { facil: '#22c55e', media: '#f59e0b', dificil: '#ef4444', epica: '#9c27b0' };
   const diffColor = difficultyColors[r.difficulty] || '#888';
+  const cardStyle = vencida ? 'cursor:pointer;position:relative;opacity:0.45;filter:grayscale(0.7)' : 'cursor:pointer;position:relative';
   return `
-    <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="selectRoute(${r.id})">
+    <div class="card vanish route-card" style="${cardStyle}" onclick="selectRoute(${r.id})">
       <!-- Floating Waze/Maps button — always visible, opens native nav app -->
       <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
         🧭 Seguir
@@ -4533,7 +4541,7 @@ function setRouteMaxKm(v) {
   // No-op (filter UI removed). Kept for backwards compatibility.
   const list = document.getElementById('rutas-list');
   if (list) {
-    const sourceList = (routeSubTab === 'todas' ? STATE.routes : STATE.routes.filter(r => r.created_by === STATE.user?.id));
+    const sourceList = (routeSubTab === 'nuevas' ? STATE.routes : STATE.routes.filter(r => r.created_by === STATE.user?.id));
     if (sourceList.length > 0) list.innerHTML = sourceList.map(r => renderRouteCard(r)).join('');
     if (sourceList.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><div>No hay rutas todavia</div><button class="btn btn-primary" style="margin-top:12px" onclick="createRoute()">Crear primera ruta</button></div>`;
     else if (filtered.length === 0) list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div>Sin resultados</div><div style="font-size:12px;color:var(--text2);margin-top:6px">Ajusta los filtros para ver más rutas</div></div>`;
