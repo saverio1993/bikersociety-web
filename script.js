@@ -353,7 +353,8 @@ function showLogin() {
       <input class="input" type="text" id="li-user" placeholder="Usuario o email" autocomplete="off">
       <input class="input" type="password" id="li-pass" placeholder="Contraseña" autocomplete="off">
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="doLogin()">Entrar</button>
-      <button class="btn btn-secondary" style="width:100%" onclick="showRegister()">Crear cuenta</button>
+      <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="showRegister()">Crear cuenta</button>
+      <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="showForgotPassword()">Olvidé mi contraseña</button>
       <div style="text-align:center;margin-top:20px">
         <button class="btn btn-ghost" style="font-size:12px" onclick="showHVSetup()">Configurar HeyValue Cloud</button>
       </div>

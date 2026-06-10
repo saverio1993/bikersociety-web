@@ -3272,43 +3272,69 @@ function showForgotPassword() {
   document.getElementById('page-login').innerHTML = `
     <img src="icons/logo.png" class="login-logo" alt="Biker Society">
     <div class="login-title">Recuperar Contraseña</div>
-    <div class="login-sub">Contacta al administrador para recibir tu código de recuperación</div>
+    <div class="login-sub">Ingresa tu usuario o email y verificamos si existe tu cuenta</div>
     <div class="login-form">
-      <input class="input" type="email" id="fp-email" placeholder="Tu email registrado" autocomplete="off">
-      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="requestRecoveryCode()">Solicitar por WhatsApp</button>
+      <input class="input" type="text" id="fp-input" placeholder="Usuario o email" autocomplete="off" oninput="checkRecoveryAccount()">
+      <div id="fp-status" style="font-size:13px;min-height:20px;margin-bottom:10px"></div>
+      <button class="btn btn-primary" id="fp-whatsapp-btn" style="width:100%;margin-bottom:10px" onclick="requestRecoveryCode()" disabled>📱 Escribir al WhatsApp</button>
       <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Volver al login</button>
-    </div>
-    <div style="margin-top:20px;text-align:center;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:380px;width:100%">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">💬 Contacta al admin</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Escríbele a WhatsApp indicando tu email registrado y te enviará el código</div>
-      <button class="btn btn-secondary" style="width:100%;font-size:13px" onclick="window.open('https://wa.me/50768344847?text=Hola%2C%20necesito%20recuperar%20mi%20clave%20de%20Biker%20Society.%20Mi%20email%20es%3A%20','_blank')">
-        📱 Escribir al WhatsApp
-      </button>
     </div>
   `;
 }
 
-async function requestRecoveryCode() {
-  const email = document.getElementById('fp-email').value.trim().toLowerCase();
-  if (!email) { toast('Ingresa tu email'); return; }
-  const user = STATE.users.find(x => x.email.toLowerCase() === email);
-  if (user) {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const record = {
-      code,
-      userId: user.id,
-      username: user.username,
-      email,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-      used: false
-    };
-    let codes = await loadFromHV('recovery_codes') || {};
-    codes[email] = record;
-    await saveToHV('recovery_codes', codes);
-    ls('bs_recovery_pending', email);
+let _recoveryFoundUser = null;
+
+function checkRecoveryAccount() {
+  const val = document.getElementById('fp-input').value.trim().toLowerCase();
+  const status = document.getElementById('fp-status');
+  const btn = document.getElementById('fp-whatsapp-btn');
+  _recoveryFoundUser = null;
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+
+  if (!val || val.length < 2) {
+    status.innerHTML = '';
+    return;
   }
-  const msg = encodeURIComponent(`Hola! Necesito recuperar mi clave de Biker Society.\nMi email es: ${email}`);
+
+  // Check if it's an email or username
+  const isEmail = val.includes('@');
+  let user = null;
+  if (isEmail) {
+    user = STATE.users.find(x => x.email && x.email.toLowerCase() === val);
+  } else {
+    user = STATE.users.find(x => x.username && x.username.toLowerCase() === val);
+  }
+
+  if (user) {
+    _recoveryFoundUser = user;
+    status.innerHTML = `<span style="color:#22c55e">✅ Cuenta encontrada: @${user.username} (${user.email})</span>`;
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    status.innerHTML = `<span style="color:#e74c3c">❌ No existe cuenta con ese usuario o email</span>`;
+  }
+}
+
+async function requestRecoveryCode() {
+  const input = document.getElementById('fp-input').value.trim();
+  if (!_recoveryFoundUser) { toast('Primero verifica que tu cuenta existe'); return; }
+  const user = _recoveryFoundUser;
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const record = {
+    code,
+    userId: user.id,
+    username: user.username,
+    email: user.email,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    used: false
+  };
+  let codes = await loadFromHV('recovery_codes') || {};
+  codes[user.email] = record;
+  await saveToHV('recovery_codes', codes);
+  ls('bs_recovery_pending', user.email);
+  const msg = encodeURIComponent(`Hola! Necesito recuperar mi clave de Biker Society.\nMi usuario: @${user.username}\nMi email: ${user.email}`);
   window.open(`https://wa.me/50768344847?text=${msg}`, '_blank');
   toast('Abriendo WhatsApp...');
 }
