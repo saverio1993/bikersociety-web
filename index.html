@@ -3044,6 +3044,7 @@ function saveLocal() {
 // NAVIGATION
 // ============================================================
 function navigate(page, pageId) {
+  closeFpanel(); // always close floating panel on navigation
   // Update bottom nav
   document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`.bnav-item[data-page="${page}"]`);
@@ -3090,6 +3091,7 @@ function renderPage(page, pageId) {
 // LOGIN / REGISTER
 // ============================================================
 function showLogin() {
+  closeFpanel(); // always close floating panel to prevent overlay blocking clicks
   document.getElementById('page-login').style.display = 'flex';
   document.getElementById('page-login').innerHTML = `
     <img src="icons/logo.png" class="login-logo" alt="Biker Society">
