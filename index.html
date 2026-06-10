@@ -3099,11 +3099,124 @@ function showLogin() {
       <input class="input" type="text" id="li-user" placeholder="Usuario o email" autocomplete="off">
       <input class="input" type="password" id="li-pass" placeholder="Contraseña" autocomplete="off">
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="doLogin()">Entrar</button>
+      <button class="btn btn-ghost" style="width:100%;margin-bottom:10px;font-size:13px" onclick="showForgotPassword()">Olvidé mi contraseña</button>
       <button class="btn btn-secondary" style="width:100%" onclick="showRegister()">Crear cuenta</button>
     </div>
   `;
   document.getElementById('bottomnav').style.display = 'none';
   document.getElementById('topbar').style.display = 'none';
+}
+
+function showForgotPassword() {
+  document.getElementById('page-login').innerHTML = `
+    <img src="icons/logo.png" class="login-logo" alt="Biker Society">
+    <div class="login-title">Recuperar Contraseña</div>
+    <div class="login-sub">Ingresa tu email para recibir un código de recuperación</div>
+    <div class="login-form">
+      <input class="input" type="email" id="fp-email" placeholder="Tu email registrado" autocomplete="off">
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="requestRecoveryCode()">Solicitar código</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Volver al login</button>
+    </div>
+    <div style="margin-top:24px;text-align:center;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:380px;width:100%">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">¿Necesitas ayuda?</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Contacta al administrador por Telegram</div>
+      <button class="btn btn-secondary" style="width:100%;font-size:13px" onclick="window.open('https://t.me/hermessaveriobot','_blank')">Abrir Telegram</button>
+    </div>
+  `;
+}
+
+async function requestRecoveryCode() {
+  const email = document.getElementById('fp-email').value.trim().toLowerCase();
+  if (!email) { toast('Ingresa tu email'); return; }
+  const user = STATE.users.find(x => x.email.toLowerCase() === email);
+  if (!user) {
+    // Por seguridad no revelamos si el email existe o no
+    showRecoveryCodeSent();
+    return;
+  }
+  // Generar código de 6 dígitos
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const record = {
+    code,
+    userId: user.id,
+    username: user.username,
+    email,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min
+    used: false
+  };
+  // Guardar en WebDAV
+  let codes = await loadFromHV('recovery_codes') || {};
+  codes[email] = record;
+  await saveToHV('recovery_codes', codes);
+  // También guardar localmente como backup
+  ls('bs_recovery_pending', email);
+  showRecoveryCodeSent();
+}
+
+function showRecoveryCodeSent() {
+  document.getElementById('page-login').innerHTML = `
+    <img src="icons/logo.png" class="login-logo" alt="Biker Society">
+    <div class="login-title">Código Enviado</div>
+    <div class="login-sub">Si tu email está registrado, recibirás instrucciones de recuperación.</div>
+    <div class="login-form">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Si no recibes el correo en 5 minutos:</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">1. Revisa tu bandeja de spam</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">2. Contacta al administrador por Telegram</div>
+        <button class="btn btn-secondary" style="width:100%;font-size:13px" onclick="window.open('https://t.me/hermessaveriobot','_blank')">
+          💬 Abrir Telegram con Admin
+        </button>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="showResetPassword()">Ya tengo un código</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Volver al login</button>
+    </div>
+  `;
+}
+
+function showResetPassword() {
+  document.getElementById('page-login').innerHTML = `
+    <img src="icons/logo.png" class="login-logo" alt="Biker Society">
+    <div class="login-title">Restablecer Contraseña</div>
+    <div class="login-sub">Ingresa el código que recibiste y tu nueva contraseña</div>
+    <div class="login-form">
+      <input class="input" type="text" id="rp-email" placeholder="Tu email" autocomplete="off">
+      <input class="input" type="text" id="rp-code" placeholder="Código de 6 dígitos" maxlength="6" autocomplete="off">
+      <input class="input" type="password" id="rp-pass" placeholder="Nueva contraseña" autocomplete="off">
+      <input class="input" type="password" id="rp-pass2" placeholder="Confirmar nueva contraseña" autocomplete="off">
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="doResetPassword()">Cambiar contraseña</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="showLogin()">Volver al login</button>
+    </div>
+  `;
+}
+
+async function doResetPassword() {
+  const email = document.getElementById('rp-email').value.trim().toLowerCase();
+  const code = document.getElementById('rp-code').value.trim();
+  const pass = document.getElementById('rp-pass').value;
+  const pass2 = document.getElementById('rp-pass2').value;
+  if (!email || !code || !pass || !pass2) { toast('Completa todos los campos'); return; }
+  if (pass !== pass2) { toast('Las contraseñas no coinciden'); return; }
+  if (pass.length < 4) { toast('La contraseña debe tener al menos 4 caracteres'); return; }
+  // Cargar códigos desde WebDAV
+  const codes = await loadFromHV('recovery_codes') || {};
+  const record = codes[email];
+  if (!record || record.used) { toast('Código inválido o ya usado'); return; }
+  if (new Date() > new Date(record.expiresAt)) { toast('El código expiró. Solicita uno nuevo.'); return; }
+  if (record.code !== code) { toast('Código incorrecto'); return; }
+  // Actualizar contraseña
+  const userIdx = STATE.users.findIndex(x => x.email.toLowerCase() === email);
+  if (userIdx === -1) { toast('Usuario no encontrado'); return; }
+  STATE.users[userIdx].password = pass;
+  // Marcar código como usado
+  codes[email].used = true;
+  await saveToHV('recovery_codes', codes);
+  ls('bs_recovery_pending', null);
+  // Sincronizar usuarios
+  await syncToCloud();
+  saveLocal();
+  toast('¡Contraseña actualizada! Ya puedes iniciar sesión.');
+  showLogin();
 }
 
 function showRegister() {
