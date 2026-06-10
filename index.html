@@ -6340,20 +6340,10 @@ async function resolveMediaUrl(url, type) {
     return blobUrl;
   } catch { return url; }
 }
-function resolveMediaUrlSync(url, mediaType) {
+function resolveMediaUrlSync(url) {
   if (!url) return url;
-  const isVideoOrAudio = mediaType === 'video' || mediaType === 'audio' ||
-    (!mediaType && (url.startsWith('data:video') || url.startsWith('data:audio')));
-  // Convert EC2 proxy URLs (/nc/) to HeyValue direct URLs with auth for video/audio
-  // This bypasses nginx proxy cache and fixes Range request handling for streaming
-  if (isVideoOrAudio && HV.user && HV.pass && url.includes('/nc/') && !url.includes('@')) {
-    // https://bikersociety.duckdns.org/nc/RuedeGram/videos/foo.mp4
-    // → https://Saveriomanrrique19@gmail.com:Lozano1993%40@cloud.heyvalue.com/remote.php/webdav/RuedeGram/videos/foo.mp4
-    const parts = url.split('/nc/');
-    const rest = parts[1]; // RuedeGram/videos/foo.mp4
-    return `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@cloud.heyvalue.com/remote.php/webdav/${rest}`;
-  }
-  // Inject Basic auth into HeyValue WebDAV URLs so browser can load media directly
+  // For HeyValue WebDAV URLs, inject Basic auth so browser can load media directly
+  // (used by image lightbox which doesn't go through EC2 proxy)
   if (url.includes('/dav/') && HV.user && HV.pass && !url.includes('@')) {
     return url.replace('https://', `https://${encodeURIComponent(HV.user)}:${encodeURIComponent(HV.pass)}@`);
   }
