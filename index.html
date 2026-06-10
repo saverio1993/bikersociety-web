@@ -1191,8 +1191,6 @@ if (localStorage.getItem('bs_debug') === '1') {
 }
 </script>
 
-<!-- Motorcycle engine sound for login -->
-<audio id="moto-sound" src="sounds/moto-start.mp3" preload="auto"></audio>
 
 <!-- SPLASH -->
 <div class="splash" id="splash">
@@ -1909,12 +1907,19 @@ function renderAvatar(user, size, style) {
   const c1 = avatarColor(user.id);
   const c2 = avatarColor((user.id || 0) + 1);
   style = style || '';
-  // Priority: bs_avatar localStorage key > user.avatar > user.profile_pic
+  // Priority: HV cache > localStorage (current user) > user object > initials
+  const hvPic = _hvAvatarCache[user.id];
   const savedAvatar = (user.id === STATE.user?.id) ? getAvatar() : null;
-  const pic = savedAvatar || user.avatar || user.profile_pic;
+  const pic = hvPic || savedAvatar || user.avatar || user.profile_pic;
   if (pic) {
     const src = pic.startsWith('data:') ? pic : (pic + '?t=' + Date.now());
     return `<div style="${style}"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${avatarText(user.username)}'"></div>`;
+  }
+  // Kick off async HeyValue fetch for next render (non-blocking)
+  if (user.id && HV.user && HV.pass && !_hvAvatarCache[user.id]) {
+    loadAvatarFromHV(user.id).then(url => {
+      if (url) applyAvatarToUI(url, user.id);
+    }).catch(() => {});
   }
   return `<div style="${style}"><div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${Math.round(size*0.38)}px">${avatarText(user.username)}</div></div>`;
 }
@@ -1945,6 +1950,25 @@ function saveAvatar(dataUrl) {
 }
 function getAvatar() {
   try { return localStorage.getItem('bs_avatar') || null; } catch(e) { return null; }
+}
+
+// ── Avatar cloud sync — load profile photos from HeyValue (like Gram feed) ──────
+const _hvAvatarCache = {};
+async function loadAvatarFromHV(userId) {
+  if (_hvAvatarCache[userId]) return _hvAvatarCache[userId];
+  if (!HV.user || !HV.pass) return null;
+  const path = '/BikerApp/profiles/' + userId + '/avatar.jpg';
+  const url = HV.url + '/nc' + path;
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) } });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => { _hvAvatarCache[userId] = e.target.result; resolve(e.target.result); };
+      reader.readAsDataURL(blob);
+    });
+  } catch(e) { return null; }
 }
 
 // ── Profile picture: 2-step (preview → confirm save) ─────────────────────────
@@ -2067,11 +2091,15 @@ async function handleProfilePicChange(e) {
 }
 
 // Apply avatar URL to all visible avatar elements without re-rendering the whole page
-function applyAvatarToUI(avatarUrl) {
+function applyAvatarToUI(avatarUrl, forUserId) {
+  const uid = forUserId || STATE.user?.id;
+  if (!uid) return;
   // Update STATE so any future renderProfile() etc. pick it up
-  STATE.user.avatar = avatarUrl;
-  STATE.user.profile_pic = avatarUrl;
-  const idx = STATE.users.findIndex(u => u.id === STATE.user.id);
+  if (uid === STATE.user?.id) {
+    STATE.user.avatar = avatarUrl;
+    STATE.user.profile_pic = avatarUrl;
+  }
+  const idx = STATE.users.findIndex(u => u.id === uid);
   if (idx >= 0) { STATE.users[idx].avatar = avatarUrl; STATE.users[idx].profile_pic = avatarUrl; }
 
   // Patch every avatar img on screen immediately (no re-render needed)
@@ -2441,7 +2469,17 @@ function initApp() {
       initIndexedDB().catch(() => {});
       loadPlaces();
       loadPanamaPOIs();
-      if (HV.user && HV.pass) { syncPostsFromCloud(); autoConnectHeyValue(); }
+      if (HV.user && HV.pass) {
+        syncPostsFromCloud();
+        autoConnectHeyValue();
+        // Preload current user's avatar from HeyValue (like Gram feed)
+        loadAvatarFromHV(STATE.user.id).then(url => {
+          if (url && !getAvatar()) {
+            saveAvatar(url);
+            applyAvatarToUI(url);
+          }
+        }).catch(() => {});
+      }
       autoActivateGPS();
       evaluateAllBadges();
       if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -3220,8 +3258,21 @@ function doLogin() {
   STATE.user = user;
   ls('bs_session', user);
 
-  // Motorcycle engine roar on login
-  try { document.getElementById('moto-sound').play().catch(() => {}); } catch(e) {}
+  // Digital notification chime on login — Web Audio API, no file needed
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
 
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('topbar').style.display = 'flex';
