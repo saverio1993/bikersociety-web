@@ -4084,18 +4084,6 @@ function showMoreMenu() {
       </button>
     </div>
 
-    <!-- Sincronizacion -->
-    <div class="fpanel-section-label">SINCRONIZACION</div>
-    <div class="fpanel-item" style="cursor:default">
-      <div class="fpanel-item-icon" style="${HV.connected ? 'background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3)' : 'background:rgba(255,136,0,0.15);border-color:rgba(255,136,0,0.3)'}">
-        ${HV.connected ? '✅' : '☁️'}
-      </div>
-      <div class="fpanel-item-text">
-        <span class="fpanel-item-label">HeyValue Cloud</span>
-        <span class="fpanel-item-sub">${HV.connected ? 'Conectado · Gram en la nube' : 'Conectando...'}</span>
-      </div>
-      ${HV.connected ? '<span style="font-size:10px;color:#22c55e;font-weight:700">OK</span>' : ''}
-    </div>
 
     ${isAdmin ? `
     <!-- Admin -->
@@ -4107,6 +4095,18 @@ function showMoreMenu() {
         <span class="fpanel-item-sub">Gestionar usuarios y contenido</span>
       </div>
       <span class="fpanel-item-arrow">→</span>
+    </div>
+    <!-- Sincronizacion (solo admins) -->
+    <div class="fpanel-section-label">SINCRONIZACION</div>
+    <div class="fpanel-item" style="cursor:default">
+      <div class="fpanel-item-icon" style="${HV.connected ? 'background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3)' : 'background:rgba(255,136,0,0.15);border-color:rgba(255,136,0,0.3)'}">
+        ${HV.connected ? '✅' : '☁️'}
+      </div>
+      <div class="fpanel-item-text">
+        <span class="fpanel-item-label">HeyValue Cloud</span>
+        <span class="fpanel-item-sub">${HV.connected ? 'Conectado' : 'No conectado'}</span>
+      </div>
+      ${HV.connected ? '<span style="font-size:10px;color:#22c55e;font-weight:700">OK</span>' : ''}
     </div>
     ` : ''}
 
