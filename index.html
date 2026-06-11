@@ -6770,8 +6770,19 @@ async function processPostFile(file) {
   let fileToUpload = file;
 
   if (isImage) {
-    dataUrl = await compressImage(file, 800, 0.8);
-    if (!dataUrl) { toast('No se pudo procesar la imagen'); return; }
+    // Feedback inmediato: leer + decodificar una foto de cámara (10-50MB) tarda 1-3s
+    const preview = document.getElementById('post-media-preview');
+    if (preview) {
+      preview.style.display = 'block';
+      preview.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:28px;color:var(--text2);font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px">
+        <div style="width:18px;height:18px;border:2px solid rgba(255,255,255,0.15);border-top-color:#ff4444;border-radius:50%;animation:avatarRing 0.8s linear infinite"></div>
+        Procesando foto...</div>`;
+    }
+    // 1600px @ 0.85 — nítida en pantallas modernas; si queda pesada, baja escalonado
+    dataUrl = await compressImage(file, 1600, 0.85);
+    if (dataUrl && dataUrl.length > 1200 * 1024) dataUrl = await compressImage(file, 1280, 0.8) || dataUrl;
+    if (dataUrl && dataUrl.length > 1200 * 1024) dataUrl = await compressImage(file, 1000, 0.72) || dataUrl;
+    if (!dataUrl) { toast('No se pudo procesar la imagen'); renderPostPreview(); return; }
   } else if (isVideo) {
     // Compress video with FFmpeg (720p, small file)
     const preview = document.getElementById('post-media-preview');
@@ -8733,12 +8744,34 @@ async function createPostInstant(content, mediaData) {
   }
 }
 
-async function uploadMediaAsync(postId, mediaData) {
+// Estado de subida en vivo por post: {pct, failed, media} — alimenta el badge del feed
+const UPLOAD_STATE = {};
+
+// Actualiza el badge en el DOM sin re-renderizar todo el feed (la subida emite
+// muchos eventos de progreso; un render completo por evento sería muy costoso)
+function updateUploadBadge(postId) {
+  const st = UPLOAD_STATE[postId];
+  document.querySelectorAll(`[data-upload-badge="${postId}"]`).forEach(el => {
+    if (!st) return;
+    if (st.failed) {
+      el.style.background = 'rgba(239,68,68,0.15)';
+      el.style.color = '#ef4444';
+      el.style.cursor = 'pointer';
+      el.textContent = '❌ Fallo — toca para reintentar';
+    } else {
+      el.textContent = '⏳ Subiendo' + (st.pct != null ? ' ' + st.pct + '%' : '...');
+    }
+  });
+}
+
+async function uploadMediaAsync(postId, mediaData, attempt = 0) {
   const typeFolder = mediaData.type === 'video' ? 'videos' : mediaData.type === 'audio' ? 'audio' : 'photos';
   const ext = mediaData.fileName ? mediaData.fileName.split('.').pop() : (mediaData.type === 'image' ? 'jpg' : 'mp4');
   const filename = Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
   const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
   const uploadUrl = HV.url + '/nc' + path;
+  UPLOAD_STATE[postId] = { pct: 0, failed: false, media: mediaData };
+  updateUploadBadge(postId);
   try {
     const blob = mediaData.blob;
     await new Promise((resolve, reject) => {
@@ -8746,14 +8779,22 @@ async function uploadMediaAsync(postId, mediaData) {
       xhr.open('PUT', uploadUrl);
       xhr.setRequestHeader('Authorization', 'Basic ' + btoa(HV.user + ':' + HV.pass));
       xhr.setRequestHeader('Content-Type', mediaData.mimeType || 'application/octet-stream');
+      xhr.upload.onprogress = ev => {
+        if (ev.lengthComputable && UPLOAD_STATE[postId]) {
+          UPLOAD_STATE[postId].pct = Math.round(ev.loaded / ev.total * 100);
+          updateUploadBadge(postId);
+        }
+      };
       xhr.onload = () => {
         if (xhr.status === 201 || xhr.status === 204 || xhr.status === 200) resolve();
         else reject(new Error('HTTP ' + xhr.status));
       };
       xhr.onerror = () => reject(new Error('Error'));
+      xhr.ontimeout = () => reject(new Error('Timeout'));
       xhr.timeout = 300000;
       xhr.send(blob);
     });
+    delete UPLOAD_STATE[postId];
     // Update post with real URL
     const p = STATE.posts.find(x => x.id === postId);
     if (p) {
@@ -8766,8 +8807,33 @@ async function uploadMediaAsync(postId, mediaData) {
       renderBikerGram();
     }
   } catch(e) {
-    console.warn('Media upload failed:', e);
+    console.warn('Media upload failed (intento ' + (attempt + 1) + '):', e);
+    if (attempt < 2) {
+      // Reintento automático: 3s el primero, 10s el segundo
+      setTimeout(() => uploadMediaAsync(postId, mediaData, attempt + 1), attempt === 0 ? 3000 : 10000);
+      return;
+    }
+    UPLOAD_STATE[postId] = { failed: true, media: mediaData };
+    updateUploadBadge(postId);
+    toast('No se pudo subir el archivo — toca el badge rojo para reintentar');
   }
+}
+
+// Reintento manual desde el badge rojo del post
+function retryUploadNow(postId) {
+  const st = UPLOAD_STATE[postId];
+  const p = STATE.posts.find(x => x.id === postId);
+  let media = st?.media;
+  if (!media && p && (p.media_url || '').startsWith('data:')) {
+    const blob = dataURLtoBlob(p.media_url);
+    if (blob) {
+      const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      media = { type: p.media_type || 'image', blob, fileName: 'retry.' + ext, mimeType: blob.type };
+    }
+  }
+  if (!media) { toast('No hay datos locales para reintentar'); return; }
+  toast('Reintentando subida...');
+  uploadMediaAsync(postId, media, 0);
 }
 
 // Recover posts whose large media (data:/blob: URLs) were stripped from localStorage
@@ -8821,7 +8887,12 @@ function renderUploadStatusBadge(p) {
   const url = p.media_url || p.image_url;
   const pending = url && (url.startsWith('data:') || url.startsWith('blob:')) && !p.synced;
   if (pending) {
-    return `<span style="font-size:9px;padding:1px 6px;background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:8px;font-weight:700;white-space:nowrap">⏳ Subiendo...</span>`;
+    const st = UPLOAD_STATE[p.id];
+    if (st?.failed) {
+      return `<span data-upload-badge="${p.id}" onclick="retryUploadNow(${p.id})" style="font-size:9px;padding:1px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:8px;font-weight:700;white-space:nowrap;cursor:pointer">❌ Fallo — toca para reintentar</span>`;
+    }
+    const pct = st?.pct != null ? ' ' + st.pct + '%' : '...';
+    return `<span data-upload-badge="${p.id}" style="font-size:9px;padding:1px 6px;background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:8px;font-weight:700;white-space:nowrap">⏳ Subiendo${pct}</span>`;
   }
   return `<span style="font-size:9px;padding:1px 6px;background:rgba(34,197,94,0.15);color:#22c55e;border-radius:8px;font-weight:700;white-space:nowrap">✅ Publicado</span>`;
 }
