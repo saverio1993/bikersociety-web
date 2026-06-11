@@ -2949,7 +2949,7 @@ function initApp() {
     startPresence();
     // Background ops — defer so UI renders first
     setTimeout(() => {
-      initIndexedDB().catch(() => {});
+      initIndexedDB().then(() => recoverPendingPostMedia()).catch(() => {});
       loadPlaces();
       loadPanamaPOIs();
       if (HV.user && HV.pass) {
@@ -3546,7 +3546,18 @@ function saveLocal() {
   ls('bs_users', STATE.users);
   ls('bs_routes', STATE.routes);
   ls('bs_events', STATE.events);
-  ls('bs_posts', STATE.posts);
+  // Strip large embedded data:/blob: media from posts before saving to localStorage —
+  // big base64 photos/videos can blow the ~5MB quota and silently fail to save,
+  // which makes the whole post (and any newer ones) disappear after reload.
+  // The full post (with media) stays safe in IndexedDB and gets restored on next load.
+  ls('bs_posts', (STATE.posts || []).map(p => {
+    const url = p.media_url || p.image_url;
+    if (url && (url.startsWith('data:') || url.startsWith('blob:')) && url.length > 5000) {
+      const { media_url, image_url, ...rest } = p;
+      return { ...rest, _pendingMedia: true };
+    }
+    return p;
+  }));
   ls('bs_badges', STATE.badges);
   ls('bs_challenges', STATE.challenges);
   ls('bs_uc', STATE.userChallenges);
@@ -8624,6 +8635,62 @@ async function uploadMediaAsync(postId, mediaData) {
   }
 }
 
+// Recover posts whose large media (data:/blob: URLs) were stripped from localStorage
+// to avoid quota errors, restoring them from IndexedDB so they appear again on reload.
+async function recoverPendingPostMedia() {
+  if (!DB) return;
+  const pending = (STATE.posts || []).filter(p => p._pendingMedia);
+  if (!pending.length) return;
+  let restored = false;
+  for (const p of pending) {
+    try {
+      const idbPost = await idbGet('posts', p.id);
+      if (idbPost && (idbPost.media_url || idbPost.image_url)) {
+        p.media_url = idbPost.media_url;
+        p.image_url = idbPost.image_url;
+        p.media_type = idbPost.media_type || p.media_type;
+        restored = true;
+      }
+    } catch(e) { console.warn('Recover post media failed:', e); }
+    delete p._pendingMedia;
+  }
+  if (restored) {
+    renderBikerGram();
+    retryPendingUploads();
+  }
+}
+
+// Retry uploading photos/videos/audio that never made it to HeyValue
+// (e.g. app was closed before the background upload finished).
+async function retryPendingUploads() {
+  if (!STATE.user || !HV.user || !HV.pass) return;
+  const pending = (STATE.posts || []).filter(p =>
+    p.user_id === STATE.user.id && !p.synced &&
+    (p.media_url || '').startsWith('data:')
+  );
+  for (const p of pending) {
+    const blob = dataURLtoBlob(p.media_url);
+    if (!blob) continue;
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    uploadMediaAsync(p.id, {
+      type: p.media_type || 'image',
+      blob,
+      fileName: 'retry.' + ext,
+      mimeType: blob.type
+    });
+  }
+}
+
+// Shows whether a post's media is still uploading to HeyValue or already published
+function renderUploadStatusBadge(p) {
+  const url = p.media_url || p.image_url;
+  const pending = url && (url.startsWith('data:') || url.startsWith('blob:')) && !p.synced;
+  if (pending) {
+    return `<span style="font-size:9px;padding:1px 6px;background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:8px;font-weight:700;white-space:nowrap">⏳ Subiendo...</span>`;
+  }
+  return `<span style="font-size:9px;padding:1px 6px;background:rgba(34,197,94,0.15);color:#22c55e;border-radius:8px;font-weight:700;white-space:nowrap">✅ Publicado</span>`;
+}
+
 // ===== ENHANCED POST CARD =====
 function renderPostCardEnhanced(p) {
   const author = STATE.users.find(u => u.id === p.user_id) || {username: '?', bike_model: '', avatar: '', is_admin: false};
@@ -8649,6 +8716,7 @@ function renderPostCardEnhanced(p) {
           <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
             <span>${timeAgo(p.created_at)}</span>
             ${mediaType ? `<span>· ${typeEmoji}</span>` : ''}
+            ${isMyPost && mediaType ? renderUploadStatusBadge(p) : ''}
           </div>
         </div>
         ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
