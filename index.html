@@ -5905,6 +5905,24 @@ function openGmapsStop(stopId) {
 
 
 
+// ============================================================
+// PUSH a todos los bikers (servidor /notify -> FCM topic "bikers")
+// El servidor valida por Origin + rate-limit; no se expone ninguna credencial.
+// ============================================================
+function bsNotifyAll(title, body, kind) {
+  try {
+    fetch('/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        body: (body || '').slice(0, 200),
+        kind: kind || 'evento'
+      })
+    }).catch(function () {});
+  } catch (e) {}
+}
+
 function doCreateRoute() {
   const name = document.getElementById('rt-name').value.trim();
   const desc = document.getElementById('rt-desc').value.trim();
@@ -5960,6 +5978,9 @@ function doCreateRoute() {
   STATE.selectedRoute = route;
   renderRutas();
   toast('Ruta creada!');
+  bsNotifyAll('🏍️ Nueva ruta: ' + name,
+    'Salida: ' + (startName || 'ver detalles') + (date ? (' · ' + date + (time ? ' ' + time : '')) : ''),
+    'ruta');
 }
 
 async function deleteRoute(id) {
@@ -6942,6 +6963,9 @@ function clearPostMedia() {
 
   // Upload media in background (already handled by createPostInstant)
   toast('Publicado!');
+  bsNotifyAll('📸 Nuevo post en BikerGram',
+    (STATE.user?.username ? STATE.user.username + ': ' : '') + (content || 'Nueva publicación'),
+    'post');
 }
 
 async function deletePost(id) {
@@ -7402,6 +7426,7 @@ function sendChatMessage() {
   inp.value = '';
   autoGrowChatInput(inp);
   renderChat();
+  bsNotifyAll('💬 ' + (STATE.user?.username || 'Alguien') + ' en el chat', content, 'chat');
 }
 
 function bindChatNotifications() {
