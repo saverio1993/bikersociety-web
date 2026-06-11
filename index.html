@@ -128,6 +128,32 @@ a{color:inherit;text-decoration:none}
   border-color:var(--accent);
   box-shadow:0 0 16px var(--glow);
 }
+#online-count-btn{
+  width:auto;height:30px;border-radius:16px;
+  display:flex;align-items:center;gap:6px;
+  padding:0 12px;
+  background:rgba(0,255,68,0.08);
+  border:1px solid rgba(0,255,68,0.22);
+  font-family:'Courier New',monospace;
+  font-size:11px;font-weight:700;letter-spacing:0.5px;
+  color:var(--success);text-transform:uppercase;
+}
+#online-count-btn:empty{display:none}
+#online-count-btn:hover{
+  background:rgba(0,255,68,0.15);
+  border-color:var(--success);
+  box-shadow:0 0 14px rgba(0,255,68,0.35);
+}
+.online-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:var(--success);
+  box-shadow:0 0 6px var(--success),0 0 12px rgba(0,255,68,0.6);
+  animation:onlinePulse 2s ease-in-out infinite;
+}
+@keyframes onlinePulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.5;transform:scale(.8)}
+}
 
 /* ===== BREADCRUMB BAR ===== */
 .breadcrumb-seg{
@@ -1223,7 +1249,7 @@ if (localStorage.getItem('bs_debug') === '1') {
     <img src="icons/logo.png" alt="Biker Society" style="width:36px;height:36px;border-radius:8px;object-fit:cover;box-shadow:0 0 10px rgba(255,32,32,0.4)">
   </div>
   <div class="topbar-actions">
-    <button id="online-count-btn" onclick="showOnlineMembers()" title="Miembros en linea" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:4px 6px;border-radius:8px"></button>
+    <button id="online-count-btn" onclick="showOnlineMembers()" title="Miembros en línea"></button>
     <button onclick="showNotifications()" title="Notificaciones">🔔</button>
     <button onclick="navigate('profile')" title="Mi perfil">👤</button>
   </div>
@@ -1431,14 +1457,14 @@ function getBadgeSvg(badge, earned) {
       background:radial-gradient(circle, ${c1}33 0%, transparent 70%);
       box-shadow:0 0 12px ${c1}aa, 0 0 4px ${c2}aa, inset 0 0 6px rgba(255,255,255,0.1);
       animation:badgeEarned 0.5s ease-out;
-    "><img src="${img.color}" style="width:56px;height:56px;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4))" alt="${badge.name}"></div>`;
+    "><img src="${img.color}" loading="lazy" style="width:56px;height:56px;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4))" alt="${badge.name}"></div>`;
   } else {
     return `<div style="
       width:64px;height:64px;display:flex;align-items:center;justify-content:center;
       border-radius:50%;
       background:radial-gradient(circle, #1a1a1a 0%, transparent 70%);
       opacity:0.45;
-    "><img src="${img.bw}" style="width:56px;height:56px;display:block;filter:grayscale(100%) brightness(0.7);" alt="${badge.name}"></div>`;
+    "><img src="${img.bw}" loading="lazy" style="width:56px;height:56px;display:block;filter:grayscale(100%) brightness(0.7);" alt="${badge.name}"></div>`;
   }
 }
 
@@ -1793,11 +1819,17 @@ function evaluateUserBadges(userId) {
     const totalBonus = newBadges.reduce((acc, b) => acc + b.points_bonus, 0);
     const u = STATE.users.find(u => u.id === userId);
     if (u) {
+      const oldLevel = levelNum(u.points || 0);
       u.points = (u.points || 0) + totalBonus;
+      const newLevel = levelNum(u.points);
       saveState();
-    }
-    if (userId === STATE.user?.id) {
-      toast(`🏅 +${newBadges.length} insignia(s)! +${totalBonus} pts`);
+      if (userId === STATE.user?.id) {
+        toast(`🏅 +${newBadges.length} insignia(s)! +${totalBonus} pts`);
+        newBadges.forEach(b => bsNotifyMe('🏅 ¡Insignia ganada!', b.name + ' · +' + b.points_bonus + ' pts'));
+        if (newLevel > oldLevel) {
+          bsNotifyMe('⬆️ ¡Subiste de nivel!', '¡Ahora eres ' + levelOf(u.points).name + '! 🎉');
+        }
+      }
     }
   }
 }
@@ -2398,21 +2430,21 @@ async function updatePresence() {
 
 async function loadOnlineCount() {
   const btn = document.getElementById('online-count-btn');
-  if (!btn || !STATE.user) { if (btn) btn.textContent = ''; return; }
+  if (!btn || !STATE.user) { if (btn) btn.innerHTML = ''; return; }
   try {
     const r = await hvRequest('GET', '/' + HV.syncKey + '/presence.json');
     const list = (r && r.ok && Array.isArray(r.data)) ? r.data : [];
     const cutoff = Date.now() - PRESENCE_TIMEOUT_MS;
     const online = list.filter(p => p.lastSeen > cutoff);
     if (online.length > 0) {
-      btn.textContent = '🟢 ' + online.length + ' en linea';
+      btn.innerHTML = '<span class="online-dot"></span><span>' + online.length + ' en línea</span>';
       btn.title = online.map(p => p.username).join(', ');
     } else {
-      btn.textContent = '';
+      btn.innerHTML = '';
     }
   } catch(e) {
     const btn = document.getElementById('online-count-btn');
-    if (btn) btn.textContent = '';
+    if (btn) btn.innerHTML = '';
   }
 }
 
@@ -2427,7 +2459,7 @@ function showOnlineMembers() {
   const list = document.querySelector('#online-members-list');
   if (!list) return;
   // Ya se cargo arriba, solo abre el modal
-  openModal('🟢 Miembros en linea', `
+  openModal('🟢 Miembros en línea', `
     <div id="online-members-list"></div>
   `);
   // Recargar para modal
@@ -2443,7 +2475,7 @@ function showOnlineMembers() {
       const el = document.getElementById('online-members-list');
       if (!el) return;
       if (!online.length) {
-        el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">No hay nadie en linea</div>';
+        el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">No hay nadie en línea</div>';
         return;
       }
       el.innerHTML = online.map(p => `
@@ -2536,6 +2568,10 @@ function openRouteMapPicker(existing) {
     _pickerMap.on('click', function(e) {
       _handlePickerTap(e.latlng);
     });
+
+    // POI layer: lugares de la base de datos visibles en el mapa
+    loadPanamaPOIs().then(function() { _renderPickerPOIs(); });
+    _pickerMap.on('moveend zoomend', _renderPickerPOIs);
 
     // Setup search
     setupPickerSearch();
@@ -2702,7 +2738,67 @@ function closeRouteMapPicker() {
   _pickerMarkers = [];
   _pickerPoints = [];
   _pickerMode = 'start';
+  _pickerPOILayer = null;
+  _pickerPOIRenderer = null;
   document.body.style.overflow = '';
+}
+
+// ============================================================
+// POI LAYER — lugares de la DB visibles en el mapa del picker
+// (solo agrega una capa de marcadores; no toca los tiles oscuros)
+// ============================================================
+var _pickerPOILayer = null;
+var _pickerPOIRenderer = null;
+
+function _poiCatColor(cat) {
+  var m = {
+    'Gasolinera':'#ff8800','Restaurante':'#22c55e','Comida rápida':'#facc15',
+    'Hospedaje':'#3b82f6','Servicio':'#a855f7','Taller':'#a855f7',
+    'Supermercado':'#f97316','Farmacia':'#06b6d4','Tienda':'#f59e0b',
+    'Cafeteria':'#d97706','Banco':'#10b981','ATM':'#10b981',
+    'Estacionamiento':'#64748b','Parqueo':'#64748b','Policia':'#3b82f6',
+    'Hospital':'#ef4444','Centro comercial':'#ec4899','Entretenimiento':'#ec4899'
+  };
+  return m[cat] || '#94a3b8';
+}
+
+function _renderPickerPOIs() {
+  if (!_pickerMap || !PANAMA_POIS.length) return;
+  if (_pickerPOILayer) { _pickerMap.removeLayer(_pickerPOILayer); _pickerPOILayer = null; }
+  var zoom = _pickerMap.getZoom();
+  if (zoom < 12) return; // muy alejado: ocultar para no saturar
+  var bounds = _pickerMap.getBounds().pad(0.1);
+  if (!_pickerPOIRenderer) _pickerPOIRenderer = L.canvas({ padding: 0.3 });
+  var layer = L.layerGroup();
+  var count = 0, MAX = 400;
+  for (var i = 0; i < PANAMA_POIS.length && count < MAX; i++) {
+    var p = PANAMA_POIS[i];
+    if (!bounds.contains([p.lat, p.lng])) continue;
+    var color = _poiCatColor(p.category);
+    var mk = L.circleMarker([p.lat, p.lng], {
+      renderer: _pickerPOIRenderer,
+      radius: zoom >= 15 ? 7 : zoom >= 13 ? 5 : 4,
+      fillColor: color, color: 'rgba(255,255,255,0.85)',
+      weight: 1, fillOpacity: 0.85
+    });
+    mk.bindPopup(
+      '<div style="min-width:160px;font-size:12px;line-height:1.5">' +
+        '<b>' + (p.icon || '📍') + ' ' + escHtml(p.name || 'Lugar') + '</b><br>' +
+        '<span style="color:#888">' + escHtml(p.subcategory || p.category || '') + '</span><br>' +
+        '<button onclick="_pickerUsePOIIdx(' + i + ')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:8px;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;font-size:12px;font-weight:700;cursor:pointer">➕ Usar como punto</button>' +
+      '</div>'
+    );
+    layer.addLayer(mk);
+    count++;
+  }
+  _pickerPOILayer = layer.addTo(_pickerMap);
+}
+
+function _pickerUsePOIIdx(i) {
+  var p = PANAMA_POIS[i];
+  if (!p || !_pickerMap) return;
+  _pickerMap.closePopup();
+  _pickerGoToPOI(p.lat, p.lng, p.name);
 }
 
 function setupPickerSearch() {
@@ -2722,12 +2818,23 @@ function setupPickerSearch() {
         if (_poiMarkers && _pickerMap) { _pickerMap.removeLayer(_poiMarkers); _poiMarkers = null; }
         return;
       }
-      var pois = (window.panamaPOIs || []).filter(function(p) {
-        return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.subcategory || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.category || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.address || '').toLowerCase().indexOf(q) !== -1;
-      }).slice(0, 10);
+      var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+      var nq = norm(q);
+      var matches = (PANAMA_POIS || []).filter(function(p) {
+        return norm(p.name).indexOf(nq) !== -1 ||
+               norm(p.subcategory).indexOf(nq) !== -1 ||
+               norm(p.category).indexOf(nq) !== -1 ||
+               norm(p.address).indexOf(nq) !== -1;
+      });
+      // Prioridad: nombre que empieza con lo escrito > nombre que lo contiene > resto
+      matches.sort(function(a, b) {
+        var rank = function(p) {
+          var n = norm(p.name);
+          return n.indexOf(nq) === 0 ? 0 : n.indexOf(nq) !== -1 ? 1 : 2;
+        };
+        return rank(a) - rank(b);
+      });
+      var pois = matches.slice(0, 10);
 
       if (!pois.length) {
         resultsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px">Sin resultados</div>';
@@ -2735,13 +2842,8 @@ function setupPickerSearch() {
         return;
       }
 
-      // Color map by category
-      var catColor = function(cat) {
-        var m = {fuel:'#ff8800', restaurant:'#22c55e', fast_food:'#facc15', hotel:'#3b82f6',
-                 service:'#a855f7', police:'#3b82f6', hospital:'#ef4444', pharmacy:'#06b6d4',
-                 supermarket:'#f97316', mall:'#ec4899'};
-        return m[cat] || '#94a3b8';
-      };
+      // Color por categoría (mismas que la capa del mapa)
+      var catColor = _poiCatColor;
 
       resultsDiv.innerHTML = pois.map(function(p) {
         return '<div onclick="_pickerGoToPOI(' + p.lat + ',' + p.lng + ',\'' + escHtml(p.name || 'Lugar').replace(/'/g, "\\'") + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s" onmouseover="this.style.background=\'rgba(255,68,68,0.08)\'" onmouseout="this.style.background=\'\'">' +
@@ -2949,7 +3051,7 @@ function initApp() {
     startPresence();
     // Background ops — defer so UI renders first
     setTimeout(() => {
-      initIndexedDB().catch(() => {});
+      initIndexedDB().then(() => recoverPendingPostMedia()).catch(() => {});
       loadPlaces();
       loadPanamaPOIs();
       if (HV.user && HV.pass) {
@@ -3546,7 +3648,18 @@ function saveLocal() {
   ls('bs_users', STATE.users);
   ls('bs_routes', STATE.routes);
   ls('bs_events', STATE.events);
-  ls('bs_posts', STATE.posts);
+  // Strip large embedded data:/blob: media from posts before saving to localStorage —
+  // big base64 photos/videos can blow the ~5MB quota and silently fail to save,
+  // which makes the whole post (and any newer ones) disappear after reload.
+  // The full post (with media) stays safe in IndexedDB and gets restored on next load.
+  ls('bs_posts', (STATE.posts || []).map(p => {
+    const url = p.media_url || p.image_url;
+    if (url && (url.startsWith('data:') || url.startsWith('blob:')) && url.length > 5000) {
+      const { media_url, image_url, ...rest } = p;
+      return { ...rest, _pendingMedia: true };
+    }
+    return p;
+  }));
   ls('bs_badges', STATE.badges);
   ls('bs_challenges', STATE.challenges);
   ls('bs_uc', STATE.userChallenges);
@@ -5277,7 +5390,7 @@ function doEditRoute(id) {
 function createRoute() {
   if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear rutas'); return; }
   // Preload POIs if not loaded yet
-  if (!window.panamaPOIs) loadPanamaPOIs();
+  if (!PANAMA_POIS.length) loadPanamaPOIs();
   // Pre-fill from saved POI state
   const s = _routePOI.start || {};
   const e = _routePOI.end || {};
@@ -5477,13 +5590,15 @@ function startPOIPicker(target) {
     clearTimeout(_searchTimeout);
     q = (q || '').trim().toLowerCase();
     _searchTimeout = setTimeout(function() {
-      var pois = window.panamaPOIs || [];
+      var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+      var nq = norm(q);
+      var pois = PANAMA_POIS || [];
       if (q.length >= 2) {
         pois = pois.filter(function(p) {
-          return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.subcategory || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.category || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.address || '').toLowerCase().indexOf(q) !== -1;
+          return norm(p.name).indexOf(nq) !== -1 ||
+                 norm(p.subcategory).indexOf(nq) !== -1 ||
+                 norm(p.category).indexOf(nq) !== -1 ||
+                 norm(p.address).indexOf(nq) !== -1;
         });
       }
       renderPOIs(pois);
@@ -5493,25 +5608,21 @@ function startPOIPicker(target) {
   // Load POIs onto map
   loadPOIsToMap();
   
-  // Color-code by category for circle markers
+  // Color-code by category for circle markers (mismos colores que la capa del picker)
   function catColor(cat) {
-    var m = {fuel:'#ff8800', restaurant:'#22c55e', fast_food:'#facc15', hotel:'#3b82f6', 
-             service:'#a855f7', police:'#3b82f6', hospital:'#ef4444', pharmacy:'#06b6d4',
-             supermarket:'#f97316', mall:'#ec4899'};
-    return m[cat] || '#94a3b8';
+    return _poiCatColor(cat);
   }
-  
+
   // Show POIs
   function loadPOIsToMap() {
     if (!STATE.map) return;
     if (_poiMarkers) { STATE.map.removeLayer(_poiMarkers); }
-    
-    var pois = window.panamaPOIs || [];
+
+    var pois = PANAMA_POIS || [];
     if (pois.length === 0) {
       // Try loading
-      fetch('data/panama_pois.json')
-        .then(r => r.json())
-        .then(data => { window.panamaPOIs = data; renderPOIs(data); })
+      loadPanamaPOIs()
+        .then(() => { if (PANAMA_POIS.length) renderPOIs(PANAMA_POIS); else toast('No se pudo cargar la base de datos'); })
         .catch(() => toast('No se pudo cargar la base de datos'));
       return;
     }
@@ -5800,6 +5911,34 @@ function openGmapsStop(stopId) {
 
 
 
+// ============================================================
+// PUSH a todos los bikers (servidor /notify -> FCM topic "bikers")
+// El servidor valida por Origin + rate-limit; no se expone ninguna credencial.
+// ============================================================
+function bsNotifyAll(title, body, kind) {
+  try {
+    fetch('/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        body: (body || '').slice(0, 200),
+        kind: kind || 'evento'
+      })
+    }).catch(function () {});
+  } catch (e) {}
+}
+
+// Notificación PERSONAL local (medalla / subir de nivel) — vía puente nativo.
+// No-op en navegador normal; solo actúa dentro de la app Android.
+function bsNotifyMe(title, body) {
+  try {
+    if (window.BikerNative && window.BikerNative.notify) {
+      window.BikerNative.notify(title, body || '');
+    }
+  } catch (e) {}
+}
+
 function doCreateRoute() {
   const name = document.getElementById('rt-name').value.trim();
   const desc = document.getElementById('rt-desc').value.trim();
@@ -5855,6 +5994,9 @@ function doCreateRoute() {
   STATE.selectedRoute = route;
   renderRutas();
   toast('Ruta creada!');
+  bsNotifyAll('🏍️ Nueva ruta: ' + name,
+    'Salida: ' + (startName || 'ver detalles') + (date ? (' · ' + date + (time ? ' ' + time : '')) : ''),
+    'ruta');
 }
 
 async function deleteRoute(id) {
@@ -6628,8 +6770,19 @@ async function processPostFile(file) {
   let fileToUpload = file;
 
   if (isImage) {
-    dataUrl = await compressImage(file, 800, 0.8);
-    if (!dataUrl) { toast('No se pudo procesar la imagen'); return; }
+    // Feedback inmediato: leer + decodificar una foto de cámara (10-50MB) tarda 1-3s
+    const preview = document.getElementById('post-media-preview');
+    if (preview) {
+      preview.style.display = 'block';
+      preview.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:28px;color:var(--text2);font-size:13px;background:rgba(255,255,255,0.03);border-radius:12px">
+        <div style="width:18px;height:18px;border:2px solid rgba(255,255,255,0.15);border-top-color:#ff4444;border-radius:50%;animation:avatarRing 0.8s linear infinite"></div>
+        Procesando foto...</div>`;
+    }
+    // 1600px @ 0.85 — nítida en pantallas modernas; si queda pesada, baja escalonado
+    dataUrl = await compressImage(file, 1600, 0.85);
+    if (dataUrl && dataUrl.length > 1200 * 1024) dataUrl = await compressImage(file, 1280, 0.8) || dataUrl;
+    if (dataUrl && dataUrl.length > 1200 * 1024) dataUrl = await compressImage(file, 1000, 0.72) || dataUrl;
+    if (!dataUrl) { toast('No se pudo procesar la imagen'); renderPostPreview(); return; }
   } else if (isVideo) {
     // Compress video with FFmpeg (720p, small file)
     const preview = document.getElementById('post-media-preview');
@@ -6837,6 +6990,9 @@ function clearPostMedia() {
 
   // Upload media in background (already handled by createPostInstant)
   toast('Publicado!');
+  bsNotifyAll('📸 Nuevo post en BikerGram',
+    (STATE.user?.username ? STATE.user.username + ': ' : '') + (content || 'Nueva publicación'),
+    'post');
 }
 
 async function deletePost(id) {
@@ -7297,6 +7453,7 @@ function sendChatMessage() {
   inp.value = '';
   autoGrowChatInput(inp);
   renderChat();
+  bsNotifyAll('💬 ' + (STATE.user?.username || 'Alguien') + ' en el chat', content, 'chat');
 }
 
 function bindChatNotifications() {
@@ -8587,12 +8744,34 @@ async function createPostInstant(content, mediaData) {
   }
 }
 
-async function uploadMediaAsync(postId, mediaData) {
+// Estado de subida en vivo por post: {pct, failed, media} — alimenta el badge del feed
+const UPLOAD_STATE = {};
+
+// Actualiza el badge en el DOM sin re-renderizar todo el feed (la subida emite
+// muchos eventos de progreso; un render completo por evento sería muy costoso)
+function updateUploadBadge(postId) {
+  const st = UPLOAD_STATE[postId];
+  document.querySelectorAll(`[data-upload-badge="${postId}"]`).forEach(el => {
+    if (!st) return;
+    if (st.failed) {
+      el.style.background = 'rgba(239,68,68,0.15)';
+      el.style.color = '#ef4444';
+      el.style.cursor = 'pointer';
+      el.textContent = '❌ Fallo — toca para reintentar';
+    } else {
+      el.textContent = '⏳ Subiendo' + (st.pct != null ? ' ' + st.pct + '%' : '...');
+    }
+  });
+}
+
+async function uploadMediaAsync(postId, mediaData, attempt = 0) {
   const typeFolder = mediaData.type === 'video' ? 'videos' : mediaData.type === 'audio' ? 'audio' : 'photos';
   const ext = mediaData.fileName ? mediaData.fileName.split('.').pop() : (mediaData.type === 'image' ? 'jpg' : 'mp4');
   const filename = Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
   const path = '/' + HV.gramFolder + '/' + typeFolder + '/' + filename;
   const uploadUrl = HV.url + '/nc' + path;
+  UPLOAD_STATE[postId] = { pct: 0, failed: false, media: mediaData };
+  updateUploadBadge(postId);
   try {
     const blob = mediaData.blob;
     await new Promise((resolve, reject) => {
@@ -8600,14 +8779,22 @@ async function uploadMediaAsync(postId, mediaData) {
       xhr.open('PUT', uploadUrl);
       xhr.setRequestHeader('Authorization', 'Basic ' + btoa(HV.user + ':' + HV.pass));
       xhr.setRequestHeader('Content-Type', mediaData.mimeType || 'application/octet-stream');
+      xhr.upload.onprogress = ev => {
+        if (ev.lengthComputable && UPLOAD_STATE[postId]) {
+          UPLOAD_STATE[postId].pct = Math.round(ev.loaded / ev.total * 100);
+          updateUploadBadge(postId);
+        }
+      };
       xhr.onload = () => {
         if (xhr.status === 201 || xhr.status === 204 || xhr.status === 200) resolve();
         else reject(new Error('HTTP ' + xhr.status));
       };
       xhr.onerror = () => reject(new Error('Error'));
+      xhr.ontimeout = () => reject(new Error('Timeout'));
       xhr.timeout = 300000;
       xhr.send(blob);
     });
+    delete UPLOAD_STATE[postId];
     // Update post with real URL
     const p = STATE.posts.find(x => x.id === postId);
     if (p) {
@@ -8620,8 +8807,94 @@ async function uploadMediaAsync(postId, mediaData) {
       renderBikerGram();
     }
   } catch(e) {
-    console.warn('Media upload failed:', e);
+    console.warn('Media upload failed (intento ' + (attempt + 1) + '):', e);
+    if (attempt < 2) {
+      // Reintento automático: 3s el primero, 10s el segundo
+      setTimeout(() => uploadMediaAsync(postId, mediaData, attempt + 1), attempt === 0 ? 3000 : 10000);
+      return;
+    }
+    UPLOAD_STATE[postId] = { failed: true, media: mediaData };
+    updateUploadBadge(postId);
+    toast('No se pudo subir el archivo — toca el badge rojo para reintentar');
   }
+}
+
+// Reintento manual desde el badge rojo del post
+function retryUploadNow(postId) {
+  const st = UPLOAD_STATE[postId];
+  const p = STATE.posts.find(x => x.id === postId);
+  let media = st?.media;
+  if (!media && p && (p.media_url || '').startsWith('data:')) {
+    const blob = dataURLtoBlob(p.media_url);
+    if (blob) {
+      const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+      media = { type: p.media_type || 'image', blob, fileName: 'retry.' + ext, mimeType: blob.type };
+    }
+  }
+  if (!media) { toast('No hay datos locales para reintentar'); return; }
+  toast('Reintentando subida...');
+  uploadMediaAsync(postId, media, 0);
+}
+
+// Recover posts whose large media (data:/blob: URLs) were stripped from localStorage
+// to avoid quota errors, restoring them from IndexedDB so they appear again on reload.
+async function recoverPendingPostMedia() {
+  if (!DB) return;
+  const pending = (STATE.posts || []).filter(p => p._pendingMedia);
+  if (!pending.length) return;
+  let restored = false;
+  for (const p of pending) {
+    try {
+      const idbPost = await idbGet('posts', p.id);
+      if (idbPost && (idbPost.media_url || idbPost.image_url)) {
+        p.media_url = idbPost.media_url;
+        p.image_url = idbPost.image_url;
+        p.media_type = idbPost.media_type || p.media_type;
+        restored = true;
+      }
+    } catch(e) { console.warn('Recover post media failed:', e); }
+    delete p._pendingMedia;
+  }
+  if (restored) {
+    renderBikerGram();
+    retryPendingUploads();
+  }
+}
+
+// Retry uploading photos/videos/audio that never made it to HeyValue
+// (e.g. app was closed before the background upload finished).
+async function retryPendingUploads() {
+  if (!STATE.user || !HV.user || !HV.pass) return;
+  const pending = (STATE.posts || []).filter(p =>
+    p.user_id === STATE.user.id && !p.synced &&
+    (p.media_url || '').startsWith('data:')
+  );
+  for (const p of pending) {
+    const blob = dataURLtoBlob(p.media_url);
+    if (!blob) continue;
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    uploadMediaAsync(p.id, {
+      type: p.media_type || 'image',
+      blob,
+      fileName: 'retry.' + ext,
+      mimeType: blob.type
+    });
+  }
+}
+
+// Shows whether a post's media is still uploading to HeyValue or already published
+function renderUploadStatusBadge(p) {
+  const url = p.media_url || p.image_url;
+  const pending = url && (url.startsWith('data:') || url.startsWith('blob:')) && !p.synced;
+  if (pending) {
+    const st = UPLOAD_STATE[p.id];
+    if (st?.failed) {
+      return `<span data-upload-badge="${p.id}" onclick="retryUploadNow(${p.id})" style="font-size:9px;padding:1px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:8px;font-weight:700;white-space:nowrap;cursor:pointer">❌ Fallo — toca para reintentar</span>`;
+    }
+    const pct = st?.pct != null ? ' ' + st.pct + '%' : '...';
+    return `<span data-upload-badge="${p.id}" style="font-size:9px;padding:1px 6px;background:rgba(251,191,36,0.15);color:#fbbf24;border-radius:8px;font-weight:700;white-space:nowrap">⏳ Subiendo${pct}</span>`;
+  }
+  return `<span style="font-size:9px;padding:1px 6px;background:rgba(34,197,94,0.15);color:#22c55e;border-radius:8px;font-weight:700;white-space:nowrap">✅ Publicado</span>`;
 }
 
 // ===== ENHANCED POST CARD =====
@@ -8649,6 +8922,7 @@ function renderPostCardEnhanced(p) {
           <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3)">
             <span>${timeAgo(p.created_at)}</span>
             ${mediaType ? `<span>· ${typeEmoji}</span>` : ''}
+            ${isMyPost && mediaType ? renderUploadStatusBadge(p) : ''}
           </div>
         </div>
         ${isMyPost ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:11px" onclick="deletePost(${p.id})">🗑️</button>` : ''}
@@ -8741,7 +9015,7 @@ function renderEnhancedProfile(userId) {
       ${posts.length > 0 ? `
         <div style="border-top:1px solid var(--border);padding-top:12px">
           <div style="padding:0 14px 10px;font-size:12px;font-weight:700;color:var(--text2)">PUBLICACIONES</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px">
             ${posts.map(p => `
               <div style="aspect-ratio:1;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${p.media_url || p.image_url || ''}')">
                 ${(p.media_url || p.image_url) ? `<img src="${p.media_url || p.image_url}" style="width:100%;height:100%;object-fit:cover">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px">📝</div>`}
@@ -8754,4 +9028,5 @@ function renderEnhancedProfile(userId) {
   `;
 }
 </script>
+</body>
 </html>
