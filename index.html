@@ -1819,11 +1819,17 @@ function evaluateUserBadges(userId) {
     const totalBonus = newBadges.reduce((acc, b) => acc + b.points_bonus, 0);
     const u = STATE.users.find(u => u.id === userId);
     if (u) {
+      const oldLevel = levelNum(u.points || 0);
       u.points = (u.points || 0) + totalBonus;
+      const newLevel = levelNum(u.points);
       saveState();
-    }
-    if (userId === STATE.user?.id) {
-      toast(`🏅 +${newBadges.length} insignia(s)! +${totalBonus} pts`);
+      if (userId === STATE.user?.id) {
+        toast(`🏅 +${newBadges.length} insignia(s)! +${totalBonus} pts`);
+        newBadges.forEach(b => bsNotifyMe('🏅 ¡Insignia ganada!', b.name + ' · +' + b.points_bonus + ' pts'));
+        if (newLevel > oldLevel) {
+          bsNotifyMe('⬆️ ¡Subiste de nivel!', '¡Ahora eres ' + levelOf(u.points).name + '! 🎉');
+        }
+      }
     }
   }
 }
@@ -5920,6 +5926,16 @@ function bsNotifyAll(title, body, kind) {
         kind: kind || 'evento'
       })
     }).catch(function () {});
+  } catch (e) {}
+}
+
+// Notificación PERSONAL local (medalla / subir de nivel) — vía puente nativo.
+// No-op en navegador normal; solo actúa dentro de la app Android.
+function bsNotifyMe(title, body) {
+  try {
+    if (window.BikerNative && window.BikerNative.notify) {
+      window.BikerNative.notify(title, body || '');
+    }
   } catch (e) {}
 }
 
