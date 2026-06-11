@@ -2563,6 +2563,10 @@ function openRouteMapPicker(existing) {
       _handlePickerTap(e.latlng);
     });
 
+    // POI layer: lugares de la base de datos visibles en el mapa
+    loadPanamaPOIs().then(function() { _renderPickerPOIs(); });
+    _pickerMap.on('moveend zoomend', _renderPickerPOIs);
+
     // Setup search
     setupPickerSearch();
 
@@ -2728,7 +2732,67 @@ function closeRouteMapPicker() {
   _pickerMarkers = [];
   _pickerPoints = [];
   _pickerMode = 'start';
+  _pickerPOILayer = null;
+  _pickerPOIRenderer = null;
   document.body.style.overflow = '';
+}
+
+// ============================================================
+// POI LAYER — lugares de la DB visibles en el mapa del picker
+// (solo agrega una capa de marcadores; no toca los tiles oscuros)
+// ============================================================
+var _pickerPOILayer = null;
+var _pickerPOIRenderer = null;
+
+function _poiCatColor(cat) {
+  var m = {
+    'Gasolinera':'#ff8800','Restaurante':'#22c55e','Comida rápida':'#facc15',
+    'Hospedaje':'#3b82f6','Servicio':'#a855f7','Taller':'#a855f7',
+    'Supermercado':'#f97316','Farmacia':'#06b6d4','Tienda':'#f59e0b',
+    'Cafeteria':'#d97706','Banco':'#10b981','ATM':'#10b981',
+    'Estacionamiento':'#64748b','Parqueo':'#64748b','Policia':'#3b82f6',
+    'Hospital':'#ef4444','Centro comercial':'#ec4899','Entretenimiento':'#ec4899'
+  };
+  return m[cat] || '#94a3b8';
+}
+
+function _renderPickerPOIs() {
+  if (!_pickerMap || !PANAMA_POIS.length) return;
+  if (_pickerPOILayer) { _pickerMap.removeLayer(_pickerPOILayer); _pickerPOILayer = null; }
+  var zoom = _pickerMap.getZoom();
+  if (zoom < 12) return; // muy alejado: ocultar para no saturar
+  var bounds = _pickerMap.getBounds().pad(0.1);
+  if (!_pickerPOIRenderer) _pickerPOIRenderer = L.canvas({ padding: 0.3 });
+  var layer = L.layerGroup();
+  var count = 0, MAX = 400;
+  for (var i = 0; i < PANAMA_POIS.length && count < MAX; i++) {
+    var p = PANAMA_POIS[i];
+    if (!bounds.contains([p.lat, p.lng])) continue;
+    var color = _poiCatColor(p.category);
+    var mk = L.circleMarker([p.lat, p.lng], {
+      renderer: _pickerPOIRenderer,
+      radius: zoom >= 15 ? 7 : zoom >= 13 ? 5 : 4,
+      fillColor: color, color: 'rgba(255,255,255,0.85)',
+      weight: 1, fillOpacity: 0.85
+    });
+    mk.bindPopup(
+      '<div style="min-width:160px;font-size:12px;line-height:1.5">' +
+        '<b>' + (p.icon || '📍') + ' ' + escHtml(p.name || 'Lugar') + '</b><br>' +
+        '<span style="color:#888">' + escHtml(p.subcategory || p.category || '') + '</span><br>' +
+        '<button onclick="_pickerUsePOIIdx(' + i + ')" style="margin-top:6px;width:100%;padding:6px;border:none;border-radius:8px;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;font-size:12px;font-weight:700;cursor:pointer">➕ Usar como punto</button>' +
+      '</div>'
+    );
+    layer.addLayer(mk);
+    count++;
+  }
+  _pickerPOILayer = layer.addTo(_pickerMap);
+}
+
+function _pickerUsePOIIdx(i) {
+  var p = PANAMA_POIS[i];
+  if (!p || !_pickerMap) return;
+  _pickerMap.closePopup();
+  _pickerGoToPOI(p.lat, p.lng, p.name);
 }
 
 function setupPickerSearch() {
@@ -2748,12 +2812,23 @@ function setupPickerSearch() {
         if (_poiMarkers && _pickerMap) { _pickerMap.removeLayer(_poiMarkers); _poiMarkers = null; }
         return;
       }
-      var pois = (window.panamaPOIs || []).filter(function(p) {
-        return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.subcategory || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.category || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.address || '').toLowerCase().indexOf(q) !== -1;
-      }).slice(0, 10);
+      var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+      var nq = norm(q);
+      var matches = (PANAMA_POIS || []).filter(function(p) {
+        return norm(p.name).indexOf(nq) !== -1 ||
+               norm(p.subcategory).indexOf(nq) !== -1 ||
+               norm(p.category).indexOf(nq) !== -1 ||
+               norm(p.address).indexOf(nq) !== -1;
+      });
+      // Prioridad: nombre que empieza con lo escrito > nombre que lo contiene > resto
+      matches.sort(function(a, b) {
+        var rank = function(p) {
+          var n = norm(p.name);
+          return n.indexOf(nq) === 0 ? 0 : n.indexOf(nq) !== -1 ? 1 : 2;
+        };
+        return rank(a) - rank(b);
+      });
+      var pois = matches.slice(0, 10);
 
       if (!pois.length) {
         resultsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px">Sin resultados</div>';
@@ -2761,13 +2836,8 @@ function setupPickerSearch() {
         return;
       }
 
-      // Color map by category
-      var catColor = function(cat) {
-        var m = {fuel:'#ff8800', restaurant:'#22c55e', fast_food:'#facc15', hotel:'#3b82f6',
-                 service:'#a855f7', police:'#3b82f6', hospital:'#ef4444', pharmacy:'#06b6d4',
-                 supermarket:'#f97316', mall:'#ec4899'};
-        return m[cat] || '#94a3b8';
-      };
+      // Color por categoría (mismas que la capa del mapa)
+      var catColor = _poiCatColor;
 
       resultsDiv.innerHTML = pois.map(function(p) {
         return '<div onclick="_pickerGoToPOI(' + p.lat + ',' + p.lng + ',\'' + escHtml(p.name || 'Lugar').replace(/'/g, "\\'") + '\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);transition:background 0.15s" onmouseover="this.style.background=\'rgba(255,68,68,0.08)\'" onmouseout="this.style.background=\'\'">' +
@@ -5314,7 +5384,7 @@ function doEditRoute(id) {
 function createRoute() {
   if (!STATE.user?.is_admin) { toast('Solo administradores pueden crear rutas'); return; }
   // Preload POIs if not loaded yet
-  if (!window.panamaPOIs) loadPanamaPOIs();
+  if (!PANAMA_POIS.length) loadPanamaPOIs();
   // Pre-fill from saved POI state
   const s = _routePOI.start || {};
   const e = _routePOI.end || {};
@@ -5514,13 +5584,15 @@ function startPOIPicker(target) {
     clearTimeout(_searchTimeout);
     q = (q || '').trim().toLowerCase();
     _searchTimeout = setTimeout(function() {
-      var pois = window.panamaPOIs || [];
+      var norm = function(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
+      var nq = norm(q);
+      var pois = PANAMA_POIS || [];
       if (q.length >= 2) {
         pois = pois.filter(function(p) {
-          return (p.name || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.subcategory || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.category || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.address || '').toLowerCase().indexOf(q) !== -1;
+          return norm(p.name).indexOf(nq) !== -1 ||
+                 norm(p.subcategory).indexOf(nq) !== -1 ||
+                 norm(p.category).indexOf(nq) !== -1 ||
+                 norm(p.address).indexOf(nq) !== -1;
         });
       }
       renderPOIs(pois);
@@ -5530,25 +5602,21 @@ function startPOIPicker(target) {
   // Load POIs onto map
   loadPOIsToMap();
   
-  // Color-code by category for circle markers
+  // Color-code by category for circle markers (mismos colores que la capa del picker)
   function catColor(cat) {
-    var m = {fuel:'#ff8800', restaurant:'#22c55e', fast_food:'#facc15', hotel:'#3b82f6', 
-             service:'#a855f7', police:'#3b82f6', hospital:'#ef4444', pharmacy:'#06b6d4',
-             supermarket:'#f97316', mall:'#ec4899'};
-    return m[cat] || '#94a3b8';
+    return _poiCatColor(cat);
   }
-  
+
   // Show POIs
   function loadPOIsToMap() {
     if (!STATE.map) return;
     if (_poiMarkers) { STATE.map.removeLayer(_poiMarkers); }
-    
-    var pois = window.panamaPOIs || [];
+
+    var pois = PANAMA_POIS || [];
     if (pois.length === 0) {
       // Try loading
-      fetch('data/panama_pois.json')
-        .then(r => r.json())
-        .then(data => { window.panamaPOIs = data; renderPOIs(data); })
+      loadPanamaPOIs()
+        .then(() => { if (PANAMA_POIS.length) renderPOIs(PANAMA_POIS); else toast('No se pudo cargar la base de datos'); })
         .catch(() => toast('No se pudo cargar la base de datos'));
       return;
     }
@@ -8848,4 +8916,5 @@ function renderEnhancedProfile(userId) {
   `;
 }
 </script>
+</body>
 </html>
