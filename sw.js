@@ -1,9 +1,9 @@
 // Biker Society Service Worker
-const CACHE_NAME = 'biker-v4';
+const CACHE_NAME = 'biker-v5';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+  './',
+  './index.html',
+  './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
 ];
@@ -42,7 +42,7 @@ self.addEventListener('fetch', e => {
         return res;
       }).catch(() => cached);
       // HTML: always try network first, fall back to cache
-      return url.pathname === '/' || url.pathname.endsWith('.html') ? networkFetch : (cached || networkFetch);
+      return url.pathname.endsWith('/') || url.pathname.endsWith('.html') ? networkFetch : (cached || networkFetch);
     })
   );
 });
@@ -60,8 +60,8 @@ self.addEventListener('push', e => {
   const data = e.data.json();
   self.registration.showNotification(data.title || 'Biker Society', {
     body: data.body || 'Nueva notificacion',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
     tag: data.tag || 'biker-notif',
     vibrate: [200, 100, 200],
     data: data.url ? { url: data.url } : {}
@@ -70,7 +70,7 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = e.notification.data?.url || '/';
+  const url = e.notification.data?.url || './';
   e.waitUntil(clients.openWindow(url));
 });
 
