@@ -3582,15 +3582,10 @@ async function autoConnectHeyValue() {
     saveLocal(); // save to localStorage only, don't re-upload
     // Re-render current page with cloud data
     if (STATE.currentPage) renderPage(STATE.currentPage);
-    // Start background refresh every 5s
+    // Refresco en vivo del feed: posts + comentarios, detectando me gusta y
+    // reacciones (no solo posts nuevos), sin molestar a quien escribe o lee.
     if (STATE._refreshTimer) clearInterval(STATE._refreshTimer);
-    STATE._refreshTimer = setInterval(async () => {
-      if (STATE.currentPage === 'bikergram') {
-        const prev = STATE.posts.length;
-        await syncPostsFromCloud();
-        if (STATE.posts.length !== prev) renderBikerGram(); // solo re-render si hay cambios reales
-      }
-    }, 3000); // cada 3s, no cada 2s
+    STATE._refreshTimer = setInterval(liveFeedTick, 2500);
   } catch(e) {
     console.warn('HeyValue auto-connect failed:', e.message);
   }
@@ -3631,6 +3626,100 @@ async function syncPostsFromCloud() {
       }
     }
     STATE.posts = merged.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+}
+
+// Trae comentarios de la nube (lo que comentan otros) sin pisar los míos locales
+// que aún no han subido. Permite que el contador y la lista se actualicen en vivo.
+async function syncCommentsFromCloud() {
+  if (!HV.user) return;
+  const data = await loadFromHV('comments');
+  if (data && Array.isArray(data)) {
+    const cloudMap = new Map(data.map(c => [c.id, c]));
+    const localOnly = (STATE.comments || []).filter(c => !cloudMap.has(c.id));
+    STATE.comments = [...data, ...localOnly];
+  }
+}
+
+// "Firma" ligera del feed: cambia si hay un post nuevo, un me gusta, una
+// reacción o un comentario. Así el refresco detecta cambios reales, no solo
+// posts nuevos (antes un me gusta de otro no se veía hasta recargar).
+function bikergramSignature() {
+  const posts = STATE.posts || [];
+  const cByPost = {};
+  (STATE.comments || []).forEach(c => { cByPost[c.post_id] = (cByPost[c.post_id] || 0) + 1; });
+  return posts.map(p => {
+    const rx = Object.values(p.reactions || {}).reduce((a, b) => a + b, 0);
+    return p.id + ':' + (p.likes || []).length + ':' + rx + ':' + (cByPost[p.id] || 0);
+  }).join('|') + '#' + posts.length;
+}
+
+// ¿El usuario está escribiendo un comentario o leyendo una sección abierta?
+// Si es así, NO re-renderizamos (le borraríamos el texto / saltaría el scroll).
+function feedHasOpenInteraction() {
+  const ae = document.activeElement;
+  if (ae && ae.id && (ae.id.indexOf('cmt-') === 0 || ae.id.indexOf('comment-input-') === 0)) return true;
+  const inputs = document.querySelectorAll('[id^="cmt-"], [id^="comment-input-"]');
+  for (const i of inputs) { if (i.value && i.value.trim()) return true; }
+  const secs = document.querySelectorAll('[id^="comments-section-"]');
+  for (const s of secs) { if (s.style.display === 'block') return true; }
+  return false;
+}
+
+// Globo flotante estilo Instagram: "⬆️ N nuevas publicaciones". Al tocarlo,
+// sube al inicio y refresca. Nunca interrumpe lo que el usuario esté haciendo.
+function showNewPostsPill(n) {
+  let pill = document.getElementById('new-posts-pill');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.id = 'new-posts-pill';
+    pill.onclick = function() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      renderBikerGram();
+      removeNewPostsPill();
+    };
+    document.body.appendChild(pill);
+  }
+  pill.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(255,68,68,0.5);animation:fadeUp 0.3s ease;white-space:nowrap';
+  pill.textContent = '⬆️ ' + n + (n === 1 ? ' nueva publicación' : ' nuevas publicaciones');
+}
+
+function removeNewPostsPill() {
+  const pill = document.getElementById('new-posts-pill');
+  if (pill) pill.remove();
+}
+
+// Un ciclo del refresco en vivo (cada 2.5s). Guarda anti-solapamiento: si una
+// descarga aún no termina (la nube tarda ~2.5s), no se encima otra.
+async function liveFeedTick() {
+  if (STATE.currentPage !== 'bikergram') { removeNewPostsPill(); return; }
+  if (STATE._polling) return;
+  STATE._polling = true;
+  try {
+    const prevCount = STATE.posts.length;
+    const prevSig = bikergramSignature();
+    await syncPostsFromCloud();
+    await syncCommentsFromCloud();
+    const newCount = STATE.posts.length;
+    if (bikergramSignature() === prevSig) return; // nada cambió de verdad
+
+    const gotNewPosts = newCount > prevCount;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const busy = feedHasOpenInteraction();
+
+    if (gotNewPosts && (scrollY > 200 || busy)) {
+      // Hay posts nuevos pero el usuario está abajo o ocupado: avisar sin saltar
+      showNewPostsPill(newCount - (STATE._feedRenderedCount || prevCount));
+    } else if (busy) {
+      // Solo cambiaron me gusta/comentarios y está escribiendo: esperar al próximo ciclo
+    } else {
+      // Seguro re-renderizar: arriba del feed, o solo cambios de me gusta/comentarios
+      renderBikerGram();
+    }
+  } catch (e) {
+    /* silencioso: reintenta en el próximo ciclo */
+  } finally {
+    STATE._polling = false;
   }
 }
 
@@ -3739,6 +3828,7 @@ let _navNoPush = false; // set true by popNav/navigateToBreadcrumb to avoid dupl
 
 function navigate(page, pageId) {
   closeFpanel(); // always close floating panel on navigation
+  if (page !== 'bikergram') removeNewPostsPill(); // el globo solo vive en el feed
 
   const pageLabels = {
     inicio: 'Inicio', rutas: 'Rutas', bikergram: 'Gram',
@@ -6339,6 +6429,9 @@ function renderBikerGram() {
   `;
   // Resolve HeyValue video/audio URLs after DOM renders
   resolveHvMedia();
+  // El feed quedó al día: guarda la base para el contador del globo y quítalo
+  STATE._feedRenderedCount = totalPosts;
+  removeNewPostsPill();
 }
 
 function resolveHvMedia() {
