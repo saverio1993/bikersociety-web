@@ -2334,11 +2334,33 @@ async function loadFromHV(key) {
   return null;
 }
 
+// Versión de los posts segura para la nube: a los que aún tienen la imagen/
+// video como dato local (data:/blob:) se les quita la media para NO subir
+// archivos pesados ni URLs locales inválidas para otros. La media real se
+// completa con su URL https cuando termina la subida en segundo plano.
+function cloudSafePosts() {
+  return (STATE.posts || []).map(p => {
+    const url = p.media_url || p.image_url || '';
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      const { media_url, image_url, ...rest } = p;
+      return { ...rest, _pendingMedia: true };
+    }
+    return p;
+  });
+}
+
+// Sube SOLO los posts a la nube — rápido y fiable, para publicar al instante.
+async function pushPostsToCloud() {
+  if (!HV.connected || !HV.user || STATE._cloudSynced === false) return;
+  try { await saveToHV('posts', cloudSafePosts()); }
+  catch (e) { console.warn('pushPostsToCloud falló:', e && e.message); }
+}
+
 async function syncToCloud() {
   if (!HV.user) return;
   STATE.syncStatus = 'syncing';
   const tables = ['users','routes','events','posts','badges','challenges','userChallenges','userBadges','chatChannels','chatMessages','notifications','attendance','comments','follows'];
-  await Promise.all(tables.map(t => saveToHV(t, STATE[t] || [])));
+  await Promise.all(tables.map(t => saveToHV(t, t === 'posts' ? cloudSafePosts() : (STATE[t] || []))));
   await saveToHV('meta', {lastSync: new Date().toISOString(), version: 1});
   STATE.syncStatus = 'synced';
 }
@@ -3727,12 +3749,32 @@ async function liveFeedTick() {
   }
 }
 
+// Al volver la app a primer plano —abrir desde una notificación, cambiar de
+// pestaña, desbloquear el teléfono— trae datos frescos de la nube para ver al
+// instante los posts/mensajes nuevos, sin esperar el ciclo de 2.5s.
+let _lastResumeSync = 0;
+async function resumeSync() {
+  if (!HV.user || document.hidden) return;
+  const now = Date.now();
+  if (now - _lastResumeSync < 1500) return; // anti-rebote
+  _lastResumeSync = now;
+  try {
+    await syncFromCloud(true);
+    if (STATE.currentPage === 'bikergram') renderBikerGram();
+    else if (typeof renderPage === 'function' && STATE.currentPage) renderPage(STATE.currentPage);
+  } catch (e) { /* reintenta en el próximo foco */ }
+}
+document.addEventListener('visibilitychange', resumeSync);
+window.addEventListener('focus', resumeSync);
+
 async function saveState() {
   saveLocal();
   // Only sync to cloud if all posts with media are fully synced (media uploaded to HeyValue)
   if (HV.connected && STATE._cloudSynced !== false) {
-    const allSynced = (STATE.posts || []).every(p => !p.media_url || p.media_url.startsWith('data:') || p.media_url.startsWith('blob:') || p.synced);
-    if (allSynced) await syncToCloud();
+    // Siempre sincroniza: cloudSafePosts() ya evita subir media local pesada.
+    // (Antes un post viejo con synced!=true dejaba allSynced en falso para
+    // siempre y NINGÚN post nuevo llegaba a la nube.)
+    await syncToCloud();
   }
 }
 
@@ -8833,8 +8875,11 @@ async function createPostInstant(content, mediaData) {
   // Show in UI instantly
   STATE.posts.unshift(post);
   renderBikerGram();
-  // Save to localStorage ONLY (don't sync to cloud yet)
   saveLocal();
+  // Sube el registro del post a la nube AL INSTANTE (sin esperar la media).
+  // Los posts de texto quedan completos; los de imagen/video suben su registro
+  // ahora y la media se añade (URL https) cuando termina la subida.
+  pushPostsToCloud();
   // Upload media in background
   if (mediaData?.blob && HV.user && HV.pass) {
     uploadMediaAsync(post.id, mediaData);
@@ -8899,8 +8944,10 @@ async function uploadMediaAsync(postId, mediaData, attempt = 0) {
       p.image_url = mediaData.type === 'image' ? uploadUrl : null;
       p.synced = true;
       if (DB) await idbPut('posts', p, p.id);
-      saveState();
-      syncQueuePush('update', 'posts', p);
+      saveLocal();
+      // La media ya está alojada (URL https): súbela a la nube para que el
+      // post aparezca COMPLETO (con foto/video) en los demás dispositivos.
+      await pushPostsToCloud();
       renderBikerGram();
     }
   } catch(e) {
