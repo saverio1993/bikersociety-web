@@ -2286,6 +2286,10 @@ async function hvRequest(method, path, body) {
   if (!HV.user || !HV.pass) return null;
   const opts = {
     method,
+    // 'no-store': el navegador cacheaba posts.json/users.json y servía datos
+    // viejos, por eso en otro navegador no aparecían los posts nuevos. Así
+    // cada lectura va siempre fresca al servidor.
+    cache: 'no-store',
     headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) }
   };
   if (body && typeof body === 'string') {
