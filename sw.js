@@ -1,5 +1,5 @@
 // Biker Society Service Worker
-const CACHE_NAME = 'biker-v15';
+const CACHE_NAME = 'biker-v16';
 const ASSETS = [
   './',
   './index.html',

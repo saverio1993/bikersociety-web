@@ -3795,7 +3795,9 @@ async function resumeSync() {
   try {
     await syncFromCloud(true);
     if (STATE.currentPage === 'bikergram') renderBikerGram();
-    else if (typeof renderPage === 'function' && STATE.currentPage) renderPage(STATE.currentPage);
+    // 'juegos' se refresca solo con su propio polling; re-renderizarlo aquí
+    // cerraría una partida de dominó en curso, así que no lo tocamos.
+    else if (STATE.currentPage && STATE.currentPage !== 'juegos' && typeof renderPage === 'function') renderPage(STATE.currentPage);
   } catch (e) { /* reintenta en el próximo foco */ }
 }
 document.addEventListener('visibilitychange', resumeSync);
@@ -9345,7 +9347,7 @@ async function dominoJoin(id){
 async function dominoMove(action, payload){
   const games=await loadGames();
   const g=games.find(x=>x.id===CURRENT_GAME);
-  if(!g){ toast('Mesa no disponible'); renderJuegos(); return; }
+  if(!g){ toast('Mesa no disponible'); dominoToLobby(); return; }
   if(g.status!=='playing'){ paintGame(g); return; }
   if(g.turn!==STATE.user.id){ toast('No es tu turno'); paintGame(g); return; }
   if(action==='play') dominoApplyPlay(g, STATE.user.id, payload.index, payload.side);
@@ -9388,6 +9390,10 @@ function dominoTile(t, opt){
 
 // ---- Render: lobby ----
 function renderJuegos(){
+  // Si hay una partida abierta, retómala. Evita que un re-render incidental
+  // (p.ej. resumeSync al volver la app al frente, al tocar la pantalla) "cierre"
+  // el juego mandándolo al lobby.
+  if(DOM_VIEW==='game' && CURRENT_GAME!=null){ openDominoGame(CURRENT_GAME); return; }
   DOM_VIEW='lobby'; CURRENT_GAME=null;
   const el=document.getElementById('page-juegos');
   if(!el) return;
@@ -9395,6 +9401,8 @@ function renderJuegos(){
   el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--text2);font-size:13px">Cargando mesas...</div>`;
   loadGames().then(g=>{ GAMES=g; if(DOM_VIEW==='lobby') paintLobby(); });
 }
+// Salir explícitamente de una partida al lobby (botón "← Mesas").
+function dominoToLobby(){ DOM_VIEW='lobby'; CURRENT_GAME=null; DOM_SELECTED=null; renderJuegos(); }
 function paintLobby(){
   const el=document.getElementById('page-juegos'); if(!el) return;
   const me=STATE.user?.id;
@@ -9457,7 +9465,9 @@ function openDominoGame(id){
   startGamesPoll();
   const g=GAMES.find(x=>x.id===id);
   if(g) paintGame(g);
-  loadGames().then(games=>{ GAMES=games; const fg=games.find(x=>x.id===id); if(fg&&DOM_VIEW==='game') paintGame(fg); });
+  loadGames().then(games=>{ GAMES=games; const fg=games.find(x=>x.id===id);
+    if(fg){ if(DOM_VIEW==='game') paintGame(fg); }
+    else { dominoToLobby(); } });
 }
 function paintGame(g){
   const el=document.getElementById('page-juegos');
@@ -9471,7 +9481,7 @@ function paintGame(g){
   const movable=new Set(moves.map(m=>m.index));
 
   let top=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:10px">
-    <button onclick="renderJuegos()" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer">← Mesas</button>
+    <button onclick="dominoToLobby()" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer">← Mesas</button>
     <div style="flex:1"><div style="font-weight:800;font-size:14px">vs ${opp?opp.username:'(esperando rival)'}</div>
     <div style="font-size:11px;color:var(--text2)">${opp?('Fichas del rival: '+((g.hands&&g.hands[opp.id]&&g.hands[opp.id].length)||0)+' · Pozo: '+(g.boneyard?g.boneyard.length:0)):''}</div></div>`;
 
@@ -9524,7 +9534,7 @@ function paintGame(g){
         : `<button onclick="dominoPass()" style="width:100%;padding:12px;border:none;border-radius:12px;background:#a55;color:#fff;font-weight:800;font-size:14px;cursor:pointer;margin-top:4px">⏭️ Pasar (no tienes jugada)</button>`;
     }
   } else {
-    hand=`<button onclick="renderJuegos()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#00d4ff,#0088cc);color:#06222c;font-weight:900;font-size:15px;cursor:pointer;margin-top:8px">Volver a las mesas</button>`;
+    hand=`<button onclick="dominoToLobby()" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#00d4ff,#0088cc);color:#06222c;font-weight:900;font-size:15px;cursor:pointer;margin-top:8px">Volver a las mesas</button>`;
   }
 
   el.innerHTML=`<div style="padding-bottom:20px">${top}${boardBox}${ends}${status}${sideChooser}${hand}</div>`;
