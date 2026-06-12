@@ -2212,8 +2212,22 @@ function dataURLtoBlob(dataUrl) {
   return new Blob([buf], { type: mime });
 }
 
-// Compress image to fit a max dimension (keeps localStorage manageable)
-// Returns data URL or null if not an image
+// ¿El navegador puede codificar WebP? (Android WebView y Chrome modernos sí).
+// WebP pesa ~25-35% menos que JPEG a igual calidad => las fotos cargan más
+// rápido. Se detecta una sola vez y se cachea.
+let _webpSupported = null;
+function supportsWebp() {
+  if (_webpSupported !== null) return _webpSupported;
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    _webpSupported = c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  } catch (e) { _webpSupported = false; }
+  return _webpSupported;
+}
+
+// Comprime una imagen a una dimensión máxima y la recodifica en el formato más
+// ligero disponible (WebP > JPEG). Devuelve un data URL, o null si no es imagen.
 async function compressImage(file, maxDim = 800, quality = 0.82) {
   if (!file.type.startsWith('image/')) return null;
   const dataUrl = await fileToDataUrl(file);
@@ -2230,9 +2244,12 @@ async function compressImage(file, maxDim = 800, quality = 0.82) {
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
-      // Re-encode to JPEG to shrink further (unless PNG with transparency)
-      const isPng = file.type === 'image/png';
-      const out = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality);
+      // WebP cuando se pueda (más ligero y conserva transparencia); si no,
+      // PNG para imágenes con transparencia y JPEG para el resto.
+      const fmt = supportsWebp()
+        ? 'image/webp'
+        : (file.type === 'image/png' ? 'image/png' : 'image/jpeg');
+      const out = canvas.toDataURL(fmt, quality);
       resolve(out);
     };
     img.onerror = () => resolve(null);
@@ -6545,7 +6562,7 @@ function renderPostMedia(p) {
   }
   // image (default) — hover overlay with "Abrir"
   return `<div style="position:relative;background:#000;overflow:hidden;cursor:pointer" onclick="openLightbox('${resolveMediaUrlSync(url, 'image')}')">
-    <img src="${resolveMediaUrlSync(url, 'image')}" loading="lazy" data-lightbox="1" style="display:block;width:100%;max-height:75vh;object-fit:contain;background:#000"
+    <img src="${resolveMediaUrlSync(url, 'image')}" loading="lazy" decoding="async" data-lightbox="1" style="display:block;width:100%;max-height:75vh;object-fit:contain;background:#000"
          onload="(function(img){var r=img.naturalHeight/img.naturalWidth;if(r>1.3){img.style.maxHeight='80vh';img.style.width='auto';img.style.maxWidth='100%';img.style.margin='0 auto';}else if(r<0.6){img.style.maxHeight='55vh';}})(this)">
     <div style="position:absolute;inset:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;transition:background 0.2s;pointer-events:none"
          onmouseover="this.style.background='rgba(0,0,0,0.35)'"
@@ -6690,7 +6707,7 @@ function renderRacingPost(p) {
             <audio src="${resolveMediaUrlSync(url)}" controls preload="metadata" style="width:100%;margin-top:14px;height:36px"></audio>
           </div>
         ` : `
-          <img src="${resolveMediaUrlSync(url)}" loading="lazy" style="display:block;width:100%;max-height:420px;object-fit:cover;background:#000" onerror="this.parentElement.innerHTML='<div style=\'padding:40px;text-align:center;color:#888;font-size:13px\'>Imagen no disponible</div>'">
+          <img src="${resolveMediaUrlSync(url)}" loading="lazy" decoding="async" style="display:block;width:100%;max-height:420px;object-fit:cover;background:#000" onerror="this.parentElement.innerHTML='<div style=\'padding:40px;text-align:center;color:#888;font-size:13px\'>Imagen no disponible</div>'">
         `}
 
         <!-- Gradient overlay at bottom of image -->
@@ -6937,10 +6954,12 @@ async function processPostFile(file) {
         <div style="width:18px;height:18px;border:2px solid rgba(255,255,255,0.15);border-top-color:#ff4444;border-radius:50%;animation:avatarRing 0.8s linear infinite"></div>
         Procesando foto...</div>`;
     }
-    // 1600px @ 0.85 — nítida en pantallas modernas; si queda pesada, baja escalonado
-    dataUrl = await compressImage(file, 1600, 0.85);
-    if (dataUrl && dataUrl.length > 1200 * 1024) dataUrl = await compressImage(file, 1280, 0.8) || dataUrl;
-    if (dataUrl && dataUrl.length > 1200 * 1024) dataUrl = await compressImage(file, 1000, 0.72) || dataUrl;
+    // Optimizado para el feed: 1280px en WebP => nítido en el teléfono pero
+    // mucho más ligero, así carga rápido. Si aún pesa, baja escalonado hasta
+    // ~350 KB (480K chars de data URL ≈ 350 KB reales).
+    dataUrl = await compressImage(file, 1280, 0.72);
+    if (dataUrl && dataUrl.length > 480 * 1024) dataUrl = await compressImage(file, 1080, 0.66) || dataUrl;
+    if (dataUrl && dataUrl.length > 480 * 1024) dataUrl = await compressImage(file, 900, 0.6) || dataUrl;
     if (!dataUrl) { toast('No se pudo procesar la imagen'); renderPostPreview(); return; }
   } else if (isVideo) {
     // Compress video with FFmpeg (720p, small file)
@@ -6959,13 +6978,23 @@ async function processPostFile(file) {
     dataUrl = URL.createObjectURL(file);
   }
 
+  // Para imágenes, el dataUrl ya es la versión comprimida (WebP/JPEG): se sube
+  // con su content-type y extensión reales, y se muestra su tamaño reducido.
+  let outMime = file.type, outName = file.name, outSize = fileToUpload.size;
+  if (isImage && dataUrl && dataUrl.startsWith('data:')) {
+    outMime = dataUrl.substring(5, dataUrl.indexOf(';'));
+    const ext = outMime === 'image/webp' ? 'webp' : (outMime === 'image/png' ? 'png' : 'jpg');
+    outName = (file.name || 'foto').replace(/\.[^.]+$/, '') + '.' + ext;
+    outSize = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4);
+  }
+
   POST_DRAFT = {
     type,
     dataUrl,
     file: fileToUpload,
-    fileName: file.name,
-    fileSize: fileToUpload.size,
-    mimeType: file.type,
+    fileName: outName,
+    fileSize: outSize,
+    mimeType: outMime,
     originalSize: file.size,
   };
 
