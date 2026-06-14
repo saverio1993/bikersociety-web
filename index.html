@@ -3740,15 +3740,14 @@ function bikergramSignature() {
   }).join('|') + '#' + posts.length;
 }
 
-// ¿El usuario está escribiendo un comentario o leyendo una sección abierta?
-// Si es así, NO re-renderizamos (le borraríamos el texto / saltaría el scroll).
+// ¿El usuario está escribiendo un comentario? Si es así, NO re-renderizamos
+// (le borraríamos el texto). Los comentarios ahora se ven siempre (estilo
+// Instagram), así que tener la sección visible ya no cuenta como "ocupado".
 function feedHasOpenInteraction() {
   const ae = document.activeElement;
   if (ae && ae.id && (ae.id.indexOf('cmt-') === 0 || ae.id.indexOf('comment-input-') === 0)) return true;
   const inputs = document.querySelectorAll('[id^="cmt-"], [id^="comment-input-"]');
   for (const i of inputs) { if (i.value && i.value.trim()) return true; }
-  const secs = document.querySelectorAll('[id^="comments-section-"]');
-  for (const s of secs) { if (s.style.display === 'block') return true; }
   return false;
 }
 
@@ -8870,16 +8869,25 @@ function showReactionPicker(postId, btn) {
 function renderComments(postId) {
   const comments = STATE.comments ? STATE.comments.filter(c => c.post_id === postId) : [];
   if (comments.length === 0) return '';
-  return comments.map(c => {
+  const row = c => {
     const author = STATE.users.find(u => u.id === c.user_id) || {username: '?', avatar: ''};
-    return `<div style="display:flex;gap:8px;padding:6px 14px">
-      <div style="width:28px;height:28px;flex-shrink:0">${renderAvatar(author, 28)}</div>
-      <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:12px;padding:6px 10px">
+    return `<div style="display:flex;gap:8px;padding:5px 14px">
+      <div style="width:26px;height:26px;flex-shrink:0">${renderAvatar(author, 26)}</div>
+      <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:12px;padding:6px 10px;min-width:0">
         <div style="font-size:11px;font-weight:700;color:var(--text2)">${author.username}</div>
-        <div style="font-size:13px">${c.text}</div>
+        <div style="font-size:13px;word-break:break-word">${c.text}</div>
       </div>
     </div>`;
-  }).join('');
+  };
+  // Pocos comentarios: se muestran todos. Muchos: estilo Instagram — los 2
+  // últimos visibles + "Ver los N comentarios" que despliega los anteriores.
+  if (comments.length <= 3) return comments.map(row).join('');
+  const older = comments.slice(0, comments.length - 2);
+  const latest = comments.slice(comments.length - 2);
+  return `
+    <button id="vermas-${postId}" onclick="showAllComments(${postId})" style="background:none;border:none;color:var(--text2);font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;display:block;text-align:left">Ver los ${comments.length} comentarios</button>
+    <div id="older-comments-${postId}" style="display:none">${older.map(row).join('')}</div>
+    ${latest.map(row).join('')}`;
 }
 
 function addComment(postId, text) {
@@ -9196,7 +9204,7 @@ function renderPostCardEnhanced(p) {
         </button>
       </div>
 
-      <div id="comments-section-${p.id}" style="display:none">
+      <div id="comments-section-${p.id}" style="display:block">
         ${renderComments(p.id)}
         ${STATE.user ? `
           <div style="display:flex;gap:8px;padding:8px 14px;align-items:center">
@@ -9211,9 +9219,18 @@ function renderPostCardEnhanced(p) {
 }
 
 function toggleComments(postId) {
-  const el = document.getElementById('comments-section-' + postId);
-  if (!el) return;
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  // Los comentarios ya se ven siempre (estilo Instagram); el botón solo enfoca
+  // la caja para escribir.
+  const inp = document.getElementById('comment-input-' + postId);
+  if (inp) { inp.focus(); inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+}
+
+// Despliega los comentarios antiguos ocultos ("Ver los N comentarios").
+function showAllComments(postId) {
+  const e = document.getElementById('older-comments-' + postId);
+  const b = document.getElementById('vermas-' + postId);
+  if (e) e.style.display = 'block';
+  if (b) b.style.display = 'none';
 }
 
 // Enhanced follow button for profile
