@@ -2045,6 +2045,42 @@ async function loadAvatarFromHV(userId) {
   } catch(e) { return null; }
 }
 
+// Sube el avatar a la nube CREANDO antes las carpetas. WebDAV exige que el
+// directorio exista; sin el MKCOL de la carpeta del usuario, el PUT daba 404 y
+// por eso la foto no se guardaba en la nube ni la veían los demás miembros.
+async function uploadAvatarToHV(userId, dataUrl) {
+  if (!HV.user || !HV.pass || !userId || !dataUrl) return false;
+  try {
+    await hvRequest('MKCOL', '/BikerApp');
+    await hvRequest('MKCOL', '/BikerApp/profiles');
+    await hvRequest('MKCOL', '/BikerApp/profiles/' + userId);
+    const blob = dataURLtoBlob(dataUrl);
+    const res = await fetch(HV.url + '/nc/BikerApp/profiles/' + userId + '/avatar.jpg', {
+      method: 'PUT',
+      headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': blob.type || 'image/jpeg' },
+      body: blob
+    });
+    const ok = res.ok || res.status === 201 || res.status === 204;
+    if (ok) _hvAvatarCache[userId] = dataUrl;
+    return ok;
+  } catch (e) { console.warn('[BS] subida de avatar falló:', e); return false; }
+}
+
+// Auto-reparación: si tengo avatar guardado localmente pero en la nube falta
+// (subida previa fallida por el bug de la carpeta), lo sube ahora.
+async function healMyAvatar() {
+  try {
+    if (!STATE.user || !HV.user || !HV.pass) return;
+    const local = getAvatar();
+    if (!local) return;
+    const res = await fetch(HV.url + '/nc/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg',
+      { method: 'HEAD', headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass) }, cache: 'no-store' });
+    if (res.ok) return; // ya está en la nube
+    const ok = await uploadAvatarToHV(STATE.user.id, local);
+    if (ok) console.log('[BS] avatar re-subido a la nube (auto-reparación)');
+  } catch (e) {}
+}
+
 // ── Profile picture: 2-step (preview → confirm save) ─────────────────────────
 // Stash the picked file in a module-level var; only persists when user taps "Guardar sí"
 var _pendingProfilePic = null; // { dataUrl, rawFile }
@@ -2109,23 +2145,12 @@ async function confirmSaveProfilePic() {
         ls('bs_users', STATE.users);
       }
     } catch(e) { console.warn('[BS] Could not save users list:', e); }
-    // 5. Upload to HeyValue in background (best-effort, non-blocking)
+    // 5. Subir a la nube creando la carpeta del usuario (antes fallaba con 404
+    //    porque no se creaba /BikerApp/profiles/<id>/ antes del PUT).
+    let cloudOk = false;
     if (HV.user && HV.pass) {
-      const path = '/BikerApp/profiles/' + STATE.user.id + '/avatar.jpg';
-      const hvUrl = HV.url + '/nc' + path;
-      fetch(hvUrl, {
-        method: 'PUT',
-        headers: { Authorization: 'Basic ' + btoa(HV.user + ':' + HV.pass), 'Content-Type': 'image/jpeg' },
-        body: dataURLtoBlob(dataUrl)
-      }).then(res => {
-        if (res.ok || res.status === 201 || res.status === 204) {
-          console.log('[BS] Avatar uploaded to HeyValue');
-        } else {
-          console.warn('[BS] HeyValue returned', res.status, '— keeping local avatar');
-        }
-      }).catch(err => {
-        console.warn('[BS] HeyValue upload failed, local avatar kept:', err);
-      });
+      cloudOk = await uploadAvatarToHV(STATE.user.id, dataUrl);
+      if (!cloudOk) console.warn('[BS] avatar no subió a la nube; queda local y se reintenta luego');
     }
     _pendingProfilePic = null;
     // Hide buttons, restore normal display
@@ -2136,7 +2161,7 @@ async function confirmSaveProfilePic() {
       const u = STATE.user;
       display.innerHTML = renderAvatar(u, 96);
     }
-    toast('✅ Foto guardada!');
+    toast(cloudOk ? '✅ Foto de perfil actualizada' : '✅ Guardada (se sincronizará al reconectar)');
     // Re-render profile to make sure all references are fresh
     if (typeof renderProfile === 'function') renderProfile();
   } catch(err) {
@@ -3640,6 +3665,7 @@ async function autoConnectHeyValue() {
     // Sync data from cloud — cloud is the source of truth
     await syncFromCloud();
     saveLocal(); // save to localStorage only, don't re-upload
+    healMyAvatar(); // si mi avatar local nunca llegó a la nube, súbelo ahora
     // Re-render current page with cloud data
     if (STATE.currentPage) renderPage(STATE.currentPage);
     // Refresco en vivo del feed: posts + comentarios, detectando me gusta y
