@@ -57,32 +57,74 @@
 
   function toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200); }
 
+  // Sonido del dado (sintetizado, sin archivo): varios "clacks" cortos.
+  let AC = null;
+  function diceSound() {
+    try {
+      AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume();
+      const now = AC.currentTime;
+      for (let i = 0; i < 5; i++) {
+        const tt = now + i * 0.085 + Math.random() * 0.02;
+        const o = AC.createOscillator(), g = AC.createGain();
+        o.type = 'triangle'; o.frequency.value = 160 + Math.random() * 160;
+        g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(0.22, tt + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.09);
+        o.connect(g); g.connect(AC.destination); o.start(tt); o.stop(tt + 0.12);
+      }
+    } catch (e) {}
+  }
+  let lastShownDie = null;
+  function animateDie(value, withSound) {
+    if (!die || !clock) return;
+    die.userData.roll = { start: clock.getElapsedTime(), target: DIE_TARGET[value] || { x: 0, y: 0, z: 0 } };
+    if (withSound) diceSound();
+  }
+
   // ============ THREE.JS ============
   let renderer, scene, camera, controls, raycaster, ndc, pawns = [], die, clock;
   const U = 1;
   function cellToWorld(r, c) { return { x: (c - 7) * U, z: (r - 7) * U }; }
 
+  const PATH = 0x1b2334; // casilla del camino (oscuro moderno)
   function cellColor(r, c) {
-    if (r < 6 && c < 6) return 0x5a2326;            // base roja
-    if (r > 8 && c > 8) return 0x5a4f12;            // base amarilla
-    if ((r < 6 && c > 8) || (r > 8 && c < 6)) return 0x161b26;
-    if (r >= 6 && r <= 8 && c >= 6 && c <= 8) return 0x3a2f70; // centro
-    if (r === 7 && c >= 1 && c <= 5) return 0xc23b3b;
-    if (r === 7 && c >= 9 && c <= 13) return 0xd6a017;
-    if (r === 6 && c === 1) return 0xe23b3b;
-    if (r === 8 && c === 13) return 0xf2b417;
-    return 0xe9e3d2;
+    // Esquinas (yards) vivas — 4 colores aunque jueguen 2
+    if (r < 6 && c < 6) return 0xff5a5a;            // rojo (arriba-izq)
+    if (r < 6 && c > 8) return 0x35d07f;            // verde (arriba-der)
+    if (r > 8 && c < 6) return 0x4aa8ff;            // azul (abajo-izq)
+    if (r > 8 && c > 8) return 0xffd24d;            // amarillo (abajo-der)
+    // Centro (meta) por cuadrante
+    if (r >= 6 && r <= 8 && c >= 6 && c <= 8) {
+      if (r === 7 && c === 7) return 0xa78bfa;
+      if (r < 7 && c < 7) return 0xff5a5a; if (r < 7 && c > 7) return 0x35d07f;
+      if (r > 7 && c < 7) return 0x4aa8ff; if (r > 7 && c > 7) return 0xffd24d;
+      return 0x7c3aed;
+    }
+    // Pasillos de casa (coloridos hasta el centro)
+    if (r === 7 && c >= 1 && c <= 5) return 0xff5a5a;
+    if (r === 7 && c >= 9 && c <= 13) return 0xffd24d;
+    if (c === 7 && r >= 1 && r <= 5) return 0x35d07f;
+    if (c === 7 && r >= 9 && r <= 13) return 0x4aa8ff;
+    // Casillas de salida
+    if (r === 6 && c === 1) return 0xff5a5a;
+    if (r === 1 && c === 8) return 0x35d07f;
+    if (r === 8 && c === 13) return 0xffd24d;
+    if (r === 13 && c === 6) return 0x4aa8ff;
+    return PATH;
   }
 
-  function pipTexture(n) {
-    const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const NUMCOL = { 1: '#e23b3b', 2: '#f2811d', 3: '#1f9d4d', 4: '#2f86e0', 5: '#7c3aed', 6: '#e3168a' };
+  function numTexture(n) {
+    const S = 160, cv = document.createElement('canvas'); cv.width = cv.height = S;
     const x = cv.getContext('2d');
-    x.fillStyle = '#f6f4ee'; x.fillRect(0, 0, S, S);
-    x.fillStyle = '#1a1a1a';
-    const pos = { 1: [[.5, .5]], 2: [[.27, .27], [.73, .73]], 3: [[.27, .27], [.5, .5], [.73, .73]], 4: [[.27, .27], [.73, .27], [.27, .73], [.73, .73]], 5: [[.27, .27], [.73, .27], [.5, .5], [.27, .73], [.73, .73]], 6: [[.27, .25], [.73, .25], [.27, .5], [.73, .5], [.27, .75], [.73, .75]] };
-    (pos[n] || []).forEach(p => { x.beginPath(); x.arc(p[0] * S, p[1] * S, S * 0.09, 0, 7); x.fill(); });
-    const t = new THREE.CanvasTexture(cv); return t;
+    x.fillStyle = '#fbfbfd'; x.fillRect(0, 0, S, S);
+    x.strokeStyle = NUMCOL[n]; x.lineWidth = 11; x.strokeRect(6, 6, S - 12, S - 12);
+    x.fillStyle = NUMCOL[n]; x.font = 'bold 108px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(String(n), S / 2, S / 2 + 8);
+    return new THREE.CanvasTexture(cv);
   }
+  // Caras del cubo en orden [+x,-x,+y,-y,+z,-z] => números [1,6,2,5,3,4].
+  // Rotación destino para dejar cada número MIRANDO ARRIBA (+y):
+  const DIE_TARGET = { 1: { x: 0, y: 0, z: Math.PI / 2 }, 6: { x: 0, y: 0, z: -Math.PI / 2 }, 2: { x: 0, y: 0, z: 0 }, 5: { x: Math.PI, y: 0, z: 0 }, 3: { x: -Math.PI / 2, y: 0, z: 0 }, 4: { x: Math.PI / 2, y: 0, z: 0 } };
 
   function initThree() {
     const host = document.getElementById('scene');
@@ -110,22 +152,27 @@
     const slab = new THREE.Mesh(new THREE.BoxGeometry(15.6, 0.6, 15.6), new THREE.MeshStandardMaterial({ color: 0x10151f, roughness: 0.9 }));
     slab.position.y = -0.35; scene.add(slab);
 
-    // Casillas (15x15)
-    const tileGeo = new THREE.BoxGeometry(0.94, 0.12, 0.94);
+    // Casillas (15x15) — colores vivos con brillo (look moderno)
+    const tileGeo = new THREE.BoxGeometry(0.94, 0.14, 0.94);
     for (let r = 0; r < 15; r++) for (let c = 0; c < 15; c++) {
-      const m = new THREE.Mesh(tileGeo, new THREE.MeshStandardMaterial({ color: cellColor(r, c), roughness: 0.7 }));
-      const w = cellToWorld(r, c); m.position.set(w.x, 0, w.z);
-      if (SAFE.has(LOOP.findIndex(L => L[0] === r && L[1] === c))) m.material.emissive = new THREE.Color(0x222200);
-      scene.add(m);
+      const col = cellColor(r, c);
+      const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55, metalness: 0.12 });
+      if (col !== PATH) mat.emissive = new THREE.Color(col).multiplyScalar(0.25);
+      const li = LOOP.findIndex(L => L[0] === r && L[1] === c);
+      if (SAFE.has(li) && col === PATH) { mat.color = new THREE.Color(0x33405c); mat.emissive = new THREE.Color(0x66b3ff).multiplyScalar(0.3); }
+      const m = new THREE.Mesh(tileGeo, mat);
+      const w = cellToWorld(r, c); m.position.set(w.x, 0, w.z); scene.add(m);
     }
 
-    // Dado
-    const dmats = [pipTexture(2), pipTexture(5), pipTexture(6), pipTexture(1), pipTexture(3), pipTexture(4)].map(t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.4 }));
-    die = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), dmats);
-    die.position.set(9, 1.2, 9); scene.add(die);
-    die.userData.spin = 0;
+    // Dado con números [+x,-x,+y,-y,+z,-z] = [1,6,2,5,3,4]
+    const dmats = [1, 6, 2, 5, 3, 4].map(n => new THREE.MeshStandardMaterial({ map: numTexture(n), roughness: 0.35 }));
+    die = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), dmats);
+    die.position.set(8.5, 1.4, 8.5); scene.add(die);
+    die.userData.roll = null;
 
     raycaster = new THREE.Raycaster(); ndc = new THREE.Vector2();
+    // Desbloquear el audio al primer toque (requisito de los navegadores)
+    window.addEventListener('pointerdown', function () { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) {} });
     renderer.domElement.addEventListener('pointerdown', onPick);
     window.addEventListener('resize', onResize);
     clock = new THREE.Clock();
@@ -202,7 +249,15 @@
     const t = clock ? clock.getElapsedTime() : 0;
     // bob de fichas movibles
     pawns.forEach(p => { if (p.group.userData.movable) p.group.position.y = 0.06 + Math.abs(Math.sin(t * 4)) * 0.25; else if (p.group.position.y !== 0.06) p.group.position.y = 0.06; });
-    if (die) { if (die.userData.spin > 0) { die.rotation.x += 0.3; die.rotation.y += 0.24; die.userData.spin--; } die.position.y = 1.2 + Math.sin(t * 1.5) * 0.1; }
+    if (die) {
+      const R = die.userData.roll;
+      if (R) {
+        const e = t - R.start;
+        if (e < 0.55) { die.rotation.x += 0.5; die.rotation.y += 0.4; die.rotation.z += 0.32; die.position.y = 2.2 + Math.sin(e * 18) * 0.6; }
+        else if (e < 1.05) { const g = R.target; die.rotation.x += (g.x - die.rotation.x) * 0.28; die.rotation.y += (g.y - die.rotation.y) * 0.28; die.rotation.z += (g.z - die.rotation.z) * 0.28; die.position.y = 1.4; }
+        else { die.rotation.set(R.target.x, R.target.y, R.target.z); die.userData.roll = null; }
+      } else { die.position.y = 1.4 + Math.sin(t * 1.5) * 0.1; }
+    }
     if (controls) controls.update();
     renderer.render(scene, camera);
   }
@@ -230,7 +285,6 @@
     const games = await loadGames(); const g = games.find(x => x.id === CURRENT);
     if (!g || g.status !== 'playing' || g.turn !== ME.id || g.phase !== 'roll') return;
     const d = Math.floor(Math.random() * 6) + 1; g.dice = d; g.sixCount = d === 6 ? (g.sixCount || 0) + 1 : 0;
-    if (die) die.userData.spin = 28;
     if (d === 6 && g.sixCount >= 3) { g.lastAction = gName(g, g.turn) + ' sacó tres 6 — pierde turno'; endTurn(g); }
     else { const mv = movable(g.tokens[g.turn], d); if (!mv.length) { g.lastAction = gName(g, g.turn) + ' sacó ' + d + ', sin jugada'; endTurn(g); } else { g.phase = 'move'; g.lastAction = gName(g, g.turn) + ' sacó ' + d; } }
     g.updated_at = ts(); await saveGames(games); GAMES = games; refresh(g);
@@ -280,6 +334,9 @@
     place(g);
     const me = ME.id, opp = g.players.find(p => p.id !== me);
     const dv = document.getElementById('dieval'); dv.textContent = g.dice || '🎲';
+    // Dado nuevo: gíralo en 3D hasta el número y suénalo (para ambos jugadores)
+    if (g.dice && g.dice !== lastShownDie) { lastShownDie = g.dice; animateDie(g.dice, true); }
+    if (!g.dice) lastShownDie = null;
     const turnEl = document.getElementById('turn'), rb = document.getElementById('rollbtn');
     if (g.status === 'finished') { turnEl.textContent = g.winner === me ? '🏆 ¡Ganaste!' : 'Ganó ' + gName(g, g.winner); rb.classList.add('hidden'); }
     else if (g.turn === me) {
