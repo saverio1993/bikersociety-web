@@ -85,30 +85,31 @@
   const U = 1;
   function cellToWorld(r, c) { return { x: (c - 7) * U, z: (r - 7) * U }; }
 
-  const PATH = 0x1b2334; // casilla del camino (oscuro moderno)
+  const PATH = 0xf4f2ec;  // casillas del camino: BLANCAS como el tablero clásico
+  const RED = 0xe23b3b, BLUE = 0x2f6fe0, GREEN = 0x1f9d4d, YEL = 0xf2c21a;
   function cellColor(r, c) {
-    // Esquinas (yards) vivas — 4 colores aunque jueguen 2
-    if (r < 6 && c < 6) return 0xff5a5a;            // rojo (arriba-izq)
-    if (r < 6 && c > 8) return 0x35d07f;            // verde (arriba-der)
-    if (r > 8 && c < 6) return 0x4aa8ff;            // azul (abajo-izq)
-    if (r > 8 && c > 8) return 0xffd24d;            // amarillo (abajo-der)
-    // Centro (meta) por cuadrante
+    // Esquinas (bases): rojo arriba-izq, azul arriba-der, verde abajo-izq, amarillo abajo-der
+    if (r < 6 && c < 6) return RED;
+    if (r < 6 && c > 8) return BLUE;
+    if (r > 8 && c < 6) return GREEN;
+    if (r > 8 && c > 8) return YEL;
+    // Centro (meta) — triángulos por cuadrante
     if (r >= 6 && r <= 8 && c >= 6 && c <= 8) {
       if (r === 7 && c === 7) return 0xa78bfa;
-      if (r < 7 && c < 7) return 0xff5a5a; if (r < 7 && c > 7) return 0x35d07f;
-      if (r > 7 && c < 7) return 0x4aa8ff; if (r > 7 && c > 7) return 0xffd24d;
+      if (r < 7 && c < 7) return RED; if (r < 7 && c > 7) return BLUE;
+      if (r > 7 && c < 7) return GREEN; if (r > 7 && c > 7) return YEL;
       return 0x7c3aed;
     }
-    // Pasillos de casa (coloridos hasta el centro)
-    if (r === 7 && c >= 1 && c <= 5) return 0xff5a5a;
-    if (r === 7 && c >= 9 && c <= 13) return 0xffd24d;
-    if (c === 7 && r >= 1 && r <= 5) return 0x35d07f;
-    if (c === 7 && r >= 9 && r <= 13) return 0x4aa8ff;
+    // Pasillos de casa (hacia el centro)
+    if (r === 7 && c >= 1 && c <= 5) return RED;
+    if (c === 7 && r >= 1 && r <= 5) return BLUE;
+    if (c === 7 && r >= 9 && r <= 13) return GREEN;
+    if (r === 7 && c >= 9 && c <= 13) return YEL;
     // Casillas de salida
-    if (r === 6 && c === 1) return 0xff5a5a;
-    if (r === 1 && c === 8) return 0x35d07f;
-    if (r === 8 && c === 13) return 0xffd24d;
-    if (r === 13 && c === 6) return 0x4aa8ff;
+    if (r === 6 && c === 1) return RED;
+    if (r === 1 && c === 8) return BLUE;
+    if (r === 13 && c === 6) return GREEN;
+    if (r === 8 && c === 13) return YEL;
     return PATH;
   }
 
@@ -126,6 +127,17 @@
   // Rotación destino para dejar cada número MIRANDO ARRIBA (+y):
   const DIE_TARGET = { 1: { x: 0, y: 0, z: Math.PI / 2 }, 6: { x: 0, y: 0, z: -Math.PI / 2 }, 2: { x: 0, y: 0, z: 0 }, 5: { x: Math.PI, y: 0, z: 0 }, 3: { x: -Math.PI / 2, y: 0, z: 0 }, 4: { x: Math.PI / 2, y: 0, z: 0 } };
 
+  // Número negro sobre la casilla blanca (acostado, mirando arriba), como el tablero clásico
+  function numberPlane(num) {
+    const S = 64, cv = document.createElement('canvas'); cv.width = cv.height = S;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#1a1a1a'; x.font = 'bold 38px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(String(num), S / 2, S / 2 + 2);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 0.82), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true }));
+    m.rotation.x = -Math.PI / 2;
+    return m;
+  }
+
   function initThree() {
     const host = document.getElementById('scene');
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -134,7 +146,7 @@
     host.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0d14);
+    scene.background = new THREE.Color(0xe7ebf1);
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(0, 15, 13);
 
@@ -148,21 +160,32 @@
     scene.add(new THREE.AmbientLight(0xffffff, 0.65));
     const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(6, 14, 8); scene.add(dir);
 
-    // Base del tablero
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(15.6, 0.6, 15.6), new THREE.MeshStandardMaterial({ color: 0x10151f, roughness: 0.9 }));
-    slab.position.y = -0.35; scene.add(slab);
+    // Marco de MADERA + borde amarillo (como el tablero clásico de la foto)
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(17.2, 0.34, 17.2), new THREE.MeshStandardMaterial({ color: 0xf2c21a, roughness: 0.7 }));
+    rim.position.y = -0.62; scene.add(rim);
+    const wood = new THREE.Mesh(new THREE.BoxGeometry(16.8, 0.5, 16.8), new THREE.MeshStandardMaterial({ color: 0xb07d44, roughness: 0.85 }));
+    wood.position.y = -0.34; scene.add(wood);
 
-    // Casillas (15x15) — colores vivos con brillo (look moderno)
+    // Casillas (15x15): camino BLANCO con números; bases/casa/centro de color
     const tileGeo = new THREE.BoxGeometry(0.94, 0.14, 0.94);
+    const loopIdx = {}; LOOP.forEach((L, i) => loopIdx[L[0] + ',' + L[1]] = i);
     for (let r = 0; r < 15; r++) for (let c = 0; c < 15; c++) {
       const col = cellColor(r, c);
-      const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.55, metalness: 0.12 });
-      if (col !== PATH) mat.emissive = new THREE.Color(col).multiplyScalar(0.25);
-      const li = LOOP.findIndex(L => L[0] === r && L[1] === c);
-      if (SAFE.has(li) && col === PATH) { mat.color = new THREE.Color(0x33405c); mat.emissive = new THREE.Color(0x66b3ff).multiplyScalar(0.3); }
+      const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.6, metalness: 0.05 });
+      if (col !== PATH) mat.emissive = new THREE.Color(col).multiplyScalar(0.15);
       const m = new THREE.Mesh(tileGeo, mat);
       const w = cellToWorld(r, c); m.position.set(w.x, 0, w.z); scene.add(m);
+      const li = loopIdx[r + ',' + c];
+      if (li !== undefined) { const np = numberPlane(li + 1); np.position.set(w.x, 0.08, w.z); scene.add(np); }
     }
+
+    // Bases redondas de color (discos), como en la foto
+    function disc(r, c, hex) {
+      const d = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.45, 0.16, 42),
+        new THREE.MeshStandardMaterial({ color: hex, roughness: 0.5, emissive: new THREE.Color(hex).multiplyScalar(0.15) }));
+      const w = cellToWorld(r, c); d.position.set(w.x, -0.01, w.z); scene.add(d);
+    }
+    disc(2.5, 2.5, 0xe23b3b); disc(2.5, 11.5, 0x2f6fe0); disc(11.5, 2.5, 0x1f9d4d); disc(11.5, 11.5, 0xf2c21a);
 
     // Dado con números [+x,-x,+y,-y,+z,-z] = [1,6,2,5,3,4]
     const dmats = [1, 6, 2, 5, 3, 4].map(n => new THREE.MeshStandardMaterial({ map: numTexture(n), roughness: 0.35 }));
