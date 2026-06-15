@@ -1,8 +1,9 @@
 // Biker Society Service Worker
-const CACHE_NAME = 'biker-v19';
+const CACHE_NAME = 'biker-v20';
 const ASSETS = [
   './',
   './index.html',
+  './games-ludo.js',
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
