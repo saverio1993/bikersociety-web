@@ -3678,6 +3678,15 @@ async function autoConnectHeyValue() {
     await syncFromCloud();
     saveLocal(); // save to localStorage only, don't re-upload
     healMyAvatar(); // si mi avatar local nunca llegó a la nube, súbelo ahora
+    // Puntos ganados en el Ludo 3D (página aparte): súmalos al volver
+    try {
+      const wp = parseInt(localStorage.getItem('ludo_winpts') || '0', 10);
+      if (wp > 0 && STATE.user) {
+        const u = STATE.users.find(x => x.id === STATE.user.id);
+        if (u) { u.points = (u.points || 0) + wp; STATE.user.points = u.points; }
+        localStorage.removeItem('ludo_winpts'); saveState();
+      }
+    } catch (e) {}
     // Re-render current page with cloud data
     if (STATE.currentPage) renderPage(STATE.currentPage);
     // Refresco en vivo del feed: posts + comentarios, detectando me gusta y
@@ -4015,7 +4024,7 @@ function renderPage(page, pageId) {
     case 'admin': renderAdmin(); break;
     case 'chat': renderChat(); break;
     case 'ranking': renderRanking(); break;
-    case 'juegos': renderJuegos(); break;
+    case 'juegos': openLudo3D(); break;
   }
 
   // Scroll to top
@@ -4414,7 +4423,7 @@ function showMoreMenu() {
 
     <!-- Juegos -->
     <div class="fpanel-section-label">JUEGOS</div>
-    <div class="fpanel-item" onclick="closeFpanel();navigate('juegos')">
+    <div class="fpanel-item" onclick="closeFpanel();openLudo3D()">
       <div class="fpanel-item-icon" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.25)">🎲</div>
       <div class="fpanel-item-text">
         <span class="fpanel-item-label">Ludo</span>
@@ -9291,7 +9300,15 @@ function renderEnhancedProfile(userId) {
     </div>
   `;
 }
+// Abre el Ludo 3D (página aparte). Deja la config de la nube y el usuario en
+// localStorage para que esa página se conecte con los miembros, sin meter el
+// peso del 3D en la web principal.
+function openLudo3D() {
+  if (!STATE.user) { toast('Inicia sesión primero'); return; }
+  try { localStorage.setItem('bs_hv', JSON.stringify({ url: HV.url, user: HV.user, pass: HV.pass, syncKey: HV.syncKey })); } catch (e) {}
+  try { localStorage.setItem('bs_ludo_session', JSON.stringify({ id: STATE.user.id, username: STATE.user.username })); } catch (e) {}
+  window.location.href = 'ludo3d/';
+}
 </script>
-<script src="games-ludo.js"></script>
 </body>
 </html>
