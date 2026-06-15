@@ -1976,6 +1976,19 @@ function avatarText(name) {
 }
 
 // Render user avatar HTML — checks dedicated bs_avatar key first, then user object
+// Fallback del avatar cuando la imagen falla: dibuja las iniciales. Se llama
+// desde el onerror del <img>. Antes el onerror incrustaba HTML con comillas
+// dobles dentro de un atributo de comillas dobles, lo que rompía el HTML y
+// dejaba basura visible (el '"> que aparecía junto al nombre en el perfil).
+function avatarFallback(img, userId) {
+  try {
+    const u = (STATE.users || []).find(x => x.id === userId) || { username: '?' };
+    const c1 = avatarColor(userId), c2 = avatarColor((userId || 0) + 1);
+    const sz = img.parentElement.offsetWidth || 38;
+    img.parentElement.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${Math.round(sz * 0.38)}px;overflow:hidden">${avatarText(u.username)}</div>`;
+  } catch (e) {}
+}
+
 function renderAvatar(user, size, style) {
   const c1 = avatarColor(user.id);
   const c2 = avatarColor((user.id || 0) + 1);
@@ -1986,8 +1999,7 @@ function renderAvatar(user, size, style) {
   const pic = hvPic || savedAvatar || user.avatar || user.profile_pic;
   if (pic) {
     const src = pic.startsWith('data:') ? pic : (pic + '?t=' + Date.now());
-    const fallback = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,${c1},${c2});display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:${Math.round(size*0.38)}px;overflow:hidden;flex-shrink:0">${avatarText(user.username)}</div>`;
-    return `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0;${style}"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${fallback}'"></div>`;
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;flex-shrink:0;${style}"><img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="avatarFallback(this,${user.id||0})"></div>`;
   }
   // Kick off async HeyValue fetch for next render (non-blocking)
   if (user.id && HV.user && HV.pass && !_hvAvatarCache[user.id]) {
