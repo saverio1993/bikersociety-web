@@ -3722,6 +3722,7 @@ async function autoConnectHeyValue() {
     HV.connected = true;
     STATE._cloudSynced = true; // allow cloud uploads ONLY after this flag is set
     // Sync data from cloud — cloud is the source of truth
+    const _sigBefore = _stateSignature();
     await syncFromCloud();
     saveLocal(); // save to localStorage only, don't re-upload
     healMyAvatar(); // si mi avatar local nunca llegó a la nube, súbelo ahora
@@ -3734,8 +3735,8 @@ async function autoConnectHeyValue() {
         localStorage.removeItem('ludo_winpts'); saveState();
       }
     } catch (e) {}
-    // Re-render current page with cloud data
-    if (STATE.currentPage) renderPage(STATE.currentPage);
+    // Re-render solo si los datos cambiaron (evita flash visible)
+    if (STATE.currentPage && _stateSignature() !== _sigBefore) renderPage(STATE.currentPage);
     // Refresco en vivo del feed: posts + comentarios, detectando me gusta y
     // reacciones (no solo posts nuevos), sin molestar a quien escribe o lee.
     if (STATE._refreshTimer) clearInterval(STATE._refreshTimer);
@@ -3879,14 +3880,25 @@ async function liveFeedTick() {
 // Al volver la app a primer plano —abrir desde una notificación, cambiar de
 // pestaña, desbloquear el teléfono— trae datos frescos de la nube para ver al
 // instante los posts/mensajes nuevos, sin esperar el ciclo de 2.5s.
+function _stateSignature() {
+  return [
+    STATE.routes?.length, STATE.users?.length, STATE.events?.length,
+    STATE.posts?.length, STATE.comments?.length,
+    (STATE.notifications||[]).filter(n=>!n.read).length
+  ].join(',');
+}
+
 let _lastResumeSync = 0;
 async function resumeSync() {
   if (!HV.user || document.hidden) return;
   const now = Date.now();
-  if (now - _lastResumeSync < 1500) return; // anti-rebote
+  if (now - _lastResumeSync < 15000) return; // solo 1 vez cada 15s para no flashear
   _lastResumeSync = now;
   try {
+    const before = _stateSignature();
     await syncFromCloud(true);
+    const after = _stateSignature();
+    if (before === after) return; // nada cambió — no re-renderizar, sin flash
     if (STATE.currentPage === 'bikergram') renderBikerGram();
     // 'juegos' se refresca solo con su propio polling; re-renderizarlo aquí
     // cerraría una partida de Ludo en curso, así que no lo tocamos.
@@ -4264,10 +4276,11 @@ function doLogin() {
   navigate('inicio');
   toast('Bienvenido, ' + user.username + '!');
   startPresence();
-  // Auto-sync from cloud if HeyValue is already configured
+  // Auto-sync from cloud si HeyValue está configurado — solo re-renderiza si cambiaron datos
   if (HV.user && HV.pass) {
+    const _sigPre = _stateSignature();
     syncFromCloud(true).then(() => {
-      if (STATE.currentPage) renderPage(STATE.currentPage);
+      if (STATE.currentPage && _stateSignature() !== _sigPre) renderPage(STATE.currentPage);
     });
   }
 }
