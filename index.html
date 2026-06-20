@@ -3941,7 +3941,8 @@ function saveLocal() {
   ls('bs_uc', STATE.userChallenges);
   ls('bs_ub', STATE.userBadges);
   ls('bs_cc', STATE.chatChannels);
-  ls('bs_cm', STATE.chatMessages);
+  // Guardar solo los últimos 400 mensajes para no reventar el límite de localStorage
+  ls('bs_cm', (STATE.chatMessages || []).slice(-400));
   ls('bs_notif', STATE.notifications);
   ls('bs_att', STATE.attendance);
   ls('bs_places', STATE.places);
@@ -8793,29 +8794,32 @@ async function sendAdminBroadcast() {
   if (!title) { toast('Escribe un título'); return; }
   if (!body)  { toast('Escribe el mensaje'); return; }
   const btn = document.getElementById('bc-send-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Enviando...';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Enviando...'; }
+
+  // Guardar notificación interna SIEMPRE — independiente del push
+  const now = new Date().toISOString();
+  STATE.users.forEach(u => {
+    STATE.notifications.push({
+      id: Date.now() + Math.floor(Math.random() * 9999),
+      user_id: u.id, actor_id: STATE.user.id,
+      type: 'broadcast', message: '📢 ' + title + ': ' + body,
+      link: '/', read: false, created_at: now
+    });
+  });
+  await saveState();
+  closeModal();
+  toast('✅ Difusión guardada — enviando push a móviles...');
+
+  // Push FCM (best-effort — si falla no importa, la notificación interna ya está)
   try {
     const res = await fetch('/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, body, kind: 'broadcast' })
     });
-    closeModal();
-    toast('✅ Difusión enviada a todos los bikers');
-    // También registrar como notificación interna para todos
-    STATE.users.forEach(u => {
-      STATE.notifications.push({
-        id: Date.now() + u.id, user_id: u.id, actor_id: STATE.user.id,
-        type: 'broadcast', message: title + ': ' + body,
-        link: '/', read: false, created_at: new Date().toISOString()
-      });
-    });
-    saveState();
+    if (res.ok) toast('📲 Push enviado a todos los bikers');
   } catch(e) {
-    toast('Error al enviar la difusión');
-    btn.disabled = false;
-    btn.textContent = '📢 Enviar a todos los bikers';
+    // Push no disponible localmente — notificación interna ya guardada
   }
 }
 
@@ -9676,10 +9680,14 @@ async function recoverPendingPostMedia() {
         p.media_url = idbPost.media_url;
         p.image_url = idbPost.image_url;
         p.media_type = idbPost.media_type || p.media_type;
+        delete p._pendingMedia; // solo si se recuperó con éxito
         restored = true;
       }
-    } catch(e) { console.warn('Recover post media failed:', e); }
-    delete p._pendingMedia;
+      // Si no hay registro en IndexedDB, dejar _pendingMedia para reintentar en el próximo ciclo
+    } catch(e) {
+      console.warn('Recover post media failed:', e);
+      // No borrar _pendingMedia si hubo error — reintentar en la próxima carga
+    }
   }
   if (restored) {
     renderBikerGram();

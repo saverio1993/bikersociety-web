@@ -34,6 +34,19 @@ const MIME = {
 const server = http.createServer((req, res) => {
   try {
     let urlPath = decodeURIComponent(req.url.split('?')[0]);
+
+    // Mock /notify endpoint para desarrollo local
+    if (urlPath === '/notify' && req.method === 'POST') {
+      let body = '';
+      req.on('data', d => body += d);
+      req.on('end', () => {
+        try { const p = JSON.parse(body); console.log('  [notify MOCK] ' + p.title + ' — ' + p.body); } catch(_) {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, mock: true }));
+      });
+      return;
+    }
+
     if (urlPath === '/') urlPath = '/index.html';
 
     // Evitar salir del directorio raíz
