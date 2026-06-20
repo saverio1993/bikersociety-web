@@ -324,14 +324,47 @@ a{color:inherit;text-decoration:none}
   border-radius:0 0 3px 3px;
   opacity:0;transition:var(--transition);
 }
-.bnav-item.active{color:var(--accent)}
-.bnav-item.active::before{opacity:1;box-shadow:0 0 12px var(--glow)}
+.bnav-item.active{color:var(--accent);animation:bnavNeon 0.5s ease-in-out infinite}
+.bnav-item.active::before{opacity:1;box-shadow:0 0 12px var(--glow);animation:bnavBarBlink 0.5s ease-in-out infinite}
 .bnav-item:active{transform:scale(0.95)}
 .bnav-item svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:var(--transition)}
-.bnav-item.active svg{filter:drop-shadow(0 0 8px var(--glow))}
+.bnav-item.active svg{animation:bnavSvgBlink 0.5s ease-in-out infinite}
 .bnav-item img{transition:var(--transition);filter:brightness(0.6) drop-shadow(0 0 0px transparent)}
 .bnav-item.active img{filter:brightness(1.3) drop-shadow(0 0 10px var(--glow));transform:scale(1.1)}
 .bnav-item span{display:block}
+@keyframes bnavNeon{
+  0%,100%{color:var(--accent);text-shadow:0 0 6px var(--glow),0 0 14px var(--glow)}
+  50%{color:#fff;text-shadow:0 0 2px var(--glow)}
+}
+@keyframes bnavBarBlink{
+  0%,100%{opacity:1;box-shadow:0 0 14px var(--glow),0 0 24px var(--glow)}
+  50%{opacity:0.3;box-shadow:0 0 3px var(--glow)}
+}
+@keyframes bnavSvgBlink{
+  0%,100%{filter:drop-shadow(0 0 10px var(--glow))}
+  50%{filter:drop-shadow(0 0 1px var(--glow))}
+}
+@keyframes closeNeon{
+  0%,100%{color:#ff3b3b;border-color:#ff3b3b;box-shadow:0 0 10px rgba(255,59,59,0.75),0 0 20px rgba(255,59,59,0.45)}
+  50%{color:#ff9a9a;border-color:rgba(255,59,59,0.4);box-shadow:0 0 2px rgba(255,59,59,0.25)}
+}
+.modal-x{
+  background:rgba(255,59,59,0.12);border:1px solid #ff3b3b;border-radius:8px;
+  color:#ff3b3b;cursor:pointer;font-size:16px;font-weight:700;
+  padding:4px 9px;line-height:1;
+  animation:closeNeon 1.8s ease-in-out infinite;
+}
+.modal-x:hover{background:rgba(255,59,59,0.28);transform:scale(1.05)}
+@keyframes subtabPulse{
+  0%,100%{box-shadow:0 0 0 rgba(0,212,255,0)}
+  50%{box-shadow:0 0 14px rgba(0,212,255,0.6)}
+}
+.ride-subtab-btn{animation:subtabPulse 1.1s ease-in-out infinite}
+@keyframes backNeon{
+  0%,100%{box-shadow:0 0 6px rgba(255,68,68,0.45);border-color:#ff4444;color:#ff8080}
+  50%{box-shadow:0 0 18px rgba(255,68,68,0.9);border-color:#ff9a9a;color:#ffd0d0}
+}
+.back-neon{animation:backNeon 1.1s ease-in-out infinite}
 
 /* ===== CARDS ===== */
 .card{
@@ -345,7 +378,7 @@ a{color:inherit;text-decoration:none}
   overflow:hidden;
 }
 .card::before{
-  content:'';position:absolute;
+  content:'';position:absolute;pointer-events:none;
   inset:0;opacity:0;
   background:linear-gradient(135deg,rgba(0,212,255,0.05),rgba(168,85,247,0.03));
   transition:var(--transition);
@@ -4318,26 +4351,26 @@ async function loadNews() {
   if (!container) return;
   container.innerHTML = '<div class="news-loading">Cargando noticias...</div>';
   try {
-    // Fetch motorcycle news and Panama news in parallel
-    const [motoRes, panamaRes] = await Promise.all([
-      fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://motorbike-thailand.com/feed')}`).catch(() => null),
-      fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bbci.co.uk/mundo/rss.xml')}`).catch(() => null),
+    // Noticias de motos y de tránsito (Google News en español)
+    const J = url => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+    const [motoRes, transitoRes] = await Promise.all([
+      fetch(J('https://news.google.com/rss/search?q=motos OR motociclismo OR motociclistas&hl=es-419&gl=PA&ceid=PA:es-419')).catch(() => null),
+      fetch(J('https://news.google.com/rss/search?q=tránsito OR "seguridad vial" OR accidente de tránsito&hl=es-419&gl=PA&ceid=PA:es-419')).catch(() => null),
     ]);
 
     let items = [];
-    const half = 3; // mostrar 3 de cada fuente
 
     if (motoRes?.ok) {
       const d = await motoRes.json();
       if (d.status === 'ok' && d.items?.length) {
-        items.push(...d.items.slice(0, half).map(i => ({ ...i, _cat: '🏍️ Motos' })));
+        items.push(...d.items.slice(0, 4).map(i => ({ ...i, _cat: '🏍️ Motos' })));
       }
     }
 
-    if (panamaRes?.ok) {
-      const d = await panamaRes.json();
+    if (transitoRes?.ok) {
+      const d = await transitoRes.json();
       if (d.status === 'ok' && d.items?.length) {
-        items.push(...d.items.slice(0, half).map(i => ({ ...i, _cat: '🌎 Panama' })));
+        items.push(...d.items.slice(0, 3).map(i => ({ ...i, _cat: '🚦 Tránsito' })));
       }
     }
 
@@ -4534,30 +4567,23 @@ function renderInicio() {
   const top = [...STATE.users].sort((a,b) => b.points - a.points).slice(0,5);
 
   document.getElementById('page-inicio').innerHTML = `
+    <!-- Banner de bienvenida -->
+    <div class="vanish" id="welcome-banner" style="width:100%;border-radius:16px;overflow:hidden;margin-bottom:14px;line-height:0;border:1px solid rgba(255,68,68,0.25)">
+      <img src="icons/banner-bienvenida.png" alt="Bienvenidos a Biker Society" style="width:100%;display:block"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div style="display:none;background:linear-gradient(135deg,#1a0303,#2a0606 35%,#ff4400 160%);min-height:118px;align-items:center;justify-content:center;text-align:center;padding:22px 16px;line-height:1.3">
+        <div style="font-size:24px;font-weight:900;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,0.65)">Bienvenidos a Biker Society 🏍️</div>
+      </div>
+    </div>
+
     <!-- News -->
     <div class="vanish news-section" style="animation-delay:0.05s">
       <div style="font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--text2)">NOTICIAS</span>
-        <span style="font-size:11px;color:var(--accent)">EspirituRacer.com</span>
+        <span style="font-size:11px;color:var(--accent)">🏍️ Motos y 🚦 Tránsito</span>
       </div>
       <div id="news-container">
         <div class="news-loading">Cargando...</div>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stat-row vanish" style="animation-delay:0.1s">
-      <div class="stat-box">
-        <div class="stat-val">${myEvents}</div>
-        <div class="stat-lbl">Eventos</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-val">${myRoutes}</div>
-        <div class="stat-lbl">Rutas Creadas</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-val">${myBadges}</div>
-        <div class="stat-lbl">Insignias</div>
       </div>
     </div>
 
@@ -4638,19 +4664,22 @@ function renderInicio() {
       </div>
       ${prox.map(r => `
         <div class="card vanish route-card" style="cursor:pointer;position:relative" onclick="navigateToRoute(${r.id})">
-          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)">
-            🧭 Seguir
-          </button>
-          <div style="display:flex;justify-content:space-between;align-items:start;padding-right:90px">
-            <div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div style="flex:1;min-width:0">
               <div class="card-title">${escHtml(r.name)}</div>
               <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
               <div style="margin-top:6px;display:flex;gap:6px">
                 <span class="badge">⚡ ${r.difficulty}</span>
               </div>
             </div>
+            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;min-width:108px;position:relative;z-index:3" onclick="event.stopPropagation()">
+              <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="width:100%;padding:7px 11px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff">🧭 Seguir</button>
+              ${STATE.user && STATE.user.is_admin ? `
+              <button onclick="event.stopPropagation();editRoute(${r.id})" style="width:100%;padding:7px 11px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text)">✏️ Editar</button>
+              <button onclick="event.stopPropagation();deleteRoute(${r.id})" style="width:100%;padding:7px 11px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;background:var(--surface2);border:1px solid #ef4444;color:#ef4444">🗑️ Eliminar</button>
+              ` : ''}
+            </div>
           </div>
-        </div>
       `).join('')}
     </div>
     ` : ''; })()}
@@ -4783,27 +4812,27 @@ function renderRutas() {
   })(); }
 
   document.getElementById('page-rutas').innerHTML = `
-    <!-- Header + Tabs (always visible) -->
+    <!-- Header (always visible) -->
     <div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:36px">
         <div style="display:flex;align-items:center;gap:8px">
-          ${sel ? `<button onclick="deselectRoute();return" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text2);cursor:pointer;font-size:13px">← Atras</button>` : ''}
-          <div style="font-size:18px;font-weight:800">${sel ? escHtml(sel.name) : 'Explorar'}</div>
+          ${sel ? `<button class="back-neon" onclick="deselectRoute();return" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px"><span style="font-size:20px;line-height:1">←</span> Atrás</button>` : ''}
+          ${sel ? `<div style="font-size:18px;font-weight:800">${escHtml(sel.name)}</div>` : ''}
         </div>
         ${!sel ? `
-        ${STATE.user?.is_admin ? `<button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="createRoute()">+ Nueva ruta</button>` : ''}
+        ${STATE.user?.is_admin ? `<button class="btn btn-primary" style="padding:8px 16px;font-size:12px;margin-left:auto" onclick="createRoute()">+ Nueva ruta</button>` : ''}
         ` : ''}
-      </div>
-
-      <!-- Rutas tab bar only -->
-      <div style="display:flex;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:4px;${sel ? 'display:none' : ''}" id="rutas-tabs">
-        <button onclick="setRutasTab('rutas')" style="flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:700;transition:all 0.2s;background:linear-gradient(135deg,#ff4444,#ff8800);color:#fff">🗺️ Rutas</button>
       </div>
     </div>
 
     <!-- Route detail (above map when selected) -->
     ${sel ? `
     <div class="card vanish" style="margin-bottom:10px;border-color:rgba(255,59,59,0.4)">
+      ${STATE.user?.is_admin ? `<div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="ride-subtab-btn" onclick="setRideSubTab('detalle')" style="flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${RIDE_SUBTAB==='detalle'?'linear-gradient(135deg,#ff4444,#ff8800)':'var(--surface2)'};color:${RIDE_SUBTAB==='detalle'?'#fff':'var(--text2)'}">📋 Detalle</button>
+        <button class="ride-subtab-btn" onclick="setRideSubTab('lista')" style="flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${RIDE_SUBTAB==='lista'?'linear-gradient(135deg,#22c55e,#16a34a)':'var(--surface2)'};color:${RIDE_SUBTAB==='lista'?'#fff':'var(--text2)'}">✅ Lista / Pago</button>
+      </div>` : ''}
+      ${(RIDE_SUBTAB==='lista' && STATE.user?.is_admin) ? renderRideList(sel.id) : `
       <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${escHtml(sel.description || 'Sin descripción')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid #22c55e">
@@ -4837,11 +4866,12 @@ function renderRutas() {
         <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
         <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
       </div>` : ''}
+      `}
     </div>
     ` : ''}
 
-    <!-- MAP — solo cuando hay ruta seleccionada -->
-    ${sel ? `
+    <!-- MAP — solo cuando hay ruta seleccionada (y en pestaña Detalle) -->
+    ${sel && RIDE_SUBTAB==='detalle' ? `
     <div class="map-container" style="margin-bottom:10px;border-radius:16px;overflow:hidden;border:1px solid rgba(0,212,255,0.15)">
       <div id="map-rutas" style="height:200px"></div>
     </div>
@@ -4879,8 +4909,8 @@ function renderRutas() {
     <div id="rutas-tab-content" style="${sel ? 'display:none' : ''}">
       ${RUTAS_TAB === 'rutas' ? `
         <div class="sub-tab-bar" style="display:flex;gap:4px;margin-bottom:10px">
-          <button onclick="setRouteSubTab('nuevas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='nuevas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='nuevas'?'#ff4444':'var(--text2)'}">🗺️ Nuevas (${(()=>{const t=new Date().toISOString().slice(0,10);return allRoutes.filter(r=>!r.date||r.date>=t).length;})()})</button>
-          <button onclick="setRouteSubTab('vencidas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='vencidas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='vencidas'?'#ff4444':'var(--text2)'}">✅ Vencidas (${(()=>{const t=new Date().toISOString().slice(0,10);return allRoutes.filter(r=>r.date&&r.date<t).length;})()})</button>
+          <button onclick="setRouteSubTab('nuevas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='nuevas'?'rgba(34,197,94,0.2)':'var(--surface2)'};color:${routeSubTab==='nuevas'?'#22c55e':'var(--text2)'}">✅ Nuevas (${(()=>{const t=new Date().toISOString().slice(0,10);return allRoutes.filter(r=>!r.date||r.date>=t).length;})()})</button>
+          <button onclick="setRouteSubTab('vencidas')" style="padding:6px 12px;border-radius:20px;border:none;cursor:pointer;font-size:11px;font-weight:700;background:${routeSubTab==='vencidas'?'rgba(255,68,68,0.2)':'var(--surface2)'};color:${routeSubTab==='vencidas'?'#ff4444':'var(--text2)'}">❌ Vencidas (${(()=>{const t=new Date().toISOString().slice(0,10);return allRoutes.filter(r=>r.date&&r.date<t).length;})()})</button>
         </div>
 
         <div id="rutas-list">
@@ -4900,6 +4930,213 @@ function renderRutas() {
   `;
 
   setTimeout(initRutasMap, 100);
+}
+
+// ============================================================
+// LISTA DE ASISTENCIA / PAGO POR RUEDE  (solo admin gestiona)
+// ============================================================
+let RIDE_SUBTAB = 'detalle';
+
+function setRideSubTab(tab) {
+  RIDE_SUBTAB = tab;
+  renderRutas();
+}
+
+let RIDE_FILTER = 'todos'; // 'todos' | 'pagaron' | 'pendiente'
+function setRideFilter(f) {
+  RIDE_FILTER = (RIDE_FILTER === f) ? 'todos' : f;
+  renderRutas();
+}
+
+function openRidePayList(routeId) {
+  const r = STATE.routes.find(x => x.id === routeId);
+  if (!r) return;
+  STATE.selectedRoute = r;
+  RIDE_SUBTAB = 'lista';
+  renderRutas();
+}
+
+// Siembra una sola vez la lista real de la rodada "Playa blanca, colon".
+// [nombre, apellido, comida, pago] -> pago: 1=pagó, 0=pendiente
+function _maybeSeedPlayaBlanca(routeId) {
+  if (ls('bs_paylist_seed_pb')) return;
+  const r = STATE.routes.find(x => x.id === routeId);
+  if (!r || !/playa\s*blanca/i.test(r.name || '')) return;
+  if (!STATE.payList) STATE.payList = ls('bs_paylist') || {};
+  if ((STATE.payList[routeId] || []).length === 0) {
+    const D = [
+      ['Fitzgerald','Mejía','pargo',1],
+      ['Meyling','Mercado','filete de pargo',1],
+      ['Indira','Mercado','camarones',1],
+      ['Alexia','Junieth','pulpo con coco',1],
+      ['Orlando','Rojo','pargo',1],
+      ['Orlando','(esposa)','pargo',1],
+      ['Natalia','Escarpeta','pargo',1],
+      ['Nandy','Sofía','pulpo con coco',1],
+      ['Ramón','Tomás RK','filete de pargo',1],
+      ['Rolando','Chavarría','pulpo',1],
+      ['Antonini','','filete de pargo',1],
+      ['Carolina','Santana','filete de pargo',1],
+      ['José','Vergara','pulpo con coco',1],
+      ['Rodolfo','Mendieta','filete de pargo',1],
+      ['Alexis','','filete de pargo',1],
+      ['Masieel','','filete de pargo',1],
+      ['Nohemí','Iriarte','pargo',1],
+      ['Felipe','Gonzáles','pargo',1],
+      ['Esther','Suárez','pargo',1],
+      ['Ronny','Fabián','camarones',1],
+      ['Maylin','','filete de pargo',1],
+      ['Alicia','Navi','pargo',1],
+      ['Mexicano','','pargo',1],
+      ['Javier','Enrique','pargo',1],
+      ['Wesly','','pargo',1],
+      ['Esposa','de Wesly','pollo frito',1],
+      ['Positivo','','filete de pargo',0],
+      ['Abdiel','Ledesma','pulpo con coco',0],
+      ['Jesús','','pargo',0],
+      ['Stiven','','camarones',0],
+      ['Carlos','Iván Cruz','pargo',0],
+      ['Roberth','de León','pulpo con coco',1],
+      ['Yaisbeth','Vargas','camarones',1],
+      ['José','Rosa','filete de pargo',0],
+      ['Juliette','(hija de Rosa)','pargo',0],
+      ['Engel','Ampie','pargo',1],
+      ['Katerine','','pargo',1],
+      ['Dindoski','','filete de pargo',1],
+      ['Jonathan','Soto','camarones',1],
+      ['Dana','Falconet','camarones',1],
+      ['Scarlett','','filete de pargo',1],
+      ['Scarlett','(2)','filete de pargo',1],
+      ['Scarlett','(3)','pulpo',1],
+      ['Scarlett','(4)','camarones',1],
+      ['Scarlett','(amigo)','pargo',1],
+      ['Scarlett','(amiga)','camarones',1],
+      ['Scarlett','(amigo 3)','camarones',1],
+      ['Olivares','','camarones',1],
+      ['Maiker','Quiroz','pulpo',1],
+      ['Maiker','Quiroz (2)','pulpo',1],
+      ['Gean','Rodríguez','pargo',0],
+      ['Gean','(mochila)','pargo',0],
+    ];
+    STATE.payList[routeId] = D.map((d, i) => ({ id: 'pb' + (i + 1), nombre: d[0], apellido: d[1], comida: d[2], pago: !!d[3] }));
+    saveRideList();
+  }
+  ls('bs_paylist_seed_pb', true);
+}
+
+function getRideList(routeId) {
+  if (!STATE.payList) STATE.payList = ls('bs_paylist') || {};
+  return STATE.payList[routeId] || [];
+}
+function saveRideList() {
+  ls('bs_paylist', STATE.payList || {});
+}
+
+function renderRideList(routeId) {
+  _maybeSeedPlayaBlanca(routeId);
+  const isAdmin = !!(STATE.user && STATE.user.is_admin);
+  const list = getRideList(routeId);
+  const pagaron = list.filter(m => m.pago);
+  const pendiente = list.filter(m => !m.pago);
+
+  const head = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:800">💵 Control de pagos</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${list.length} en lista · <span style="color:#22c55e;font-weight:700">${pagaron.length} pagaron</span> · <span style="color:#ffae3a;font-weight:700">${pendiente.length} pendiente${pendiente.length===1?'':'s'}</span></div>
+    </div>`;
+
+  const addForm = isAdmin ? `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:14px">
+      <input class="input" id="rl-nombre" placeholder="Nombre" style="flex:1;min-width:84px;margin:0">
+      <input class="input" id="rl-apellido" placeholder="Apellido" style="flex:1;min-width:84px;margin:0">
+      <input class="input" id="rl-comida" placeholder="Comida" style="flex:1;min-width:84px;margin:0">
+      <button class="btn btn-primary" style="padding:9px 16px;white-space:nowrap" onclick="submitRideMember(${routeId})">Agregar</button>
+    </div>` : '';
+
+  const row = m => `
+    <div style="display:flex;align-items:center;gap:8px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:6px;border-left:3px solid ${m.pago?'#22c55e':'#ffae3a'}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${escHtml(m.nombre)} ${escHtml(m.apellido||'')}</div>
+        <div style="font-size:11px;color:var(--text3)">🍽️ ${escHtml(m.comida || '—')}</div>
+      </div>
+      ${isAdmin ? `
+      <button onclick="toggleRidePago(${routeId},'${m.id}')" title="${m.pago?'Marcar como pendiente':'Marcar como pagó'}" style="background:${m.pago?'rgba(255,174,58,0.15)':'rgba(34,197,94,0.15)'};border:1px solid ${m.pago?'#ffae3a':'#22c55e'};color:${m.pago?'#ffae3a':'#22c55e'};border-radius:8px;padding:6px 9px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">${m.pago?'↩ Pendiente':'✅ Pagó'}</button>
+      <button onclick="deleteRideMember(${routeId},'${m.id}')" title="Quitar de la lista" style="background:var(--surface);border:1px solid #ef4444;color:#ef4444;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:13px">🗑️</button>
+      ` : `<span class="badge" style="background:${m.pago?'rgba(34,197,94,0.15)':'rgba(255,174,58,0.15)'};color:${m.pago?'#22c55e':'#ffae3a'};border:1px solid ${m.pago?'rgba(34,197,94,0.3)':'rgba(255,174,58,0.3)'};white-space:nowrap">${m.pago?'✅ Pagó':'⏳ Pendiente'}</span>`}
+    </div>`;
+
+  const group = (titulo, color, arr) => `
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:800;color:${color};margin-bottom:8px;display:flex;align-items:center;gap:6px">${titulo} <span style="background:${color}22;color:${color};border-radius:10px;padding:1px 8px;font-size:11px">${arr.length}</span></div>
+      ${arr.length ? arr.map(row).join('') : `<div style="font-size:12px;color:var(--text3);padding:4px 2px">— Nadie aún —</div>`}
+    </div>`;
+
+  const filterBar = `
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button onclick="setRideFilter('pagaron')" style="padding:6px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${RIDE_FILTER==='pagaron'?'#22c55e':'var(--border)'};background:${RIDE_FILTER==='pagaron'?'rgba(34,197,94,0.2)':'var(--surface2)'};color:${RIDE_FILTER==='pagaron'?'#22c55e':'var(--text2)'}">✅ Pagaron (${pagaron.length})</button>
+      <button onclick="setRideFilter('pendiente')" style="padding:6px 12px;border-radius:10px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${RIDE_FILTER==='pendiente'?'#ffae3a':'var(--border)'};background:${RIDE_FILTER==='pendiente'?'rgba(255,174,58,0.2)':'var(--surface2)'};color:${RIDE_FILTER==='pendiente'?'#ffae3a':'var(--text2)'}">⏳ Pendiente (${pendiente.length})</button>
+    </div>`;
+
+  const showPag = RIDE_FILTER === 'todos' || RIDE_FILTER === 'pagaron';
+  const showPend = RIDE_FILTER === 'todos' || RIDE_FILTER === 'pendiente';
+  const body = (list.length === 0 && !isAdmin)
+    ? `<div class="empty-state" style="padding:20px 0"><div class="empty-icon">📝</div><div>Aún no hay nadie en la lista</div></div>`
+    : (showPag ? group('✅ Pagaron', '#22c55e', pagaron) : '') + (showPend ? group('⏳ Pendiente', '#ffae3a', pendiente) : '');
+
+  return head + addForm + filterBar + body;
+}
+
+function openAddRideMember(routeId) {
+  if (!(STATE.user && STATE.user.is_admin)) { toast('Solo administradores'); return; }
+  const body = `
+    <input class="input" id="rl-nombre" placeholder="Nombre" style="margin-bottom:8px">
+    <input class="input" id="rl-apellido" placeholder="Apellido" style="margin-bottom:8px">
+    <input class="input" id="rl-comida" placeholder="Comida (ej. Pollo, Vegetariano...)" style="margin-bottom:8px">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;font-size:13px;font-weight:700">
+        <input type="radio" name="rl-pago" value="1"> ✅ Pagó
+      </label>
+      <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;font-size:13px;font-weight:700">
+        <input type="radio" name="rl-pago" value="0" checked> ❌ No pagó
+      </label>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="submitRideMember(${routeId})">Agregar a la lista</button>`;
+  openModal('➕ Agregar asistente', body);
+}
+
+function submitRideMember(routeId) {
+  if (!(STATE.user && STATE.user.is_admin)) { toast('Solo administradores'); return; }
+  const nombre = (document.getElementById('rl-nombre').value || '').trim();
+  const apellido = (document.getElementById('rl-apellido').value || '').trim();
+  const comida = (document.getElementById('rl-comida').value || '').trim();
+  const pagoEl = document.querySelector('input[name="rl-pago"]:checked');
+  const pago = pagoEl ? pagoEl.value === '1' : false;
+  if (!nombre) { toast('Escribe al menos el nombre'); return; }
+  if (!STATE.payList) STATE.payList = ls('bs_paylist') || {};
+  if (!STATE.payList[routeId]) STATE.payList[routeId] = [];
+  STATE.payList[routeId].push({ id: 'm'+Date.now()+Math.floor(Math.random()*1000), nombre, apellido, comida, pago });
+  saveRideList();
+  closeModal();
+  RIDE_SUBTAB = 'lista';
+  renderRutas();
+  toast('Asistente agregado');
+}
+
+function toggleRidePago(routeId, memberId) {
+  if (!(STATE.user && STATE.user.is_admin)) return;
+  const list = (STATE.payList && STATE.payList[routeId]) || [];
+  const m = list.find(x => x.id === memberId);
+  if (m) { m.pago = !m.pago; saveRideList(); renderRutas(); }
+}
+
+function deleteRideMember(routeId, memberId) {
+  if (!(STATE.user && STATE.user.is_admin)) return;
+  if (!confirm('¿Quitar a esta persona de la lista?')) return;
+  if (STATE.payList && STATE.payList[routeId]) {
+    STATE.payList[routeId] = STATE.payList[routeId].filter(x => x.id !== memberId);
+    saveRideList();
+    renderRutas();
+  }
 }
 
 let routeSubTab = 'nuevas';
@@ -5317,6 +5554,7 @@ function selectRoute(id) {
   const r = STATE.routes.find(x => x.id === id);
   if (!r) return;
   STATE.selectedRoute = r;
+  RIDE_SUBTAB = 'detalle';
   renderRutas();
 }
 
@@ -5340,14 +5578,11 @@ function renderRouteCard(r, vencida) {
   const km = routeDistanceKm(r);
   const difficultyColors = { facil: '#22c55e', media: '#f59e0b', dificil: '#ef4444', epica: '#9c27b0' };
   const diffColor = difficultyColors[r.difficulty] || '#888';
-  const cardStyle = vencida ? 'cursor:pointer;position:relative;opacity:0.45;filter:grayscale(0.7)' : 'cursor:pointer;position:relative';
+  const cardStyle = vencida ? 'cursor:pointer;position:relative;opacity:0.45;filter:grayscale(0.7)' : 'cursor:pointer;position:relative;background:linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,150,40,0.06));border:1px solid rgba(255,170,60,0.3)';
+  const isAdmin = !!(STATE.user && STATE.user.is_admin);
   return `
     <div class="card vanish route-card" style="${cardStyle}" onclick="selectRoute(${r.id})">
-      <!-- Floating Waze/Maps button — always visible, opens native nav app -->
-      <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="position:absolute;top:10px;right:10px;z-index:2;padding:6px 12px;border-radius:20px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff;cursor:pointer;font-size:12px;font-weight:800;display:flex;align-items:center;gap:5px;box-shadow:0 4px 12px rgba(0,212,255,0.4)" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-        🧭 Seguir
-      </button>
-      <div style="display:flex;justify-content:space-between;align-items:start;gap:8px;padding-right:90px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
           <div class="card-title">${escHtml(r.name)}</div>
           <div class="card-sub">${escHtml(r.start_name || 'Sin origen')} → ${escHtml(r.end_name || 'Sin destino')}</div>
@@ -5358,6 +5593,19 @@ function renderRouteCard(r, vencida) {
             <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
             ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
+        </div>
+        <!-- Barra de acciones (columna a la derecha) -->
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;width:${isAdmin ? '172px' : '112px'};position:relative;z-index:3" onclick="event.stopPropagation()">
+          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="width:100%;padding:8px 11px;border-radius:14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff">🧭 Seguir</button>
+          ${isAdmin ? `
+          <div style="display:flex;gap:6px;align-items:stretch">
+            <button onclick="event.stopPropagation();openRidePayList(${r.id})" title="Lista de pagos de esta ruta" style="flex:1;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399">💵<span style="font-size:13px">Pagos</span></button>
+            <div style="display:flex;flex-direction:column;gap:6px;width:42px">
+              <button onclick="event.stopPropagation();editRoute(${r.id})" title="Editar ruta" style="flex:1;border-radius:12px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);color:var(--text)">✏️</button>
+              <button onclick="event.stopPropagation();deleteRoute(${r.id})" title="Eliminar ruta" style="flex:1;border-radius:12px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid #ef4444;color:#ef4444">🗑️</button>
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
     </div>
@@ -5385,7 +5633,7 @@ function setRouteMaxKm(v) {
 
 function editRoute(id) {
   const r = STATE.routes.find(x => x.id === id);
-  if (!r || r.created_by !== STATE.user?.id) return;
+  if (!r || (r.created_by !== STATE.user?.id && !STATE.user?.is_admin)) return;
 
   let stops = [];
   try { stops = JSON.parse(r.stops || '[]'); } catch(e) {}
@@ -5394,7 +5642,7 @@ function editRoute(id) {
   stops.forEach((s, i) => {
     stopsHtml += `<div id="edit-stop-${i}" style="padding:10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;position:relative;border:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:700;color:#ff6666">PARADA ${i+1}</span>
+        <span style="font-size:12px;font-weight:800;color:#ff9d33;text-shadow:0 0 6px rgba(255,136,0,0.4)">PARADA ${i+1}</span>
         <button onclick="this.closest('#edit-stop-${i}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
       </div>
       <div style="position:relative;margin-bottom:6px">
@@ -5409,11 +5657,11 @@ function editRoute(id) {
     </div>`;
   });
 
-  openModal('Editar Ruta', `
+  openModal('<span style="color:#ff5555;text-shadow:0 0 12px rgba(255,68,68,0.6);font-weight:800">✏️ Editar Ruta</span>', `
     <input class="input" id="ert-name" value="${escHtml(r.name)}" placeholder="Nombre de la ruta" style="margin-bottom:12px">
     <input class="input" id="ert-desc" value="${escHtml(r.description || '')}" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🚦</span> SALIDA
+    <div style="font-size:13px;font-weight:800;color:#22c55e;text-shadow:0 0 8px rgba(34,197,94,0.45);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🚦</span> SALIDA
       <button onclick="useMyLocation('ert-start')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
     </div>
     <div style="position:relative;margin-bottom:8px">
@@ -5427,7 +5675,7 @@ function editRoute(id) {
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-start')">✕</button>
     </div>
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> DESTINO
+    <div style="font-size:13px;font-weight:800;color:#ff5a5a;text-shadow:0 0 8px rgba(239,68,68,0.45);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> DESTINO
       <button onclick="useMyLocation('ert-end')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
     </div>
     <div style="position:relative;margin-bottom:8px">
@@ -5441,7 +5689,7 @@ function editRoute(id) {
       <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-end')">✕</button>
     </div>
 
-    <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> PARADAS</div>
+    <div style="font-size:13px;font-weight:800;color:#ff9d33;text-shadow:0 0 8px rgba(255,136,0,0.45);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> PARADAS</div>
     <div id="ert-stops-container">${stopsHtml}</div>
     <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addEditStopField()">+ Agregar parada</button>
 
@@ -5634,14 +5882,9 @@ function createRoute() {
   const endDisplay = e.lat ? 'block' : 'none';
   const endBtnDisplay = e.lat ? 'none' : 'flex';
   openModal('Nueva Ruta', `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <span style="font-size:11px;color:var(--text3)">📍 Usa el mapa para buscar lugares</span>
-      <button onclick="closeModal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;line-height:1">✕</button>
+    <div style="margin-bottom:12px">
+      <span style="font-size:11px;color:var(--text3)">📍 Usa el mapa para marcar cada punto: salida, destino y paradas</span>
     </div>
-
-    <button onclick="useMyLocationBoth()" style="width:100%;margin-bottom:12px;padding:10px;background:rgba(255,32,32,0.08);border:1px solid rgba(255,32,32,0.3);border-radius:12px;color:#ff6666;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-      📍 Usar mi ubicacion para SALIDA y DESTINO
-    </button>
 
     <input class="input" id="rt-name" placeholder="Nombre de la ruta (ej: Ruta del lunes)" style="margin-bottom:10px">
     <input class="input" id="rt-desc" placeholder="Descripcion (opcional)" style="margin-bottom:12px">
@@ -5654,11 +5897,11 @@ function createRoute() {
       <span id="rt-start-selected-name" style="flex:1;color:var(--text);font-weight:600">${s.name || ''}</span>
       <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-start')">✕</button>
     </div>
-    <button class="btn btn-ghost" id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${startBtnDisplay}" 
-      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
-      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+    <button id="rt-start-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;font-weight:700;border:1px solid #22c55e;border-radius:var(--radius-sm);background:rgba(34,197,94,0.15);color:#22c55e;cursor:pointer;transition:all 0.2s;display:${startBtnDisplay}"
+      onmouseover="this.style.background='rgba(34,197,94,0.3)'"
+      onmouseout="this.style.background='rgba(34,197,94,0.15)'"
       onclick="openRouteMapPicker()">
-      📍 Buscar en el mapa
+      🗺️ Buscar SALIDA en el mapa
     </button>
     <div class="coord-row" style="margin-bottom:16px">
       <input class="input" id="rt-start-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" value="${s.lat ? s.lat.toFixed(6) : ''}" readonly>
@@ -5674,11 +5917,11 @@ function createRoute() {
       <span id="rt-end-selected-name" style="flex:1;color:var(--text);font-weight:600">${e.name || ''}</span>
       <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0" onclick="clearPlace('rt-end')">✕</button>
     </div>
-    <button class="btn btn-ghost" id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text2);cursor:pointer;transition:all 0.2s;display:${endBtnDisplay}" 
-      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" 
-      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+    <button id="rt-end-map-btn" style="width:100%;margin-bottom:8px;text-align:center;padding:12px;font-size:13px;font-weight:700;border:1px solid #ef4444;border-radius:var(--radius-sm);background:rgba(239,68,68,0.15);color:#ff6b6b;cursor:pointer;transition:all 0.2s;display:${endBtnDisplay}"
+      onmouseover="this.style.background='rgba(239,68,68,0.3)'"
+      onmouseout="this.style.background='rgba(239,68,68,0.15)'"
       onclick="openRouteMapPicker()">
-      📍 Buscar en el mapa
+      🗺️ Buscar DESTINO en el mapa
     </button>
     <div class="coord-row" style="margin-bottom:16px">
       <input class="input" id="rt-end-lat" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" value="${e.lat ? e.lat.toFixed(6) : ''}" readonly>
@@ -5690,7 +5933,7 @@ function createRoute() {
       <span>🛑</span> PARADAS (opcional)
     </div>
     <div id="rt-stops-container" style="margin-bottom:6px"></div>
-    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addStopField()">+ Agregar parada</button>
+    <button style="width:100%;font-size:13px;font-weight:700;margin-bottom:16px;padding:12px;text-align:center;border:1px solid #ff8800;border-radius:var(--radius-sm);background:rgba(255,136,0,0.15);color:#ff9d33;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(255,136,0,0.3)'" onmouseout="this.style.background='rgba(255,136,0,0.15)'" onclick="addStopField()">➕ Agregar PARADA en el mapa</button>
 
     <select class="input" id="rt-diff" style="margin-bottom:12px">
       <option value="facil">Facil</option>
@@ -6094,7 +6337,7 @@ function addStopField(lat, lng, name) {
   div.style.cssText = 'padding:10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;position:relative;border:1px solid var(--border)';
   div.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <span style="font-size:11px;font-weight:700;color:var(--text2)">PARADA ${stopCounter}</span>
+      <span style="font-size:12px;font-weight:800;color:#ff9d33;text-shadow:0 0 6px rgba(255,136,0,0.4)">PARADA ${stopCounter}</span>
       <button onclick="this.closest('#${id}').remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0">✕</button>
     </div>
     <div style="position:relative;margin-bottom:6px">
@@ -6235,6 +6478,8 @@ function doCreateRoute() {
 }
 
 async function deleteRoute(id) {
+  const _r = STATE.routes.find(x => x.id === id);
+  if (_r && _r.created_by !== STATE.user?.id && !STATE.user?.is_admin) { toast('Solo administradores pueden eliminar'); return; }
   if (!confirm('¿Eliminar esta ruta?')) return;
   // Mark as deleted to block cloud sync from restoring it
   STATE._deletedRouteIds = STATE._deletedRouteIds || [];
@@ -6254,7 +6499,7 @@ async function deleteRoute(id) {
     STATE._deletedRouteIds = STATE._deletedRouteIds.filter(i => i !== id);
     ls('_deletedRoutes', STATE._deletedRouteIds);
   }
-  renderRutas();
+  renderPage(STATE.currentPage || 'rutas');
   toast('Ruta eliminada');
 }
 
@@ -8642,7 +8887,7 @@ function openModal(title, content) {
   document.getElementById('modal-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div style="font-size:16px;font-weight:700">${title}</div>
-      <button class="btn btn-ghost" style="padding:4px 8px;font-size:16px" onclick="closeModal()">✕</button>
+      <button class="modal-x" onclick="closeModal()">✕</button>
     </div>
     ${content}
   `;
