@@ -1390,10 +1390,10 @@ if (localStorage.getItem('bs_debug') === '1') {
 // STATE & CONFIG
 // ============================================================
 const HV = {
-  url: 'https://bikersociety.duckdns.org',
-  user: 'saveriomanrrique19@gmail.com',
-  pass: 'Lozano1993@',
-  hvPath: '8202944a-6bb4-49f3-9e06-a4a5849813f2',
+  url: localStorage.getItem('hv_url') || 'https://cloud.heyvalue.com',
+  user: localStorage.getItem('hv_user') || 'saveriomanrrique19@gmail.com',
+  pass: localStorage.getItem('hv_pass') || 'Lozano1993@',
+  hvPath: localStorage.getItem('hv_path') || '8202944a-6bb4-49f3-9e06-a4a5849813f2',
   syncKey: 'biker_v1',
   gramFolder: 'RuedeGram',
   connected: false
@@ -4313,23 +4313,55 @@ function doRegister() {
 
 function showHVSetup() {
   openModal('Configurar HeyValue Cloud', `
-    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Conecta tu almacenamiento en la nube para sincronizar datos entre dispositivos.</p>
-    <input class="input" type="text" id="hv-user" placeholder="Usuario de Nextcloud" value="${HV.user}">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Conecta tu almacenamiento en la nube para sincronizar datos entre dispositivos.</p>
+    <input class="input" type="url" id="hv-url" placeholder="URL del servidor (ej: https://cloud.heyvalue.com)" value="${HV.url}" style="margin-bottom:8px">
+    <input class="input" type="text" id="hv-user" placeholder="Usuario (email)" value="${HV.user}" style="margin-bottom:8px">
     <input class="input" type="password" id="hv-pass" placeholder="App password" value="${HV.pass}">
-    <p style="font-size:11px;color:var(--text3);margin-bottom:16px">Crea una app password en cloud.heyvalue.com → Configuración → Seguridad → Contraseñas de aplicacion</p>
-    <button class="btn btn-primary" style="width:100%" onclick="saveHVSetup()">Guardar y sincronizar</button>
+    <p style="font-size:11px;color:var(--text3);margin:8px 0 12px">Crea una app password en cloud.heyvalue.com → Configuración → Seguridad → Contraseñas de aplicación</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1;border:1px solid var(--border)" onclick="testHVConnection()">🔍 Probar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveHVSetup()">Guardar y sincronizar</button>
+    </div>
+    <div id="hv-test-result" style="margin-top:10px;font-size:12px;text-align:center"></div>
   `);
 }
 
+async function testHVConnection() {
+  const url  = (document.getElementById('hv-url')?.value  || HV.url).trim().replace(/\/$/, '');
+  const user = (document.getElementById('hv-user')?.value || HV.user).trim();
+  const pass = document.getElementById('hv-pass')?.value || HV.pass;
+  const out  = document.getElementById('hv-test-result');
+  out.innerHTML = '⏳ Probando conexión...';
+  out.style.color = 'var(--text2)';
+  try {
+    const r = await fetch(url + '/ocs/v1.php/cloud/user', {
+      headers: { Authorization: 'Basic ' + btoa(user + ':' + pass), 'OCS-APIREQUEST': 'true' }
+    });
+    if (r.ok) {
+      const xml = await r.text();
+      const id = xml.match(/<id>([^<]+)<\/id>/)?.[1] || user;
+      out.innerHTML = '✅ Conectado como <strong>' + id + '</strong>';
+      out.style.color = '#22c55e';
+    } else {
+      out.innerHTML = '❌ Error ' + r.status + ' — verifica usuario/contraseña';
+      out.style.color = '#ff4444';
+    }
+  } catch(e) {
+    out.innerHTML = '❌ No se pudo conectar: ' + e.message;
+    out.style.color = '#ff4444';
+  }
+}
+
 async function saveHVSetup() {
+  const url = (document.getElementById('hv-url')?.value || HV.url).trim().replace(/\/$/, '');
   const u = document.getElementById('hv-user').value.trim();
   const p = document.getElementById('hv-pass').value;
-  if (!u || !p) { toast('Completa ambos campos'); return; }
+  if (!url || !u || !p) { toast('Completa todos los campos'); return; }
 
   // Discover WebDAV path via OCS API
   toast('Conectando a HeyValue...');
   try {
-    const r = await fetch(HV.url + '/ocs/v1.php/cloud/user', {
+    const r = await fetch(url + '/ocs/v1.php/cloud/user', {
       headers: { Authorization: 'Basic ' + btoa(u + ':' + p), 'OCS-APIREQUEST': 'true' }
     });
     const xml = await r.text();
@@ -4348,6 +4380,8 @@ async function saveHVSetup() {
     return;
   }
 
+  HV.url = url;
+  localStorage.setItem('hv_url', url);
   localStorage.setItem('hv_user', u);
   localStorage.setItem('hv_pass', p);
   HV.user = u; HV.pass = p;
