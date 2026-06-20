@@ -1704,7 +1704,7 @@ function savePlace(place) {
     Math.abs(p.lng - place.lng) < 0.0005
   );
   if (!exists) {
-    place.id = Date.now() % 1000000;
+    place.id = Date.now() + Math.floor(Math.random() * 9999)0;
     STATE.places.push(place);
     ls('bs_places', STATE.places);
   }
@@ -3265,7 +3265,7 @@ function confirmAttendance(routeId, method, isArrival) {
   const existing = STATE.attendance.find(a => a.route_id === routeId && a.user_id === STATE.user.id && !!a.is_arrival === !!isArrival);
   if (existing) return; // already confirmed
   STATE.attendance.push({
-    id: Date.now() % 100000,
+    id: Date.now() + Math.floor(Math.random() * 9999),
     user_id: STATE.user.id,
     route_id: routeId,
     confirmed_at: new Date().toISOString(),
@@ -4294,7 +4294,7 @@ function doRegister() {
   if (STATE.users.find(x => x.username === username)) { toast('Ese usuario ya existe'); return; }
   if (STATE.users.find(x => x.email === email)) { toast('Ese email ya esta registrado'); return; }
   const newUser = {
-    id: Date.now() % 100000,
+    id: Date.now() + Math.floor(Math.random() * 9999),
     username, email, password,
     is_admin: 0, is_injured: 0, injury_note: '',
     bike_model: bike, points: 50,
@@ -6561,7 +6561,7 @@ function doCreateRoute() {
   if (!startLat || !startLng) { toast('Busca y selecciona un punto de SALIDA'); return; }
   if (!endLat || !endLng) { toast('Busca y selecciona un punto de DESTINO'); return; }
   const route = {
-    id: Date.now() % 100000,
+    id: Date.now() + Math.floor(Math.random() * 9999),
     name,
     description: desc,
     start_lat: startLat,
@@ -8209,7 +8209,7 @@ function sendChatMessage() {
   const content = inp.value.trim();
   if (!content) return;
   const msg = {
-    id: Date.now() % 1000000,
+    id: Date.now() + Math.floor(Math.random() * 9999)0,
     channel_id: CHAT_CHANNEL,
     user_id: STATE.user.id,
     content,
@@ -9302,7 +9302,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let DB = null;
 const DB_NAME = 'BikerGramDB';
 const DB_VERSION = 1;
-const STORES = ['posts', 'comments', 'follows', 'sync_queue'];
+const STORES = ['posts', 'comments', 'follows'];
 
 function initIndexedDB() {
   return new Promise((resolve, reject) => {
@@ -9378,32 +9378,6 @@ function idbDelete(store, key) {
   });
 }
 
-// ===== SYNC QUEUE =====
-function syncQueuePush(action, storeName, data) {
-  return idbPut('sync_queue', {
-    action,
-    store_name: storeName,
-    data,
-    created_at: new Date().toISOString(),
-    status: 'pending'
-  });
-}
-
-async function syncQueueProcess() {
-  if (!DB || !HV.connected) return;
-  const items = await idbGetAll('sync_queue');
-  const pending = items.filter(i => i.status === 'pending');
-  for (const item of pending) {
-    try {
-      const tableMap = {posts: 'posts', comments: 'comments', follows: 'follows'};
-      const table = tableMap[item.store_name];
-      if (!table) { await idbDelete('sync_queue', item.id); continue; }
-      await saveToHV(table, STATE[item.store_name] || []);
-      item.status = 'done';
-      await idbPut('sync_queue', item, item.id);
-    } catch(e) { /* keep pending */ }
-  }
-}
 
 // ===== REACTIONS SYSTEM =====
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '😡'];
@@ -9448,7 +9422,6 @@ function addReaction(postId, emoji) {
     p._reactionEmoji = emoji;
   }
   saveState();
-  syncQueuePush('update', 'posts', p);
   renderBikerGram();
 }
 
@@ -9505,7 +9478,7 @@ function renderComments(postId) {
 function addComment(postId, text) {
   if (!STATE.user || !text.trim()) return;
   const comment = {
-    id: Date.now() % 100000,
+    id: Date.now() + Math.floor(Math.random() * 9999),
     post_id: postId,
     user_id: STATE.user.id,
     text: text.trim(),
@@ -9513,17 +9486,16 @@ function addComment(postId, text) {
   };
   STATE.comments = STATE.comments || [];
   STATE.comments.push(comment);
-  saveState();
-  syncQueuePush('create', 'comments', comment);
-  // Update comment count on post
+  // Update comment count on post before saving (single saveState call)
   const p = STATE.posts.find(x => x.id === postId);
-  if (p) { p.comments_count = (p.comments_count || 0) + 1; saveState(); }
+  if (p) p.comments_count = (p.comments_count || 0) + 1;
+  saveState();
   renderBikerGram();
 }
 
 // ===== SHARE SYSTEM =====
 function sharePost(postId) {
-  const url = 'https://bikersociety.duckdns.org?post=' + postId;
+  const url = window.location.origin + '?post=' + postId;
   if (navigator.clipboard) {
     navigator.clipboard.writeText(url).then(() => toast('Enlace copiado!'));
   } else {
@@ -9550,7 +9522,6 @@ function toggleFollow(userId) {
     toast('Ahora sigues a este rider');
   }
   saveState();
-  syncQueuePush('update', 'follows', STATE.follows);
   renderPage(STATE.currentPage);
 }
 
@@ -9566,7 +9537,7 @@ function getFollowingCount(userId) {
 async function createPostInstant(content, mediaData) {
   if (!STATE.user) return;
   const post = {
-    id: Date.now() % 100000,
+    id: Date.now() + Math.floor(Math.random() * 9999),
     user_id: STATE.user.id,
     username: STATE.user.username,
     user_avatar: STATE.user.avatar || '',
