@@ -1261,6 +1261,17 @@ a{color:inherit;text-decoration:none}
 </head>
 <body>
 <script>
+// KILL SW OLD: unregister any existing service workers and clear caches from previous versions
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => r.unregister().catch(() => {}));
+  });
+  if (typeof caches !== 'undefined') {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k).catch(() => {})));
+  }
+}
+</script>
+<script>
 // SAFETY SCRIPT: hide splash immediately so it never gets stuck
 (function() {
   var s = document.getElementById('splash');
@@ -3197,7 +3208,7 @@ function initApp() {
       }
       autoActivateGPS();
       evaluateAllBadges();
-      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+      if (false && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     }, 50);
   } else {
     showLogin();
@@ -3209,7 +3220,7 @@ function initApp() {
       loadPanamaPOIs();
       if (HV.user && HV.pass) autoConnectHeyValue();
       evaluateAllBadges();
-      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+      if (false && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     }, 50);
   }
 }
