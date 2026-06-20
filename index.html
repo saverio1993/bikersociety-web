@@ -7197,6 +7197,8 @@ function toggleLike(postId) {
     p.likes.push(uid);
     if (p.user_id !== STATE.user.id) {
       STATE.notifications.push({id:Date.now(), user_id:p.user_id, actor_id:STATE.user.id, type:'like', message:STATE.user.username + ' le gusto tu publicacion', link:'/feed', read:false, created_at:new Date().toISOString()});
+      bsNotifyAll('💜 ' + STATE.user.username + ' reaccionó a un post',
+        (p.content || '').slice(0, 100) || 'Ver publicación', 'like');
     }
     // Animate like button on add
     const btn = document.querySelector(`[data-like-btn="${postId}"]`);
@@ -7243,9 +7245,12 @@ function addComment(postId) {
   const p = STATE.posts.find(x => x.id === postId);
   if (!p) return;
   p.comments = p.comments || [];
-  p.comments.push({user_id:STATE.user.id, content:input.value.trim(), created_at:new Date().toISOString()});
+  const _cmtText = input.value.trim();
+  p.comments.push({user_id:STATE.user.id, content:_cmtText, created_at:new Date().toISOString()});
   if (p.user_id !== STATE.user.id) {
     STATE.notifications.push({id:Date.now(), user_id:p.user_id, actor_id:STATE.user.id, type:'comment', message:STATE.user.username + ' comento en tu publicacion', link:'/feed', read:false, created_at:new Date().toISOString()});
+    bsNotifyAll('💬 ' + STATE.user.username + ' comentó en un post',
+      _cmtText.slice(0, 120), 'comment');
   }
   saveState();
   renderBikerGram();
@@ -8733,6 +8738,53 @@ function renderProfile() {
 // ADMIN PAGE
 // ============================================================
 
+function openAdminBroadcast() {
+  openModal('📢 Difusión Push', `
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">
+      El mensaje llegará como notificación push a <strong>todos los bikers</strong> que tengan la app instalada.
+    </p>
+    <input class="input" id="bc-title" placeholder="Título  (ej: ¡Evento este sábado!)" maxlength="60" style="margin-bottom:10px">
+    <textarea class="input" id="bc-body" placeholder="Escribe el mensaje aquí..." maxlength="200"
+      style="resize:vertical;min-height:90px;margin-bottom:14px"></textarea>
+    <button id="bc-send-btn" class="btn btn-primary" style="width:100%;background:linear-gradient(135deg,#ff4444,#ff6b6b);border:none;font-size:15px;padding:14px;border-radius:12px;letter-spacing:.5px"
+      onclick="sendAdminBroadcast()">
+      📢 Enviar a todos los bikers
+    </button>
+  `);
+}
+
+async function sendAdminBroadcast() {
+  const title = (document.getElementById('bc-title').value || '').trim();
+  const body  = (document.getElementById('bc-body').value  || '').trim();
+  if (!title) { toast('Escribe un título'); return; }
+  if (!body)  { toast('Escribe el mensaje'); return; }
+  const btn = document.getElementById('bc-send-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Enviando...';
+  try {
+    const res = await fetch('/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, kind: 'broadcast' })
+    });
+    closeModal();
+    toast('✅ Difusión enviada a todos los bikers');
+    // También registrar como notificación interna para todos
+    STATE.users.forEach(u => {
+      STATE.notifications.push({
+        id: Date.now() + u.id, user_id: u.id, actor_id: STATE.user.id,
+        type: 'broadcast', message: title + ': ' + body,
+        link: '/', read: false, created_at: new Date().toISOString()
+      });
+    });
+    saveState();
+  } catch(e) {
+    toast('Error al enviar la difusión');
+    btn.disabled = false;
+    btn.textContent = '📢 Enviar a todos los bikers';
+  }
+}
+
 function renderAdminEditUser(id) {
   // Wrapper: opens editRider modal, but after save navigates back to admin users list
   const _origDoEdit = doEditRider;
@@ -8820,6 +8872,14 @@ function renderAdmin() {
     <!-- RECOVERY CODES -->
     <div class="admin-section">
       <div class="admin-section-header" onclick="renderAdminRecovery()">🔑 Recuperaciones Pendientes <span style="float:right;color:var(--text3)">→</span></div>
+    </div>
+
+    <!-- BROADCAST -->
+    <div class="admin-section" style="border:1.5px solid rgba(255,68,68,0.4);background:rgba(255,68,68,0.06)">
+      <div class="admin-section-header" onclick="openAdminBroadcast()" style="color:#ff6b6b">
+        📢 Enviar Difusión Push
+        <span style="float:right;font-size:11px;color:var(--text3)">Llega a todos los móviles →</span>
+      </div>
     </div>
 
     <!-- DANGER -->
