@@ -70,8 +70,52 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const url = e.notification.data?.url || './';
-  e.waitUntil(clients.openWindow(url));
+  const routeId = e.notification.data?.routeId;
+  const url = './' + (routeId ? '?alarm=' + routeId : '');
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Si la app ya está abierta, enfócala y mándale el alarm
+      for (const client of list) {
+        if (client.url.includes(self.registration.scope)) {
+          client.focus();
+          client.postMessage({ type: 'ALARM', routeId });
+          return;
+        }
+      }
+      // Si no está abierta, abrirla con el parámetro de alarma
+      return clients.openWindow(url);
+    })
+  );
+});
+
+// ── Scheduled route reminders ─────────────────────────────────────────────
+const _remTimers = {};
+
+self.addEventListener('message', e => {
+  if (!e.data) return;
+  if (e.data.type === 'SCHEDULE_REMINDER') {
+    const { routeId, routeName, notifyAt } = e.data;
+    const delay = notifyAt - Date.now();
+    if (_remTimers[routeId]) clearTimeout(_remTimers[routeId]);
+    if (delay <= 0 || delay > 48 * 60 * 60 * 1000) return; // ignore past or >48h
+    _remTimers[routeId] = setTimeout(() => {
+      self.registration.showNotification('🏍️ ¡Salida en 1 hora!', {
+        body: '🏍️ ' + routeName + '\n📍 Toca para abrir la app y ver detalles',
+        icon: 'icons/icon-192.png',
+        badge: 'icons/icon-192.png',
+        tag: 'route-reminder-' + routeId,
+        vibrate: [500, 200, 500, 200, 500, 200, 800],
+        requireInteraction: true,
+        actions: [{ action: 'open', title: '🚀 Abrir app' }],
+        data: { routeId, url: './?alarm=' + routeId }
+      });
+      delete _remTimers[routeId];
+    }, delay);
+  }
+  if (e.data.type === 'CANCEL_REMINDER') {
+    const { routeId } = e.data;
+    if (_remTimers[routeId]) { clearTimeout(_remTimers[routeId]); delete _remTimers[routeId]; }
+  }
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────

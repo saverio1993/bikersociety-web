@@ -627,22 +627,31 @@ a{color:inherit;text-decoration:none}
 .post-time{font-size:11px;color:var(--text2)}
 .post-content{padding:0 16px 12px;font-size:14px;line-height:1.5}
 .post-image{width:100%;max-height:400px;object-fit:contain;display:block;background:#000}
-.post-actions{padding:6px 12px;display:flex;gap:4px;border-top:1px solid var(--border);align-items:center}
+.post-actions{padding:5px 8px;display:flex;gap:4px;border-top:1px solid rgba(255,255,255,0.07);align-items:stretch;background:rgba(0,0,0,0.25)}
 .post-action-btn{
-  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
-  border-radius:10px;padding:8px 6px;font-size:11px;font-weight:700;
-  color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;
-  gap:5px;transition:all 0.2s;flex:1;letter-spacing:0.3px;text-transform:uppercase;
+  background:rgba(255,255,255,0.03);
+  border-radius:10px;padding:6px 4px 5px;font-size:9px;font-weight:800;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;transition:all 0.18s;flex:1;letter-spacing:0.3px;text-transform:uppercase;
+  border:1.5px solid transparent;
 }
-.post-action-btn:hover{color:#fff}
-.post-action-btn:active{transform:scale(0.96)}
-.post-action-btn.liked-neon{color:#ff4466;border-color:rgba(255,68,68,0.5);
-  box-shadow:0 0 14px rgba(255,68,68,0.22),inset 0 0 8px rgba(255,68,68,0.08)}
-/* Individual neon glows per action */
-.btn-like:hover{box-shadow:0 0 14px rgba(255,68,102,0.3);border-color:rgba(255,68,102,0.5);color:#ff4466}
-.btn-react:hover{box-shadow:0 0 14px rgba(255,200,0,0.3);border-color:rgba(255,200,0,0.5);color:#ffc800}
-.btn-comment:hover{box-shadow:0 0 14px rgba(0,212,255,0.3);border-color:rgba(0,212,255,0.5);color:#00d4ff}
-.btn-share:hover{box-shadow:0 0 14px rgba(100,130,255,0.3);border-color:rgba(100,130,255,0.5);color:#6482ff}
+.post-action-btn span:first-child{font-size:15px;line-height:1;transition:transform 0.18s}
+.post-action-btn:active{transform:scale(0.93)}
+.post-action-btn:active span:first-child{transform:scale(1.25)}
+/* Me gusta — rosa/rojo */
+.btn-like{color:#ff6688;border-color:rgba(255,68,102,0.3);background:rgba(255,68,102,0.06);box-shadow:0 0 10px rgba(255,68,102,0.18),inset 0 0 6px rgba(255,68,102,0.06)}
+.btn-like:hover{box-shadow:0 0 20px rgba(255,68,102,0.45),inset 0 0 10px rgba(255,68,102,0.1);border-color:rgba(255,68,102,0.65);color:#ff4466;background:rgba(255,68,102,0.1)}
+.post-action-btn.liked-neon{color:#ff2255;border-color:rgba(255,34,85,0.7);background:rgba(255,34,85,0.14);
+  box-shadow:0 0 22px rgba(255,34,85,0.55),0 0 40px rgba(255,34,85,0.2),inset 0 0 12px rgba(255,34,85,0.1)}
+/* Reaccionar — amarillo */
+.btn-react{color:#ffc800;border-color:rgba(255,200,0,0.3);background:rgba(255,200,0,0.05);box-shadow:0 0 10px rgba(255,200,0,0.15),inset 0 0 6px rgba(255,200,0,0.05)}
+.btn-react:hover{box-shadow:0 0 20px rgba(255,200,0,0.4),inset 0 0 10px rgba(255,200,0,0.1);border-color:rgba(255,200,0,0.65);color:#ffe066;background:rgba(255,200,0,0.1)}
+/* Comentar — cian */
+.btn-comment{color:#00d4ff;border-color:rgba(0,212,255,0.3);background:rgba(0,212,255,0.05);box-shadow:0 0 10px rgba(0,212,255,0.15),inset 0 0 6px rgba(0,212,255,0.05)}
+.btn-comment:hover{box-shadow:0 0 20px rgba(0,212,255,0.4),inset 0 0 10px rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.65);color:#66e8ff;background:rgba(0,212,255,0.1)}
+/* Compartir — morado */
+.btn-share{color:#a78bfa;border-color:rgba(167,139,250,0.3);background:rgba(167,139,250,0.05);box-shadow:0 0 10px rgba(167,139,250,0.15),inset 0 0 6px rgba(167,139,250,0.05)}
+.btn-share:hover{box-shadow:0 0 20px rgba(167,139,250,0.4),inset 0 0 10px rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.65);color:#c4b5fd;background:rgba(167,139,250,0.1)}
 
 /* ===== EVENT CARD ===== */
 .event-card{
@@ -1260,17 +1269,6 @@ a{color:inherit;text-decoration:none}
 </style>
 </head>
 <body>
-<script>
-// KILL SW OLD: unregister any existing service workers and clear caches from previous versions
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister().catch(() => {}));
-  });
-  if (typeof caches !== 'undefined') {
-    caches.keys().then(keys => keys.forEach(k => caches.delete(k).catch(() => {})));
-  }
-}
-</script>
 <script>
 // SAFETY SCRIPT: hide splash immediately so it never gets stuck
 (function() {
@@ -3208,7 +3206,12 @@ function initApp() {
       }
       autoActivateGPS();
       evaluateAllBadges();
-      if (false && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+          // Re-programar recordatorios de rutas tras registrar el SW
+          navigator.serviceWorker.ready.then(() => setTimeout(reRegisterRouteReminders, 1000));
+        }).catch(() => {});
+      }
     }, 50);
   } else {
     showLogin();
@@ -3220,7 +3223,7 @@ function initApp() {
       loadPanamaPOIs();
       if (HV.user && HV.pass) autoConnectHeyValue();
       evaluateAllBadges();
-      if (false && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     }, 50);
   }
 }
@@ -4421,35 +4424,26 @@ function showMoreMenu() {
   const body = document.getElementById('fpanel-body');
   body.innerHTML = `
     ${isLoggedIn ? `
-    <!-- User summary -->
-    <div style="margin:8px 4px 16px;padding:14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.12);border-radius:16px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        ${renderAvatar(u, 44)}
+    <!-- User summary → navega al perfil al tocar -->
+    <div onclick="closeFpanel();navigate('profile')" style="margin:8px 4px 16px;padding:16px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.15);border-radius:18px;cursor:pointer;transition:background 0.2s" onmouseenter="this.style.background='rgba(0,212,255,0.11)'" onmouseleave="this.style.background='rgba(0,212,255,0.06)'">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        ${renderAvatar(u, 48)}
         <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.username}</div>
-          <div style="font-size:11px;color:var(--text2)">${u.bike_model || 'Sin moto'}</div>
+          <div style="font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.username}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${u.bike_model || 'Sin moto'}</div>
+        </div>
+        <span style="font-size:18px;color:rgba(0,212,255,0.5)">›</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px">
+        <span style="font-weight:700;color:var(--text1)">Nivel ${lv.name}</span>
+        <span>${u.points} pts · <span style="color:#a855f7;font-weight:600">Faltan ${next - u.points} pts</span> para nivel ${levelNum(u.points) + 1}</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;position:relative">
+        <div id="fpanel-lvl-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#00d4ff,#a855f7);border-radius:6px;transition:width 0.9s cubic-bezier(.4,0,.2,1);position:relative">
+          <div style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:10px;height:10px;background:#fff;border-radius:50%;box-shadow:0 0 6px #a855f7"></div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
-        <div style="flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${levelProgress(u.points)}%;background:linear-gradient(90deg,#00d4ff,#a855f7);border-radius:3px"></div>
-        </div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
-        <span>Nivel ${lv.name}</span>
-        <span>${u.points} pts · Faltan ${next - u.points} para nivel ${levelNum(u.points) + 1}</span>
-      </div>
-    </div>
-
-    <!-- Perfil -->
-    <div class="fpanel-section-label">PERFIL</div>
-    <div class="fpanel-item" onclick="closeFpanel();navigate('profile')">
-      <div class="fpanel-item-icon">👤</div>
-      <div class="fpanel-item-text">
-        <span class="fpanel-item-label">Mi Perfil</span>
-        <span class="fpanel-item-sub">Ver stats, insignias y rutas</span>
-      </div>
-      <span class="fpanel-item-arrow">→</span>
+      <div style="text-align:right;font-size:10px;color:#a855f7;font-weight:700;margin-top:4px" id="fpanel-lvl-pct">${Math.round(levelProgress(u.points))}%</div>
     </div>
 
     <!-- Gamificacion -->
@@ -4504,20 +4498,37 @@ function showMoreMenu() {
 
     <!-- App -->
     <div class="fpanel-section-label">APP</div>
+
+    <!-- Descarga APK nativo Android -->
+    <a href="bikersociety.apk" download="BikerSociety.apk" id="apk-download-btn"
+      style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:6px;background:linear-gradient(135deg,rgba(255,68,68,0.12),rgba(255,136,0,0.08));border:1.5px solid rgba(255,100,0,0.45);border-radius:14px;text-decoration:none;cursor:pointer;box-shadow:0 0 14px rgba(255,80,0,0.2);transition:box-shadow 0.2s"
+      onmouseenter="this.style.boxShadow='0 0 24px rgba(255,80,0,0.4)'" onmouseleave="this.style.boxShadow='0 0 14px rgba(255,80,0,0.2)'"
+      onclick="checkApkExists(event)">
+      <img src="icons/logo.png" style="width:38px;height:38px;border-radius:10px;object-fit:cover;flex-shrink:0;box-shadow:0 0 8px rgba(255,68,68,0.4)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:800;color:#fff">Biker Society APK</div>
+        <div style="font-size:11px;color:rgba(255,180,100,0.9);margin-top:1px">Android · Alarmas nativas · Sin navegador</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
+        <span style="font-size:20px">📥</span>
+        <span style="font-size:9px;font-weight:700;color:rgba(255,180,100,0.8)">ANDROID</span>
+      </div>
+    </a>
+
     ${isAppInstalled() ? `
     <div class="fpanel-item" style="cursor:default;opacity:0.7">
       <div class="fpanel-item-icon" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3)">✅</div>
       <div class="fpanel-item-text">
-        <span class="fpanel-item-label">App instalada</span>
-        <span class="fpanel-item-sub">Biker Society en tu pantalla</span>
+        <span class="fpanel-item-label">PWA instalada</span>
+        <span class="fpanel-item-sub">Biker Society en tu pantalla de inicio</span>
       </div>
     </div>
     ` : `
     <div class="fpanel-item" onclick="installApp()">
       <div class="fpanel-item-icon" style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3)">📲</div>
       <div class="fpanel-item-text">
-        <span class="fpanel-item-label">${_installPromptEvent ? 'Instalar app' : 'Como instalar'}</span>
-        <span class="fpanel-item-sub">${_installPromptEvent ? 'Icono en tu pantalla de inicio' : 'Menu del navegador > Agregar a inicio'}</span>
+        <span class="fpanel-item-label">${_installPromptEvent ? 'Instalar como PWA' : 'Cómo instalar PWA'}</span>
+        <span class="fpanel-item-sub">${_installPromptEvent ? 'Acceso rápido desde la pantalla de inicio' : 'Menú del navegador → Agregar a inicio'}</span>
       </div>
       <span class="fpanel-item-arrow">→</span>
     </div>
@@ -4549,6 +4560,14 @@ function showMoreMenu() {
   document.getElementById('fpanel-overlay').classList.add('open');
   document.getElementById('fpanel').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // Animar barra de nivel tras el render
+  if (isLoggedIn) {
+    requestAnimationFrame(() => {
+      const bar = document.getElementById('fpanel-lvl-bar');
+      if (bar) bar.style.width = levelProgress(u.points) + '%';
+    });
+  }
 }
 
 function closeFpanel() {
@@ -4839,11 +4858,7 @@ function renderRutas() {
     <!-- Route detail (above map when selected) -->
     ${sel ? `
     <div class="card vanish" style="margin-bottom:10px;border-color:rgba(255,59,59,0.4)">
-      ${STATE.user?.is_admin ? `<div style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="ride-subtab-btn" onclick="setRideSubTab('detalle')" style="flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${RIDE_SUBTAB==='detalle'?'linear-gradient(135deg,#ff4444,#ff8800)':'var(--surface2)'};color:${RIDE_SUBTAB==='detalle'?'#fff':'var(--text2)'}">📋 Detalle</button>
-        <button class="ride-subtab-btn" onclick="setRideSubTab('lista')" style="flex:1;padding:8px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${RIDE_SUBTAB==='lista'?'linear-gradient(135deg,#22c55e,#16a34a)':'var(--surface2)'};color:${RIDE_SUBTAB==='lista'?'#fff':'var(--text2)'}">✅ Lista / Pago</button>
-      </div>` : ''}
-      ${(RIDE_SUBTAB==='lista' && STATE.user?.is_admin) ? renderRideList(sel.id) : `
+      ${`
       <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${escHtml(sel.description || 'Sin descripción')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="padding:10px;background:var(--surface2);border-radius:8px;border-left:3px solid #22c55e">
@@ -4868,14 +4883,17 @@ function renderRutas() {
           <div style="font-size:12px;font-weight:700">${(() => { try { const d=new Date(sel.date+'T00:00');return d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'}); } catch(e){return sel.date;} })()}</div>
           ${sel.time ? `<div style="font-size:11px;color:var(--accent);font-weight:600">🕐 ${sel.time}</div>` : ''}
         </div>
-        ${sel.notify ? '<span class="badge badge-gold" style="margin-left:auto">🔔 Recordatorio</span>' : ''}
+        ${sel.notify ? `
+        <button onclick="scheduleRouteReminder(STATE.routes.find(x=>x.id===${sel.id}))" style="margin-left:auto;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;background:rgba(251,191,36,0.15);border:1.5px solid rgba(251,191,36,0.6);color:#fbbf24;box-shadow:0 0 10px rgba(251,191,36,0.25);transition:all 0.2s" onmouseenter="this.style.boxShadow='0 0 18px rgba(251,191,36,0.5)'" onmouseleave="this.style.boxShadow='0 0 10px rgba(251,191,36,0.25)'">
+          🔔 Recordatorio
+        </button>` : ''}
       </div>` : ''}
       <!-- CONFIRMED BIKERS -->
       ${(confirmedBikers || '')}
-      ${isOwner ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <button class="btn btn-primary" style="font-size:13px;padding:10px" onclick="editRoute(${sel.id})">✏️ Editar</button>
-        <button class="btn btn-secondary" style="font-size:13px;padding:10px;color:#ef4444;border-color:#ef4444" onclick="deleteRoute(${sel.id})">🗑️ Eliminar</button>
+      ${STATE.user && STATE.user.is_admin ? `
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="editRoute(${sel.id})" style="flex:1;padding:10px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(251,191,36,0.1);border:1.5px solid rgba(251,191,36,0.5);color:#fbbf24;box-shadow:0 0 10px rgba(251,191,36,0.2);transition:all 0.2s" onmouseenter="this.style.boxShadow='0 0 18px rgba(251,191,36,0.45)';this.style.borderColor='#fbbf24'" onmouseleave="this.style.boxShadow='0 0 10px rgba(251,191,36,0.2)';this.style.borderColor='rgba(251,191,36,0.5)'">✏️ Editar</button>
+        <button onclick="deleteRoute(${sel.id})" style="flex:1;padding:10px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(239,68,68,0.1);border:1.5px solid rgba(239,68,68,0.5);color:#ef4444;box-shadow:0 0 10px rgba(239,68,68,0.2);transition:all 0.2s" onmouseenter="this.style.boxShadow='0 0 18px rgba(239,68,68,0.45)';this.style.borderColor='#ef4444'" onmouseleave="this.style.boxShadow='0 0 10px rgba(239,68,68,0.2)';this.style.borderColor='rgba(239,68,68,0.5)'">🗑️ Eliminar</button>
       </div>` : ''}
       `}
     </div>
@@ -4956,15 +4974,33 @@ function setRideSubTab(tab) {
 let RIDE_FILTER = 'todos'; // 'todos' | 'pagaron' | 'pendiente'
 function setRideFilter(f) {
   RIDE_FILTER = (RIDE_FILTER === f) ? 'todos' : f;
-  renderRutas();
+  if (_payModalRouteId) _refreshPayModal(_payModalRouteId);
+  else renderRutas();
+}
+
+let _payModalRouteId = null;
+
+function _refreshPayModal(routeId) {
+  const modal = document.getElementById('modal');
+  if (!modal || !modal.classList.contains('open')) return;
+  const el = document.getElementById('modal-content');
+  if (!el) return;
+  const r = STATE.routes.find(x => x.id === routeId);
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700">💵 ${r ? escHtml(r.name) : 'Pagos'}</div>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    ${renderRideList(routeId)}
+  `;
 }
 
 function openRidePayList(routeId) {
   const r = STATE.routes.find(x => x.id === routeId);
   if (!r) return;
-  STATE.selectedRoute = r;
-  RIDE_SUBTAB = 'lista';
-  renderRutas();
+  _maybeSeedPlayaBlanca(routeId);
+  _payModalRouteId = routeId;
+  openModal('💵 ' + escHtml(r.name), renderRideList(routeId));
 }
 
 // Siembra una sola vez la lista real de la rodada "Playa blanca, colon".
@@ -5057,10 +5093,10 @@ function renderRideList(routeId) {
     </div>`;
 
   const addForm = isAdmin ? `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:14px">
-      <input class="input" id="rl-nombre" placeholder="Nombre" style="flex:1;min-width:84px;margin:0">
-      <input class="input" id="rl-apellido" placeholder="Apellido" style="flex:1;min-width:84px;margin:0">
-      <input class="input" id="rl-comida" placeholder="Comida" style="flex:1;min-width:84px;margin:0">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:rgba(16,185,129,0.04);border:1.5px solid rgba(16,185,129,0.3);border-radius:14px;padding:10px;margin-bottom:14px;box-shadow:0 0 12px rgba(16,185,129,0.1)">
+      <input class="input" id="rl-nombre" placeholder="Nombre" style="flex:1;min-width:84px;margin:0;border:1.5px solid rgba(16,185,129,0.45);background:rgba(16,185,129,0.06);box-shadow:0 0 8px rgba(16,185,129,0.2);color:#e2ffe8" onfocus="this.style.borderColor='#10b981';this.style.boxShadow='0 0 14px rgba(16,185,129,0.5)'" onblur="this.style.borderColor='rgba(16,185,129,0.45)';this.style.boxShadow='0 0 8px rgba(16,185,129,0.2)'">
+      <input class="input" id="rl-apellido" placeholder="Apellido" style="flex:1;min-width:84px;margin:0;border:1.5px solid rgba(16,185,129,0.45);background:rgba(16,185,129,0.06);box-shadow:0 0 8px rgba(16,185,129,0.2);color:#e2ffe8" onfocus="this.style.borderColor='#10b981';this.style.boxShadow='0 0 14px rgba(16,185,129,0.5)'" onblur="this.style.borderColor='rgba(16,185,129,0.45)';this.style.boxShadow='0 0 8px rgba(16,185,129,0.2)'">
+      <input class="input" id="rl-comida" placeholder="Comida" style="flex:1;min-width:84px;margin:0;border:1.5px solid rgba(16,185,129,0.45);background:rgba(16,185,129,0.06);box-shadow:0 0 8px rgba(16,185,129,0.2);color:#e2ffe8" onfocus="this.style.borderColor='#10b981';this.style.boxShadow='0 0 14px rgba(16,185,129,0.5)'" onblur="this.style.borderColor='rgba(16,185,129,0.45)';this.style.boxShadow='0 0 8px rgba(16,185,129,0.2)'">
       <button class="btn btn-primary" style="padding:9px 16px;white-space:nowrap" onclick="submitRideMember(${routeId})">Agregar</button>
     </div>` : '';
 
@@ -5100,9 +5136,9 @@ function renderRideList(routeId) {
 function openAddRideMember(routeId) {
   if (!(STATE.user && STATE.user.is_admin)) { toast('Solo administradores'); return; }
   const body = `
-    <input class="input" id="rl-nombre" placeholder="Nombre" style="margin-bottom:8px">
-    <input class="input" id="rl-apellido" placeholder="Apellido" style="margin-bottom:8px">
-    <input class="input" id="rl-comida" placeholder="Comida (ej. Pollo, Vegetariano...)" style="margin-bottom:8px">
+    <input class="input" id="rl-nombre" placeholder="Nombre" style="margin-bottom:8px;border:1.5px solid rgba(16,185,129,0.45);background:rgba(16,185,129,0.06);box-shadow:0 0 8px rgba(16,185,129,0.2);color:#e2ffe8" onfocus="this.style.borderColor='#10b981';this.style.boxShadow='0 0 14px rgba(16,185,129,0.5)'" onblur="this.style.borderColor='rgba(16,185,129,0.45)';this.style.boxShadow='0 0 8px rgba(16,185,129,0.2)'">
+    <input class="input" id="rl-apellido" placeholder="Apellido" style="margin-bottom:8px;border:1.5px solid rgba(16,185,129,0.45);background:rgba(16,185,129,0.06);box-shadow:0 0 8px rgba(16,185,129,0.2);color:#e2ffe8" onfocus="this.style.borderColor='#10b981';this.style.boxShadow='0 0 14px rgba(16,185,129,0.5)'" onblur="this.style.borderColor='rgba(16,185,129,0.45)';this.style.boxShadow='0 0 8px rgba(16,185,129,0.2)'">
+    <input class="input" id="rl-comida" placeholder="Comida (ej. Pollo, Vegetariano...)" style="margin-bottom:8px;border:1.5px solid rgba(16,185,129,0.45);background:rgba(16,185,129,0.06);box-shadow:0 0 8px rgba(16,185,129,0.2);color:#e2ffe8" onfocus="this.style.borderColor='#10b981';this.style.boxShadow='0 0 14px rgba(16,185,129,0.5)'" onblur="this.style.borderColor='rgba(16,185,129,0.45)';this.style.boxShadow='0 0 8px rgba(16,185,129,0.2)'">
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;font-size:13px;font-weight:700">
         <input type="radio" name="rl-pago" value="1"> ✅ Pagó
@@ -5127,9 +5163,7 @@ function submitRideMember(routeId) {
   if (!STATE.payList[routeId]) STATE.payList[routeId] = [];
   STATE.payList[routeId].push({ id: 'm'+Date.now()+Math.floor(Math.random()*1000), nombre, apellido, comida, pago });
   saveRideList();
-  closeModal();
-  RIDE_SUBTAB = 'lista';
-  renderRutas();
+  openRidePayList(routeId);
   toast('Asistente agregado');
 }
 
@@ -5137,7 +5171,7 @@ function toggleRidePago(routeId, memberId) {
   if (!(STATE.user && STATE.user.is_admin)) return;
   const list = (STATE.payList && STATE.payList[routeId]) || [];
   const m = list.find(x => x.id === memberId);
-  if (m) { m.pago = !m.pago; saveRideList(); renderRutas(); }
+  if (m) { m.pago = !m.pago; saveRideList(); _refreshPayModal(routeId); }
 }
 
 function deleteRideMember(routeId, memberId) {
@@ -5146,7 +5180,7 @@ function deleteRideMember(routeId, memberId) {
   if (STATE.payList && STATE.payList[routeId]) {
     STATE.payList[routeId] = STATE.payList[routeId].filter(x => x.id !== memberId);
     saveRideList();
-    renderRutas();
+    _refreshPayModal(routeId);
   }
 }
 
@@ -5592,7 +5626,9 @@ function renderRouteCard(r, vencida) {
   const cardStyle = vencida ? 'cursor:pointer;position:relative;opacity:0.45;filter:grayscale(0.7)' : 'cursor:pointer;position:relative;background:linear-gradient(135deg,rgba(255,255,255,0.07),rgba(255,150,40,0.06));border:1px solid rgba(255,170,60,0.3)';
   const isAdmin = !!(STATE.user && STATE.user.is_admin);
   return `
-    <div class="card vanish route-card" style="${cardStyle}" onclick="selectRoute(${r.id})">
+    <div class="card vanish route-card" style="${cardStyle};user-select:none" onclick="selectRoute(${r.id})"
+      onmousedown="_startLp(${r.id},event)" onmouseup="_cancelLp()" onmouseleave="_cancelLp()" onmousemove="_moveLp()"
+      ontouchstart="_startLp(${r.id},event)" ontouchend="_cancelLp()" ontouchmove="_moveLp()">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
           <div class="card-title">${escHtml(r.name)}</div>
@@ -5604,19 +5640,21 @@ function renderRouteCard(r, vencida) {
             <span class="badge">🏍️ ${creator ? escHtml(creator.username) : '?'}</span>
             ${isOwner ? '<span class="badge badge-green">Tu ruta</span>' : ''}
           </div>
+          ${isAdmin ? `<div style="margin-top:8px;font-size:10px;color:var(--text3)">Mantén presionado para editar o eliminar</div>` : ''}
         </div>
-        <!-- Barra de acciones (columna a la derecha) -->
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;width:${isAdmin ? '172px' : '112px'};position:relative;z-index:3" onclick="event.stopPropagation()">
-          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps" style="width:100%;padding:8px 11px;border-radius:14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:none;color:#fff">🧭 Seguir</button>
+        <!-- Botones acción -->
+        <div style="display:flex;flex-direction:column;gap:7px;flex-shrink:0;width:100px;position:relative;z-index:3" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">
+          <button onclick="event.stopPropagation();openRouteInNav(${r.id})" title="Seguir en Waze o Maps"
+            style="width:100%;padding:9px 6px;border-radius:14px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;background:linear-gradient(135deg,#00d4ff,#0ea5e9);border:2px solid rgba(0,212,255,0.6);color:#fff;box-shadow:0 0 12px rgba(0,212,255,0.4),0 0 24px rgba(0,212,255,0.15);text-shadow:0 0 6px rgba(0,212,255,0.8)">
+            🧭 Seguir
+          </button>
           ${isAdmin ? `
-          <div style="display:flex;gap:6px;align-items:stretch">
-            <button onclick="event.stopPropagation();openRidePayList(${r.id})" title="Lista de pagos de esta ruta" style="flex:1;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;background:rgba(16,185,129,0.2);border:1px solid #10b981;color:#34d399">💵<span style="font-size:13px">Pagos</span></button>
-            <div style="display:flex;flex-direction:column;gap:6px;width:42px">
-              <button onclick="event.stopPropagation();editRoute(${r.id})" title="Editar ruta" style="flex:1;border-radius:12px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);color:var(--text)">✏️</button>
-              <button onclick="event.stopPropagation();deleteRoute(${r.id})" title="Eliminar ruta" style="flex:1;border-radius:12px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid #ef4444;color:#ef4444">🗑️</button>
-            </div>
-          </div>
-          ` : ''}
+          <button onclick="event.stopPropagation();openRidePayList(${r.id})" title="Lista de pagos"
+            style="width:100%;padding:9px 6px;border-radius:14px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;background:rgba(16,185,129,0.12);border:2px solid #10b981;color:#34d399;box-shadow:0 0 14px rgba(16,185,129,0.5),0 0 28px rgba(16,185,129,0.2);text-shadow:0 0 8px #34d399;transition:box-shadow 0.2s"
+            onmouseenter="this.style.boxShadow='0 0 22px rgba(16,185,129,0.8),0 0 44px rgba(16,185,129,0.35)'"
+            onmouseleave="this.style.boxShadow='0 0 14px rgba(16,185,129,0.5),0 0 28px rgba(16,185,129,0.2)'">
+            💵 Pagos
+          </button>` : ''}
         </div>
       </div>
     </div>
@@ -5672,37 +5710,50 @@ function editRoute(id) {
     <input class="input" id="ert-name" value="${escHtml(r.name)}" placeholder="Nombre de la ruta" style="margin-bottom:12px">
     <input class="input" id="ert-desc" value="${escHtml(r.description || '')}" placeholder="Descripcion (opcional)" style="margin-bottom:16px">
 
-    <div style="font-size:13px;font-weight:800;color:#22c55e;text-shadow:0 0 8px rgba(34,197,94,0.45);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🚦</span> SALIDA
-      <button onclick="useMyLocation('ert-start')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
-    </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input class="input" id="ert-start-name" value="${escHtml(r.start_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
-      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
-    </div>
-    <div id="ert-start-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
-    <div class="coord-row" style="margin-bottom:16px">
-      <input class="input" id="ert-start-lat" value="${r.start_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="ert-start-lng" value="${r.start_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-start')">✕</button>
-    </div>
-
-    <div style="font-size:13px;font-weight:800;color:#ff5a5a;text-shadow:0 0 8px rgba(239,68,68,0.45);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> DESTINO
-      <button onclick="useMyLocation('ert-end')" title="Usar mi ubicacion" style="margin-left:auto;padding:2px 8px;background:rgba(255,32,32,0.1);border:1px solid rgba(255,32,32,0.3);border-radius:20px;font-size:10px;color:#ff6666;cursor:pointer">📍 Mi ubicacion</button>
-    </div>
-    <div style="position:relative;margin-bottom:8px">
-      <input class="input" id="ert-end-name" value="${escHtml(r.end_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px">
-      <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--accent)">🔍</span>
-    </div>
-    <div id="ert-end-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
-    <div class="coord-row" style="margin-bottom:16px">
-      <input class="input" id="ert-end-lat" value="${r.end_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <input class="input" id="ert-end-lng" value="${r.end_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1" readonly>
-      <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:var(--text3)" onclick="clearPlace('ert-end')">✕</button>
+    <!-- SALIDA -->
+    <div style="background:rgba(34,197,94,0.06);border:1.5px solid rgba(34,197,94,0.4);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 0 14px rgba(34,197,94,0.12)">
+      <div style="font-size:13px;font-weight:800;color:#22c55e;text-shadow:0 0 8px rgba(34,197,94,0.5);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;display:inline-block"></span> SALIDA
+        <button onclick="useMyLocation('ert-start')" title="Usar mi ubicacion" style="margin-left:auto;padding:3px 10px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);border-radius:20px;font-size:10px;color:#22c55e;cursor:pointer;font-weight:700">📍 Mi ubicacion</button>
+      </div>
+      <div style="position:relative;margin-bottom:8px">
+        <input class="input" id="ert-start-name" value="${escHtml(r.start_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px;border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.04)">
+        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:#22c55e">🔍</span>
+      </div>
+      <div id="ert-start-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+      <div class="coord-row">
+        <input class="input" id="ert-start-lat" value="${r.start_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1;border-color:rgba(34,197,94,0.2);background:rgba(34,197,94,0.04);font-size:11px;color:rgba(34,197,94,0.8)" readonly>
+        <input class="input" id="ert-start-lng" value="${r.start_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1;border-color:rgba(34,197,94,0.2);background:rgba(34,197,94,0.04);font-size:11px;color:rgba(34,197,94,0.8)" readonly>
+        <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:#22c55e" onclick="clearPlace('ert-start')">✕</button>
+      </div>
     </div>
 
-    <div style="font-size:13px;font-weight:800;color:#ff9d33;text-shadow:0 0 8px rgba(255,136,0,0.45);margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🛑</span> PARADAS</div>
-    <div id="ert-stops-container">${stopsHtml}</div>
-    <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-bottom:16px" onclick="addEditStopField()">+ Agregar parada</button>
+    <!-- DESTINO -->
+    <div style="background:rgba(239,68,68,0.06);border:1.5px solid rgba(239,68,68,0.4);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 0 14px rgba(239,68,68,0.12)">
+      <div style="font-size:13px;font-weight:800;color:#ff5a5a;text-shadow:0 0 8px rgba(239,68,68,0.5);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;display:inline-block"></span> DESTINO
+        <button onclick="useMyLocation('ert-end')" title="Usar mi ubicacion" style="margin-left:auto;padding:3px 10px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);border-radius:20px;font-size:10px;color:#ff5a5a;cursor:pointer;font-weight:700">📍 Mi ubicacion</button>
+      </div>
+      <div style="position:relative;margin-bottom:8px">
+        <input class="input" id="ert-end-name" value="${escHtml(r.end_name || '')}" placeholder="Buscar gasolinera, mall, lugar..." style="margin-bottom:0;padding-right:36px;border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.04)">
+        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:#ff5a5a">🔍</span>
+      </div>
+      <div id="ert-end-name-dropdown" style="position:absolute;left:0;right:0;top:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:9999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none"></div>
+      <div class="coord-row">
+        <input class="input" id="ert-end-lat" value="${r.end_lat}" placeholder="Latitud" type="text" inputmode="decimal" style="flex:1;border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.04);font-size:11px;color:rgba(255,90,90,0.8)" readonly>
+        <input class="input" id="ert-end-lng" value="${r.end_lng}" placeholder="Longitud" type="text" inputmode="decimal" style="flex:1;border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.04);font-size:11px;color:rgba(255,90,90,0.8)" readonly>
+        <button class="btn btn-ghost" style="padding:0 8px;flex:0;font-size:11px;color:#ff5a5a" onclick="clearPlace('ert-end')">✕</button>
+      </div>
+    </div>
+
+    <!-- PARADAS -->
+    <div style="background:rgba(255,157,51,0.06);border:1.5px solid rgba(255,157,51,0.4);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:0 0 14px rgba(255,157,51,0.1)">
+      <div style="font-size:13px;font-weight:800;color:#ff9d33;text-shadow:0 0 8px rgba(255,136,0,0.5);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#ff9d33;box-shadow:0 0 8px #ff9d33;display:inline-block"></span> PARADAS
+      </div>
+      <div id="ert-stops-container">${stopsHtml}</div>
+      <button class="btn btn-ghost" style="width:100%;font-size:12px;border-color:rgba(255,157,51,0.3);color:#ff9d33" onclick="addEditStopField()">+ Agregar parada</button>
+    </div>
 
     <select class="input" id="ert-diff" style="margin-bottom:12px">
       <option value="facil" ${r.difficulty==='facil'?'selected':''}>Facil</option>
@@ -5879,6 +5930,9 @@ function doEditRoute(id) {
   STATE.selectedRoute = STATE.routes[idx];
   renderRutas();
   toast('Ruta actualizada!');
+  const savedRoute = STATE.routes[idx];
+  if (notify && savedRoute) scheduleRouteReminder(savedRoute);
+  else if (!notify) cancelRouteReminder(savedRoute.id);
 }
 
 function createRoute() {
@@ -6483,6 +6537,7 @@ function doCreateRoute() {
   STATE.selectedRoute = route;
   renderRutas();
   toast('Ruta creada!');
+  if (notify) scheduleRouteReminder(route);
   bsNotifyAll('🏍️ Nueva ruta: ' + name,
     'Salida: ' + (startName || 'ver detalles') + (date ? (' · ' + date + (time ? ' ' + time : '')) : ''),
     'ruta');
@@ -6862,7 +6917,7 @@ function renderPostMedia(p) {
   const mt = p.media_type || (p.image_url ? 'image' : null);
   if (mt === 'video' || (!mt && url.startsWith('data:video'))) {
     return `<div style="position:relative;background:#000;overflow:hidden">
-      <video src="${resolveMediaUrlSync(url, 'video')}" controls preload="metadata" style="display:block;width:100%;max-height:540px;background:#000" playsinline></video>
+      <video src="${resolveMediaUrlSync(url, 'video')}" controls muted loop preload="metadata" style="display:block;width:100%;max-height:540px;background:#000" playsinline data-autoplay></video>
       <div style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:#fff;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:700;backdrop-filter:blur(8px)">🎬 VIDEO</div>
     </div>`;
   }
@@ -7012,7 +7067,7 @@ function renderRacingPost(p) {
       ${hasMedia ? `
       <div style="position:relative;background:#000;overflow:hidden;max-height:420px">
         ${mediaType === 'video' ? `
-          <video src="${resolveMediaUrlSync(url)}" controls preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline></video>
+          <video src="${resolveMediaUrlSync(url)}" controls muted loop preload="metadata" style="display:block;width:100%;max-height:420px;background:#000" playsinline data-autoplay></video>
         ` : mediaType === 'audio' ? `
           <div style="padding:24px;background:linear-gradient(135deg,rgba(255,68,68,0.2),rgba(255,136,0,0.15));border-bottom:1px solid rgba(255,255,255,0.06)">
             <div style="display:flex;align-items:center;gap:14px">
@@ -7725,6 +7780,179 @@ setInterval(() => {
           try { new Notification('Biker Society · Recordatorio', { body: ev.title + ' en ~1 hora', icon: 'icons/icon-192.png' }); } catch(e){}
         }
         ls(remKey, null); // consume reminder
+      }
+    }
+  });
+}, 60000);
+
+// ── Alarm sound (Web Audio API, sin archivos externos) ──────────────────────
+function playRouteAlarm() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const pattern = [880, 0, 1046, 0, 880, 0, 1318]; // notas: A5, silencio, C6...
+    let t = ctx.currentTime;
+    pattern.forEach(freq => {
+      if (freq === 0) { t += 0.12; return; }
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.7, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.start(t);
+      osc.stop(t + 0.35);
+      t += 0.38;
+    });
+    // Repetir 3 veces
+    setTimeout(playRouteAlarm._once = playRouteAlarm._once || (() => {}), 0);
+  } catch(e) {}
+}
+
+function showAlarmScreen(routeId) {
+  const r = STATE.routes.find(x => x.id == routeId);
+  const name = r ? r.name : 'tu ruta';
+  playRouteAlarm();
+  // Repetir alarma 3 veces con intervalo
+  let n = 0;
+  const iv = setInterval(() => { if (++n < 3) playRouteAlarm(); else clearInterval(iv); }, 2500);
+  navigator.vibrate && navigator.vibrate([500,200,500,200,800]);
+
+  openModal('⏰ ¡Salida en 1 hora!', `
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:48px;margin-bottom:8px;animation:pulse 1s infinite">🏍️</div>
+      <div style="font-size:18px;font-weight:800;margin-bottom:6px">${escHtml(name)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Prepárate, la salida es en aproximadamente 1 hora.</div>
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:800" onclick="clearInterval(${iv});closeModal();">✅ Entendido</button>
+    </div>
+  `);
+}
+
+// Escuchar mensaje del SW cuando se toca la notificación
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'ALARM' && e.data?.routeId) {
+      // Esperar a que el state esté cargado
+      const check = setInterval(() => {
+        if (STATE.routes && STATE.routes.length) {
+          clearInterval(check);
+          showAlarmScreen(e.data.routeId);
+        }
+      }, 300);
+    }
+  });
+}
+
+// Detectar apertura por URL ?alarm=routeId
+(function() {
+  const p = new URLSearchParams(location.search).get('alarm');
+  if (p) {
+    const check = setInterval(() => {
+      if (STATE.routes && STATE.routes.length) {
+        clearInterval(check);
+        showAlarmScreen(p);
+        history.replaceState({}, '', location.pathname);
+      }
+    }, 300);
+  }
+})();
+
+// ── Route reminders ─────────────────────────────────────────────────────────
+async function scheduleRouteReminder(route) {
+  if (!route.date || !route.time) {
+    toast('La ruta necesita fecha y hora para activar el recordatorio');
+    return false;
+  }
+  const routeTime = new Date(route.date + 'T' + route.time).getTime();
+  const notifyAt  = routeTime - 60 * 60 * 1000; // 1 hora antes
+  if (notifyAt < Date.now()) {
+    toast('La hora de salida ya pasó, no se puede programar recordatorio');
+    return false;
+  }
+
+  // Pedir permiso de notificación
+  if (!('Notification' in window)) {
+    toast('Tu navegador no soporta notificaciones nativas');
+    return false;
+  }
+  let perm = Notification.permission;
+  if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    toast('Activa los permisos de notificación del navegador para recibir recordatorios');
+    return false;
+  }
+
+  // Guardar en localStorage
+  const key = 'bs_route_rem_' + route.id;
+  ls(key, { routeId: route.id, routeName: route.name, notifyAt, routeTime });
+
+  // APK nativo: usar AlarmManager (funciona aunque la app esté cerrada)
+  if (window.BikerNative && window.BikerNative.scheduleAlarm) {
+    window.BikerNative.scheduleAlarm(String(route.id), route.name, notifyAt);
+  } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    // PWA: usar Service Worker
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SCHEDULE_REMINDER', routeId: route.id, routeName: route.name, notifyAt
+    });
+  }
+
+  const eta = new Date(notifyAt);
+  const h = eta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const d = eta.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  toast('🔔 Recordatorio programado: ' + d + ' a las ' + h);
+  return true;
+}
+
+function cancelRouteReminder(routeId) {
+  ls('bs_route_rem_' + routeId, null);
+  if (window.BikerNative && window.BikerNative.cancelAlarm) {
+    window.BikerNative.cancelAlarm(String(routeId));
+  } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'CANCEL_REMINDER', routeId });
+  }
+}
+
+// Re-registrar recordatorios al cargar (por si el SW se reinició)
+function reRegisterRouteReminders() {
+  (STATE.routes || []).forEach(r => {
+    if (!r.notify || !r.date || !r.time) return;
+    const key = 'bs_route_rem_' + r.id;
+    const saved = ls(key);
+    if (!saved) return;
+    if (saved.notifyAt < Date.now()) { ls(key, null); return; }
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SCHEDULE_REMINDER', routeId: r.id, routeName: r.name, notifyAt: saved.notifyAt
+      });
+    }
+  });
+}
+
+// Chequeo cada 60s para disparar notificación si la app está abierta
+setInterval(() => {
+  if (!STATE.user) return;
+  const now = Date.now();
+  (STATE.routes || []).forEach(r => {
+    if (!r.notify || !r.date || !r.time) return;
+    const key = 'bs_route_rem_' + r.id;
+    const saved = ls(key);
+    if (!saved) return;
+    const diff = saved.notifyAt - now;
+    if (diff > -5 * 60 * 1000 && diff < 5 * 60 * 1000) { // ventana de 5 min
+      ls(key, null); // consumir
+      showAlarmScreen(r.id);
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification('🏍️ ¡Salida en 1 hora!', {
+            body: r.name, icon: 'icons/icon-192.png',
+            tag: 'route-reminder-' + r.id,
+            vibrate: [500,200,500,200,800],
+            requireInteraction: true,
+            data: { routeId: r.id }
+          });
+        } catch(e) {}
       }
     }
   });
@@ -9462,18 +9690,15 @@ function renderPostCardEnhanced(p) {
       <div class="post-actions">
         <button class="post-action-btn btn-like ${isLiked ? 'liked-neon' : ''}" data-like-btn="${p.id}" onclick="toggleLike(${p.id})">
           <span>${isLiked ? '❤️' : '🤍'}</span>
-          <span>Me gusta</span>
-          ${likes.length > 0 ? `<span style="font-weight:400;opacity:0.8">${likes.length}</span>` : ''}
+          <span>${likes.length > 0 ? likes.length : 'Me gusta'}</span>
         </button>
         <button class="post-action-btn btn-react" style="position:relative" onclick="showReactionPicker(${p.id}, this)">
           <span>😀</span>
-          <span>Reaccionar</span>
-          ${totalRx > 0 ? `<span style="font-weight:400;opacity:0.8">${totalRx}</span>` : ''}
+          <span>${totalRx > 0 ? totalRx : 'Reaccionar'}</span>
         </button>
         <button class="post-action-btn btn-comment" onclick="toggleComments(${p.id})">
           <span>💬</span>
-          <span>Comentar</span>
-          ${comments.length > 0 ? `<span style="font-weight:400;opacity:0.8">${comments.length}</span>` : ''}
+          <span>${comments.length > 0 ? comments.length : 'Comentar'}</span>
         </button>
         <button class="post-action-btn btn-share" onclick="sharePost(${p.id})">
           <span>📤</span>
@@ -9558,6 +9783,82 @@ function renderEnhancedProfile(userId) {
 }
 // Abre el Ludo 3D (página aparte). Deja la config de la nube y el usuario en
 // localStorage para que esa página se conecte con los miembros, sin meter el
+// ============================================================
+// LONG-PRESS CONTEXT MENU (rutas: editar / eliminar)
+// ============================================================
+let _lpTimer = null;
+let _lpMoved = false;
+
+function _startLp(routeId, evt) {
+  _lpMoved = false;
+  _lpTimer = setTimeout(function () {
+    _lpTimer = null;
+    if (_lpMoved) return;
+    navigator.vibrate && navigator.vibrate(40);
+    _showRouteCtx(routeId, evt);
+  }, 600);
+}
+
+function _cancelLp() {
+  if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+}
+
+function _moveLp() {
+  _lpMoved = true;
+  _cancelLp();
+}
+
+function _showRouteCtx(routeId, evt) {
+  const old = document.getElementById('_rctx');
+  if (old) old.remove();
+  const x = (evt.touches ? evt.touches[0].clientX : evt.clientX) || window.innerWidth / 2;
+  const y = (evt.touches ? evt.touches[0].clientY : evt.clientY) || window.innerHeight / 2;
+  const menu = document.createElement('div');
+  menu.id = '_rctx';
+  menu.style.cssText = 'position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:180px;animation:fadeIn .15s ease';
+  menu.style.left = Math.min(x, window.innerWidth - 200) + 'px';
+  menu.style.top = Math.min(y - 10, window.innerHeight - 110) + 'px';
+  menu.innerHTML = `
+    <button onclick="editRoute(${routeId});document.getElementById('_rctx')&&document.getElementById('_rctx').remove()" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;color:var(--text);text-align:left;cursor:pointer;border-radius:10px;font-size:13px;font-weight:700" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='none'">✏️ Editar ruta</button>
+    <button onclick="deleteRoute(${routeId});document.getElementById('_rctx')&&document.getElementById('_rctx').remove()" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;color:#ef4444;text-align:left;cursor:pointer;border-radius:10px;font-size:13px;font-weight:700" onmouseenter="this.style.background='rgba(239,68,68,0.1)'" onmouseleave="this.style.background='none'">🗑️ Eliminar ruta</button>
+  `;
+  document.body.appendChild(menu);
+  setTimeout(function () {
+    document.addEventListener('click', function _cls() {
+      const m = document.getElementById('_rctx');
+      if (m) m.remove();
+      document.removeEventListener('click', _cls);
+    });
+  }, 100);
+}
+
+// Verifica si el APK existe antes de intentar descargarlo
+function checkApkExists(evt) {
+  fetch('bikersociety.apk', { method: 'HEAD' })
+    .then(r => {
+      if (!r.ok) {
+        evt.preventDefault();
+        openModal('📥 APK no disponible aún', `
+          <div style="text-align:center;padding:8px 0">
+            <img src="icons/logo.png" style="width:72px;height:72px;border-radius:18px;margin-bottom:14px;box-shadow:0 0 20px rgba(255,68,68,0.4)">
+            <div style="font-size:15px;font-weight:800;margin-bottom:8px">Biker Society para Android</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.5">
+              El APK estará disponible para descarga próximamente.<br>
+              Por ahora puedes instalar la versión PWA desde tu navegador.
+            </div>
+            <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="closeModal();installApp()">📲 Instalar PWA</button>
+            <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="closeModal()">Cerrar</button>
+          </div>
+        `);
+      }
+      // Si existe, el enlace <a download> procede normalmente
+    })
+    .catch(() => {
+      evt.preventDefault();
+      toast('APK no disponible aún. Usa la versión PWA por ahora.');
+    });
+}
+
 // peso del 3D en la web principal.
 function openLudo3D() {
   if (!STATE.user) { toast('Inicia sesión primero'); return; }
@@ -9565,6 +9866,31 @@ function openLudo3D() {
   try { localStorage.setItem('bs_ludo_session', JSON.stringify({ id: STATE.user.id, username: STATE.user.username })); } catch (e) {}
   window.location.href = 'ludo3d/';
 }
+</script>
+<script>
+(function () {
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      var v = entry.target;
+      if (entry.isIntersecting) {
+        v.play().then(function () {
+          if (!v.dataset.vs) { v.muted = false; v.volume = 0.6; v.dataset.vs = 1; }
+        }).catch(function () {});
+      } else {
+        v.pause();
+      }
+    });
+  }, { threshold: 0.5 });
+
+  function observe(root) {
+    (root || document).querySelectorAll('video[data-autoplay]').forEach(function (v) {
+      if (!v.dataset.observed) { io.observe(v); v.dataset.observed = 1; }
+    });
+  }
+
+  observe();
+  new MutationObserver(function () { observe(); }).observe(document.body, { childList: true, subtree: true });
+})();
 </script>
 </body>
 </html>

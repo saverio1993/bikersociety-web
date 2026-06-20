@@ -23,8 +23,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import com.google.firebase.messaging.FirebaseMessaging;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -141,17 +139,6 @@ public class MainActivity extends Activity {
         }
 
         requestStartupPermissions();
-
-        // Suscribe este dispositivo al canal de avisos para todos los bikers
-        // (rutas nuevas, posts, chat). El servidor luego envía al topic "bikers".
-        FirebaseMessaging.getInstance().subscribeToTopic("bikers");
-
-        // Registra el token FCM en logcat (tag FCM_TOKEN) para pruebas
-        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && task.getResult() != null) {
-                android.util.Log.i("FCM_TOKEN", task.getResult());
-            }
-        });
     }
 
     private void applyWindowInsets(final View target) {
@@ -256,10 +243,27 @@ public class MainActivity extends Activity {
         super.onResume();
         if (webView != null) {
             webView.onResume();
-            // Al volver al frente (p. ej. tras tocar una notificación), pide a la
-            // web que traiga lo nuevo de la nube para que el post se cargue ya.
             webView.evaluateJavascript(
                     "window.resumeSync && window.resumeSync();", null);
+            // Si se abrió desde una notificación de alarma, avisar a la web
+            handleAlarmIntent(getIntent());
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleAlarmIntent(intent);
+    }
+
+    private void handleAlarmIntent(Intent intent) {
+        if (intent == null || webView == null) return;
+        String routeId = intent.getStringExtra("alarm_route_id");
+        if (routeId != null && !routeId.isEmpty()) {
+            intent.removeExtra("alarm_route_id"); // consumir para no re-disparar
+            final String js = "window.showAlarmScreen && window.showAlarmScreen(" + routeId + ");";
+            webView.post(() -> webView.evaluateJavascript(js, null));
         }
     }
 }
