@@ -11,7 +11,7 @@
   <div class="boot"><i></i><strong>Cargando Biker Society...</strong></div>
   <script>
     (() => {
-      const stable = 'https://biker-society-v2-922lzt4v0-saverio2023.vercel.app/';
+      const stable = 'https://biker-society-v2.vercel.app/';
       const absolute = (value) => /^(https?:|data:|#|\/\/)/.test(value) ? value : stable + value.replace(/^\//, '');
       fetch(stable, { cache: 'no-store' })
         .then(response => response.text())
