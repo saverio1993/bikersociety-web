@@ -7,6 +7,11 @@
     modern.onload = () => {
       const performance = document.createElement('script');
       performance.src = '/biker-performance.js';
+      performance.onload = () => {
+        const home = document.createElement('script');
+        home.src = '/biker-home.js';
+        document.head.appendChild(home);
+      };
       document.head.appendChild(performance);
     };
     document.head.appendChild(modern);

@@ -84,6 +84,37 @@
   };
 
   prepareLeaflet();
+  const watchedVideos = new WeakSet();
+  const videoObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const video = entry.target;
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.92) video.play().catch(() => {});
+      else video.pause();
+    });
+  }, { threshold: [0, 0.35, 0.92] });
+
+  const prepareVideo = video => {
+    if (watchedVideos.has(video)) return;
+    watchedVideos.add(video);
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.loop = true;
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('preload', 'metadata');
+    videoObserver.observe(video);
+  };
+
+  const scanVideos = root => {
+    if (root instanceof HTMLVideoElement) prepareVideo(root);
+    root.querySelectorAll?.('video').forEach(prepareVideo);
+  };
+
+  scanVideos(document);
+  new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(scanVideos)))
+    .observe(document.documentElement, { childList: true, subtree: true });
+
   window.addEventListener('resize', () => {
     clearTimeout(window.__bsMapResize);
     window.__bsMapResize = setTimeout(() => {
