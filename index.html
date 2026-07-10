@@ -17,7 +17,7 @@
         .then(response => response.text())
         .then(html => {
           html = html.replace(/\b(src|href)=(['"])([^'"]+)\2/g, (match, attribute, quote, value) => `${attribute}=${quote}${absolute(value)}${quote}`);
-          html = html.replace('</body>', '<script src="/bikergram-sociala.js"><\\/script></body>');
+          html = html.replace('</body>', '<script src="/bikergram-sociala.js"></scr' + 'ipt></body>');
           document.open();
           document.write(html);
           document.close();
