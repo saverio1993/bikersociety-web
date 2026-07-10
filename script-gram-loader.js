@@ -1,6 +1,6 @@
 (() => {
   const legacy = document.createElement('script');
-  legacy.src = 'https://biker-society-v2.vercel.app/script-gram.js';
+  legacy.src = 'https://biker-society-v2-922lzt4v0-saverio2023.vercel.app/script-gram.js';
   legacy.onload = () => {
     const modern = document.createElement('script');
     modern.src = '/bikergram-sociala.js';
