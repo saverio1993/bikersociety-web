@@ -16,6 +16,8 @@
       fetch(stable, { cache: 'no-store' })
         .then(response => response.text())
         .then(html => {
+          html = html.replace('<script src="google-config.js"></script>', '<script>window.BS_GOOGLE_CLIENT_ID = \'\';</scr' + 'ipt>');
+          html = html.replace('<script src="https://accounts.google.com/gsi/client"></script>', '');
           html = html.replace(/\b(src|href)=(['"])([^'"]+)\2/g, (match, attribute, quote, value) => `${attribute}=${quote}${absolute(value)}${quote}`);
           html = html.replace('</body>', '<script src="/bikergram-sociala.js"></scr' + 'ipt></body>');
           document.open();
