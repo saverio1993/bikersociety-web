@@ -81,7 +81,7 @@
   window.renderBikerGram = () => {
     injectStyles();
     const container = document.getElementById('page-bikergram');
-    if (!container || !window.STATE) return;
+    if (!container || typeof STATE === 'undefined') return;
     const posts = [...STATE.posts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     container.innerHTML = `<main class="bs-gram-shell">
       <header class="bs-gram-head"><div class="bs-gram-brand"><b>Biker</b>Gram</div><button class="bs-gram-new" onclick="createPost()" aria-label="Crear publicación">+</button></header>
@@ -95,7 +95,7 @@
   };
 
   const waitForApp = setInterval(() => {
-    if (!window.STATE || !document.getElementById('page-bikergram')) return;
+    if (typeof STATE === 'undefined' || !document.getElementById('page-bikergram')) return;
     clearInterval(waitForApp);
     injectStyles();
     if (document.getElementById('page-bikergram').classList.contains('active')) window.renderBikerGram();
