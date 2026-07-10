@@ -98,14 +98,6 @@
     if (!window.STATE || !document.getElementById('page-bikergram')) return;
     clearInterval(waitForApp);
     injectStyles();
-    const previewUser = STATE.user || STATE.users.find(user => user.is_admin) || STATE.users[0];
-    if (!STATE.user && previewUser) {
-      STATE.user = previewUser;
-      if (typeof completeLoginUI === 'function') completeLoginUI(previewUser, 'Vista previa: ');
-    }
-    ['createPost', 'deletePost', 'toggleLike', 'addComment'].forEach(action => {
-      window[action] = () => toast('Modo vista previa: las acciones están desactivadas.');
-    });
     if (document.getElementById('page-bikergram').classList.contains('active')) window.renderBikerGram();
   }, 80);
 })();

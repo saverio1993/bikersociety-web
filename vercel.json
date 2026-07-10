@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/script-gram.js", "destination": "/script-gram-loader.js" },
+    { "source": "/(.*)", "destination": "https://biker-society-v2.vercel.app/$1" }
+  ]
+}
