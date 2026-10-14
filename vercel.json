@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/nc/:path*", "destination": "/api/nc?p=:path*" },
+    { "source": "/ocs/:path*", "destination": "/api/ocs" }
+  ],
+  "headers": [
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
+}

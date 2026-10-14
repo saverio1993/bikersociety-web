@@ -1,7 +1,3 @@
-# Android build artifacts
-android/.gradle/
-android/app/build/
-android/local.properties
-
-# APK en raíz (se distribuye aparte)
-bikersociety.apk
+node_modules
+.vercel
+.env*

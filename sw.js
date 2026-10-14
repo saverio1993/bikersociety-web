@@ -1,5 +1,5 @@
 // Biker Society Service Worker
-const CACHE_NAME = 'biker-v38';
+const CACHE_NAME = 'biker-v87';
 const ASSETS = [
   './',
   './index.html',
@@ -70,20 +70,19 @@ self.addEventListener('push', e => {
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
-  const routeId = e.notification.data?.routeId;
-  const url = './' + (routeId ? '?alarm=' + routeId : '');
+  const data = e.notification.data || {};
+  const routeId = data.routeId;
+  const destUrl = data.url || ('./' + (routeId ? '?alarm=' + routeId : ''));
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      // Si la app ya está abierta, enfócala y mándale el alarm
       for (const client of list) {
         if (client.url.includes(self.registration.scope)) {
           client.focus();
-          client.postMessage({ type: 'ALARM', routeId });
+          if (routeId) client.postMessage({ type: 'ALARM', routeId });
           return;
         }
       }
-      // Si no está abierta, abrirla con el parámetro de alarma
-      return clients.openWindow(url);
+      return clients.openWindow(destUrl);
     })
   );
 });
